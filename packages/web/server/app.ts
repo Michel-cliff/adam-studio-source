@@ -1,7 +1,10 @@
 import { existsSync, mkdirSync, renameSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { addConnector, askServers, listConnectors, removeConnector, setEnabled } from "./connectors";
+import { listSkills } from "./skills";
 import { ActionError, addCommand, buildCommand, checkVideos, newProjectCommand } from "./actions";
 import { serveFile } from "./files";
 import { listFolder } from "./fsbrowse";
@@ -39,7 +42,8 @@ function sse(res: ServerResponse): (data: unknown) => void {
   return (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 }
 
-export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capcutPython?: () => string | null; dist?: string } = {}): Server {
+export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capcutPython?: () => string | null; dist?: string; home?: string } = {}): Server {
+  const home = opts.home ?? homedir();
   const settingsFile = opts.settingsFile ?? SETTINGS_FILE;
   const jobs = opts.jobs ?? new JobManager();
   const capcutPython = opts.capcutPython ?? (() => venvPython("capcut", "ADAM_CAPCUT_PYTHON"));
@@ -96,6 +100,26 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     }
     // What Claude used: today's asks and the subscription windows Claude Code last reported.
     if (path === "/api/usage" && method === "GET") return send(res, 200, usageSummary(dirname(settingsFile)));
+    // Skills Claude Code has, and the connectors (MCP servers) Claude may use from the studio.
+    const connectorsFile = join(dirname(settingsFile), "connectors.json");
+    if (path === "/api/skills" && method === "GET") return send(res, 200, listSkills(home));
+    if (path === "/api/connectors" && method === "GET") return send(res, 200, listConnectors(home, connectorsFile));
+    if (path === "/api/connectors" && method === "PUT") {
+      const b = await body(req);
+      if (!Array.isArray(b.enabled)) throw new HttpError(400, "enabled must be a list of names");
+      setEnabled(b.enabled.map(String), home, connectorsFile);
+      return send(res, 200, listConnectors(home, connectorsFile));
+    }
+    if (path === "/api/connectors" && method === "POST") {
+      const b = await body(req);
+      try { addConnector({ name: String(b.name ?? ""), url: b.url ? String(b.url) : undefined }, connectorsFile); }
+      catch (e) { throw new HttpError(400, (e as Error).message); }
+      return send(res, 200, listConnectors(home, connectorsFile));
+    }
+    if ((m = path.match(/^\/api\/connectors\/([^/]+)$/)) && method === "DELETE") {
+      removeConnector(decodeURIComponent(m[1]!), connectorsFile);
+      return send(res, 200, listConnectors(home, connectorsFile));
+    }
     if (path === "/api/projects" && method === "GET") return send(res, 200, listProjects(projectsRoot(settingsFile)));
     if (path === "/api/projects" && method === "POST") {
       const b = await body(req);
@@ -160,7 +184,11 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
         if (u) { try { recordUsage(dirname(settingsFile), { project: name, step, ...u }); } catch { /* a full disk must not break the job */ } }
       };
       const look = lookName(settingsFile);
-      return started(res, jobs.start(name, askCommand(name, step, String(b.prompt ?? ""), claudeModel(settingsFile), look ? lookBrief(look) : null), record));
+      // Only skills Claude Code really has; the connectors the creator turned on.
+      const known = new Set(listSkills(home).map((s) => s.name));
+      const skills = Array.isArray(b.skills) ? b.skills.map(String).filter((s: string) => known.has(s)) : [];
+      const extras = { ...askServers(home, connectorsFile), skills };
+      return started(res, jobs.start(name, askCommand(name, step, String(b.prompt ?? ""), claudeModel(settingsFile), look ? lookBrief(look) : null, extras), record));
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/thumb$/)) && method === "GET") {
       const { dir } = existing(m[1]!);

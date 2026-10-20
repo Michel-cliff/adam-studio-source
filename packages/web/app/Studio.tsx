@@ -6,7 +6,8 @@ import type { JobEvent, JobView, ProjectView, ProposalView } from "../server/typ
 import { api, enc, fileUrl, go, ms } from "./api";
 import { AssetsPanel, dropInto, mention } from "./Assets";
 import { ClaudeBar } from "./ClaudeBar";
-import { IconFolder, IconLink, IconSend } from "./icons";
+import { ConnectorsPanel, SkillsPanel } from "./Connectors";
+import { IconFolder, IconLink, IconSend, IconSpark } from "./icons";
 import { JobLog } from "./JobLog";
 
 type StepId = "rushes" | "cuts" | "structure" | "captions" | "hook" | "beats" | "visuals" | "sound" | "look" | "wrap";
@@ -255,6 +256,11 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
   const [refill, setRefill] = useState<ProposalView | null>(null);
   const [toast, setToast] = useState("");
   const [assetsOpen, setAssetsOpen] = useState(false);
+  const [connectorsOpen, setConnectorsOpen] = useState(false);
+  const [skillsOpen, setSkillsOpen] = useState(false);
+  // Skills picked for the next ask (Claude Code's own skills, called with its Skill tool).
+  const [skills, setSkills] = useState<string[]>([]);
+  const toggleSkill = (s: string) => setSkills((l) => (l.includes(s) ? l.filter((x) => x !== s) : [...l, s]));
   const [dropping, setDropping] = useState(false);
   // An asset named to Claude goes on its own line at the end of the prompt.
   const addMention = (text: string) => setPrompt((p) => (p.includes(text) ? p : `${p.trimEnd()}${p.trim() ? "\n" : ""}${text}`));
@@ -280,7 +286,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
   const ask = async (text: string) => {
     if (!step || step === "rushes" || step === "wrap") return;
     const full = refill ? `${text}\n\n(The creator sent proposal ${refill.id} back for more options: refill that proposal with propose, same id, new variants.)` : text;
-    try { await api(`/projects/${enc(name)}/ask`, { method: "POST", body: { step, prompt: full } }); setPrompt(""); setRefill(null); await load(); }
+    try { await api(`/projects/${enc(name)}/ask`, { method: "POST", body: { step, prompt: full, skills } }); setPrompt(""); setRefill(null); setSkills([]); await load(); }
     catch (e) { setError((e as Error).message); }
   };
   const firstPass = async () => {
@@ -384,11 +390,17 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
                 <div className="body">
                   {refill && <div className="muted" style={{ marginBottom: 8 }}>New options for “{refill.reason || refill.id}”. <button className="ghost" onClick={() => setRefill(null)}>cancel</button></div>}
                   <div className="chips">{meta.chips.map((c) => <button key={c} className="chip" onClick={() => setPrompt(c)}>{c}</button>)}</div>
+                  {skills.length > 0 && (
+                    <div className="chips" aria-label="Skills for this ask">
+                      {skills.map((s) => <button key={s} className="chip skill" title="Remove" onClick={() => toggleSkill(s)}>/{s} ×</button>)}
+                    </div>
+                  )}
                   <textarea aria-label={`Tell Claude what you want for the ${meta.title.toLowerCase()}`} value={prompt} placeholder={`Tell Claude what you want for the ${meta.title.toLowerCase()}…`} onChange={(e) => setPrompt(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && prompt.trim()) void ask(prompt); }} />
                   <div className="tools">
                     <button className="ghost" onClick={() => setAssetsOpen(true)}><IconFolder />Assets{view.assets.length ? ` (${view.assets.length})` : ""}</button>
-                    <a href="#/insights"><IconLink />Connectors</a>
+                    <button className="ghost" onClick={() => setConnectorsOpen(true)}><IconLink />Connectors</button>
+                    <button className="ghost" onClick={() => setSkillsOpen(true)}><IconSpark />Skills{skills.length ? ` (${skills.length})` : ""}</button>
                     <ClaudeBar stamp={`${claudeJob?.id ?? ""}:${claudeJob?.state ?? ""}`} />
                     <span className="spacer" />
                     <button className="claude" title="Ctrl+Enter" disabled={!prompt.trim() || Boolean(claudeJob && claudeJob.state === "running") || Boolean(running && running.label.startsWith("Claude"))} onClick={() => ask(prompt)}>Ask Claude <IconSend /></button>
@@ -414,6 +426,8 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
         <Checklist name={name} />
       </aside>
       {assetsOpen && <AssetsPanel name={name} view={view} onClose={() => setAssetsOpen(false)} onMention={addMention} onChanged={() => void load()} />}
+      {connectorsOpen && <ConnectorsPanel onClose={() => setConnectorsOpen(false)} />}
+      {skillsOpen && <SkillsPanel picked={skills} onToggle={toggleSkill} onClose={() => setSkillsOpen(false)} />}
       {toast && <div className="toast">{toast}</div>}
     </div>
   );

@@ -298,6 +298,14 @@ textarea.json { width: 100%; min-height: 260px; font: 12.5px/1.5 var(--mono); ma
 .dropzone { margin-top: 16px; border: 2px dashed rgba(22,22,22,.35); border-radius: 12px; padding: 14px; text-align: center; font: 400 13px/1.4 var(--mono); color: var(--muted); }
 .composer .tools button.ghost { display: inline-flex; gap: 6px; align-items: center; padding: 4px 0; font: 400 12.5px/1 var(--mono); }
 
+/* Studio: connectors and skills windows */
+.modal.connectors, .modal.skills { width: min(760px, 100%); }
+.clist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.clist li { display: flex; gap: 10px; align-items: center; border: 2px solid var(--ink); border-radius: 12px; padding: 10px 12px; background: var(--card); }
+.modal.skills .clist { max-height: 52vh; overflow: auto; }
+.chip.skill { background: var(--blue-soft); border-color: var(--blue); font-family: var(--mono); }
+.chip.skill:hover { background: var(--yellow); }
+
 /* Studio: the model and what the subscription has left */
 /* Same size as the Assets and Connectors links: a plain underlined select, small gauges. */
 .composer .tools select.model { border: 0; background: transparent; padding: 2px 0; border-radius: 0; color: var(--ink); cursor: pointer;

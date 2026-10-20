@@ -30,7 +30,12 @@ beforeAll(async () => {
   writeFileSync(join(root, "secret.txt"), "secret");
   const settingsFile = join(root, "ui.json");
   setProjectsRoot(root, settingsFile);
-  server = createApp({ settingsFile, jobs, capcutPython: () => null, dist: join(root, "no-dist") }).listen(0, "127.0.0.1");
+  // A home of its own, so the tests never read the real ~/.claude.json or skills.
+  const home = join(root, "home");
+  mkdirSync(join(home, ".claude", "skills", "pm-kinator"), { recursive: true });
+  writeFileSync(join(home, ".claude", "skills", "pm-kinator", "SKILL.md"), "---\nname: pm-kinator\ndescription: interview\n---\n");
+  writeFileSync(join(home, ".claude.json"), JSON.stringify({ mcpServers: { blender: { command: "uvx", args: ["blender-mcp"] } } }));
+  server = createApp({ settingsFile, jobs, capcutPython: () => null, dist: join(root, "no-dist"), home }).listen(0, "127.0.0.1");
   await new Promise((r) => server.once("listening", r));
   port = (server.address() as AddressInfo).port;
 });
@@ -77,7 +82,7 @@ describe("app", () => {
   });
 
   it("lists folders and keeps settings", async () => {
-    expect((await call("GET", `/api/fs?path=${encodeURIComponent(root)}`)).json.folders).toEqual([join(root, "projet démo")]);
+    expect((await call("GET", `/api/fs?path=${encodeURIComponent(root)}`)).json.folders).toContain(join(root, "projet démo"));
     expect((await call("GET", "/api/settings")).json).toMatchObject({ projectsRoot: root });
     expect((await call("PUT", "/api/settings", { body: { projectsRoot: "relative" } })).status).toBe(400);
   });
@@ -116,6 +121,16 @@ describe("studio tools", () => {
     expect((await call("PUT", "/api/settings", { body: { look: "" } })).json.look).toBe("");
     expect((await call("PUT", "/api/settings", { body: { look: "nope" } })).status).toBe(400);
     expect((await call("PUT", "/api/settings", { body: { look: "editorial-archival" } })).json.look).toBe("editorial-archival");
+  });
+
+  it("lists Claude Code's skills and manages the connectors without showing their secrets", async () => {
+    expect((await call("GET", "/api/skills")).json).toEqual([{ name: "pm-kinator", description: "interview" }]);
+    expect((await call("GET", "/api/connectors")).json).toEqual([{ name: "blender", type: "stdio", source: "claude-code", enabled: false }]);
+    expect((await call("PUT", "/api/connectors", { body: { enabled: ["blender"] } })).json[0].enabled).toBe(true);
+    const added = await call("POST", "/api/connectors", { body: { name: "higgsfield", url: "https://mcp.example/h" } });
+    expect(added.json.map((c: { name: string }) => c.name)).toEqual(["blender", "higgsfield"]);
+    expect((await call("POST", "/api/connectors", { body: { name: "x", url: "http://plain" } })).status).toBe(400);
+    expect((await call("DELETE", "/api/connectors/higgsfield")).json.map((c: { name: string }) => c.name)).toEqual(["blender"]);
   });
 
   it("says what Claude used, even before the first ask", async () => {
