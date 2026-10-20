@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, extname, join, relative } from "node:path";
+import { basename, dirname, extname, join, relative } from "node:path";
 
 export type LibraryKind = "video" | "image" | "audio" | "font" | "lottie";
 export type LocalItem = {
@@ -56,7 +56,12 @@ export function scanInspiration(root = inspirationRoot()): LocalItem[] {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
       if (e.name.startsWith(".")) continue;
       const path = join(dir, e.name);
-      if (e.isDirectory()) { walk(path); continue; }
+      if (e.isDirectory()) {
+        // A look's original skill (code, engine sprites, examples) is not inspiration media; its references/ are.
+        if (e.name === "skill" && basename(dirname(dir)) === "looks") continue;
+        walk(path);
+        continue;
+      }
       const kind = kindOf(e.name);
       if (!kind || (kind === "lottie" && !isLottie(path))) continue;
       const st = statSync(path);

@@ -1,4 +1,6 @@
 import { GENERAL_RULES, STEP_RULES } from "@adam-studio/web/server/rules";
+import { lookName } from "@adam-studio/web/server/settings";
+import { lookBrief } from "@adam-studio/library/src/looks";
 import { FRAMEWORKS, resolve } from "@adam-studio/model";
 import { scanInspiration } from "@adam-studio/library/src/local";
 import { listSeries } from "@adam-studio/render/src/series";
@@ -41,6 +43,9 @@ export function firstPassBrief(dir: string, root: string, summary: FirstPassSumm
   const inspiration = scanInspiration().slice(0, 40).map((i) => `- ${i.kind} ${i.rel}${i.notes ? `: ${i.notes.replace(/\s+/g, " ").slice(0, 120)}` : ""}`);
   const series = listSeries().filter((x) => !x.error).map((x) => x.name);
   const pending = project.proposals.filter((p) => p.status === "pending").map((p) => `${p.id} (${p.step}): ${p.variants.map((v) => `${v.key} ${v.label}`).join(" / ")}`);
+  // The look chosen on the home page (Inspiration/looks/<name>): its entry file and style guide.
+  const lookId = lookName();
+  const look = lookId ? lookBrief(lookId) : null;
 
   return [
     `# First pass: ${project.name}`,
@@ -79,5 +84,6 @@ export function firstPassBrief(dir: string, root: string, summary: FirstPassSumm
     "## Editing rules (every proposal follows them)",
     GENERAL_RULES,
     ...Object.values(STEP_RULES).flatMap((r) => ["", r]),
+    ...(look ? ["", "## The video's look (it wins over generic defaults; say plainly what the renderer cannot do yet)", look] : []),
   ].filter((l) => l !== undefined).join("\n");
 }

@@ -26,6 +26,16 @@ export function setProjectsRoot(root: string, file = SETTINGS_FILE): void {
   write(file, { projectsRoot: root });
 }
 
+/** The look (Inspiration/looks/<name>) applied to every video; "" for none. Editorial archival unless changed. */
+export function lookName(file = SETTINGS_FILE): string {
+  const l = read(file).look;
+  return typeof l === "string" ? l : "editorial-archival";
+}
+
+export function setLookName(name: string, file = SETTINGS_FILE): void {
+  write(file, { look: name });
+}
+
 export function claudeModel(file = SETTINGS_FILE): ClaudeModel {
   const m = read(file).claudeModel;
   return CLAUDE_MODELS.includes(m as ClaudeModel) ? (m as ClaudeModel) : "default";

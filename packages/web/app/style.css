@@ -148,6 +148,8 @@ section video, .card video, img.sheet { display: block; max-width: 100%; max-hei
 .pcard.new { background: #BDB9B0; display: grid; place-items: center; color: #fff; font: 300 46px/1 var(--sans); }
 .pcard.new::after { display: none; }
 .folder { margin-top: 40px; display: inline-flex; align-items: center; gap: 10px; background: var(--yellow); border-radius: 10px; padding: 9px 12px; font: 400 15px/1.2 var(--mono); max-width: 100%; }
+.folder.look { margin: 12px 0 0 12px; cursor: pointer; }
+.folder.look select { border: 0; background: transparent; padding: 0 4px; font: 400 15px/1.2 var(--mono); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .folder button { background: none; border: 0; box-shadow: none; padding: 2px; color: var(--ink); }
 .folder input { min-width: 280px; padding: 6px 8px; font: 14px var(--mono); }
 

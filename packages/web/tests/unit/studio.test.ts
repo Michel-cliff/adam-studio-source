@@ -50,6 +50,15 @@ describe("asking Claude", () => {
     const opus = askCommand("ep 1", "cuts", "x", "opus");
     expect(opus.args[opus.args.indexOf("--model") + 1]).toBe("opus");
   });
+
+  it("sends the chosen look so every proposal follows its style guide", () => {
+    const c = askCommand("ep 1", "visuals", "x", "default", "Look \"editorial-archival\"\n\nInserts in soft black and white.");
+    const system = c.args[c.args.indexOf("--append-system-prompt") + 1]!;
+    expect(system).toMatch(/The video's look \(it wins over generic defaults/);
+    expect(system).toMatch(/Inserts in soft black and white/);
+    const none = askCommand("ep 1", "visuals", "x");
+    expect(none.args[none.args.indexOf("--append-system-prompt") + 1]).not.toMatch(/The video's look/);
+  });
 });
 
 describe("studio routes", () => {

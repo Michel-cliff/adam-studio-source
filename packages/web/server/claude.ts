@@ -28,7 +28,7 @@ export const STEP_BRIEFS: Record<string, string> = {
  * Asks Claude Code (headless, the creator's subscription) to write one proposal for a step, through the
  * adam-studio MCP tools only. Its stream-json output is the job's log; the panel turns it into an activity feed.
  */
-export function askCommand(project: string, step: string, prompt: string, model: ClaudeModel = "default"): Command {
+export function askCommand(project: string, step: string, prompt: string, model: ClaudeModel = "default", look: string | null = null): Command {
   if (!STEP_BRIEFS[step]) throw new ActionError(`unknown step "${step}"`);
   if (!prompt.trim()) throw new ActionError("write what you want first");
   const id = `ask.${step}.${Date.now().toString(36)}`;
@@ -43,6 +43,7 @@ export function askCommand(project: string, step: string, prompt: string, model:
     "",
     rulesFor(step),
     "",
+    ...(look ? ["The video's look (it wins over generic defaults; say plainly what the renderer cannot do yet):", look, ""] : []),
     "End with ONE short plain sentence (under 30 words) for the creator, in the language of the transcript: no markdown, no ids, no list.",
   ].join("\n");
   const mcp = JSON.stringify({ mcpServers: { "adam-studio": { command: process.execPath, args: [TSX, join(REPO, "packages", "mcp", "src", "server.ts")] } } });

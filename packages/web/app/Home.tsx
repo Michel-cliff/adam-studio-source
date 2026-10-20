@@ -13,6 +13,9 @@ export function Home() {
   const [error, setError] = useState("");
   const [editRoot, setEditRoot] = useState(false);
   const [hand, setHand] = useState(true);
+  const [look, setLook] = useState("");
+  const [looks, setLooks] = useState<{ name: string; title: string }[]>([]);
+  const pickLook = (name: string) => { setLook(name); api("/settings", { method: "PUT", body: { look: name } }).catch((e) => setError(e.message)); };
   const load = async () => {
     try {
       const list = await api<Item[]>("/projects");
@@ -25,7 +28,7 @@ export function Home() {
   };
   useEffect(() => {
     void load();
-    api<{ projectsRoot: string }>("/settings").then((s) => setRoot(s.projectsRoot));
+    api<{ projectsRoot: string; look: string; looks: { name: string; title: string }[] }>("/settings").then((s) => { setRoot(s.projectsRoot); setLook(s.look); setLooks(s.looks); });
     const ev = new EventSource("/api/events");
     ev.onmessage = () => void load();
     return () => ev.close();
@@ -77,6 +80,16 @@ export function Home() {
           </>
         )}
       </div>
+      {/* The look Claude applies to every video: a folder of Inspiration/looks, organised like a skill. */}
+      {looks.length > 0 && (
+        <label className="folder look">
+          <span>Look:</span>
+          <select aria-label="Look applied to every video" value={look} onChange={(e) => pickLook(e.target.value)}>
+            <option value="">None</option>
+            {looks.map((l) => <option key={l.name} value={l.name}>{l.title}</option>)}
+          </select>
+        </label>
+      )}
     </>
   );
 }

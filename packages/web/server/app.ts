@@ -14,7 +14,8 @@ import { libraryRoute } from "./library-routes";
 import { mediaFile, previewData } from "./preview";
 import { listProjects, projectView } from "./projects";
 import { applySeriesIn, closeCurrentStep, cutWordsIn, decideProposal, firstPassIn, listSeries, loadRaw, patchProject, setValue, ToolError, tightenIn, undo, updateItem } from "./store";
-import { CLAUDE_MODELS, claudeModel, projectsRoot, setClaudeModel, SETTINGS_FILE, setProjectsRoot } from "./settings";
+import { listLooks, lookBrief } from "@adam-studio/library/src/looks";
+import { CLAUDE_MODELS, claudeModel, lookName, projectsRoot, setClaudeModel, setLookName, SETTINGS_FILE, setProjectsRoot } from "./settings";
 import { parseUsage, recordUsage, usageSummary } from "./usage";
 import { thumbnail } from "./thumb";
 import { watchProjects } from "./watch";
@@ -74,13 +75,16 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const handled = await libraryRoute({ req, res, url, method, port, root: projectsRoot(settingsFile), send: (s, b) => send(res, s, b), body: () => body(req) });
       if (handled) return;
     }
-    const settings = () => ({ projectsRoot: projectsRoot(settingsFile), claudeModel: claudeModel(settingsFile), models: CLAUDE_MODELS });
+    const settings = () => ({ projectsRoot: projectsRoot(settingsFile), claudeModel: claudeModel(settingsFile), models: CLAUDE_MODELS,
+      look: lookName(settingsFile), looks: listLooks() });
     if (path === "/api/settings" && method === "GET") return send(res, 200, settings());
     if (path === "/api/settings" && method === "PUT") {
       const b = await body(req);
-      if (b.projectsRoot === undefined && b.claudeModel === undefined) throw new HttpError(400, "give projectsRoot or claudeModel");
+      if (b.projectsRoot === undefined && b.claudeModel === undefined && b.look === undefined) throw new HttpError(400, "give projectsRoot, claudeModel or look");
       if (b.projectsRoot !== undefined && typeof b.projectsRoot !== "string") throw new HttpError(400, "projectsRoot must be text");
+      if (b.look !== undefined && b.look !== "" && !listLooks().some((l) => l.name === b.look)) throw new HttpError(400, `no look "${b.look}" in the Inspiration folder's looks/`);
       try {
+        if (b.look !== undefined) setLookName(String(b.look), settingsFile);
         if (b.claudeModel !== undefined) setClaudeModel(String(b.claudeModel), settingsFile);
         if (typeof b.projectsRoot === "string") {
           setProjectsRoot(b.projectsRoot, settingsFile);
@@ -155,7 +159,8 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
         const u = parseUsage(job.output);
         if (u) { try { recordUsage(dirname(settingsFile), { project: name, step, ...u }); } catch { /* a full disk must not break the job */ } }
       };
-      return started(res, jobs.start(name, askCommand(name, step, String(b.prompt ?? ""), claudeModel(settingsFile)), record));
+      const look = lookName(settingsFile);
+      return started(res, jobs.start(name, askCommand(name, step, String(b.prompt ?? ""), claudeModel(settingsFile), look ? lookBrief(look) : null), record));
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/thumb$/)) && method === "GET") {
       const { dir } = existing(m[1]!);

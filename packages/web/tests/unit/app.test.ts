@@ -106,6 +106,18 @@ describe("studio tools", () => {
     expect((await call("PUT", "/api/settings", { body: { claudeModel: "gpt" } })).status).toBe(400);
   });
 
+  it("keeps the look applied to every video, among the Inspiration folder's looks", async () => {
+    process.env.ADAM_INSPIRATION = join(root, "inspiration");
+    mkdirSync(join(root, "inspiration", "looks", "editorial-archival"), { recursive: true });
+    writeFileSync(join(root, "inspiration", "looks", "editorial-archival", "LOOK.md"), "---\ntitle: Editorial archival\n---\nSoft archival.\n");
+    const s = (await call("GET", "/api/settings")).json;
+    expect(s.look).toBe("editorial-archival");
+    expect(s.looks).toEqual([{ name: "editorial-archival", title: "Editorial archival", for: "" }]);
+    expect((await call("PUT", "/api/settings", { body: { look: "" } })).json.look).toBe("");
+    expect((await call("PUT", "/api/settings", { body: { look: "nope" } })).status).toBe(400);
+    expect((await call("PUT", "/api/settings", { body: { look: "editorial-archival" } })).json.look).toBe("editorial-archival");
+  });
+
   it("says what Claude used, even before the first ask", async () => {
     expect((await call("GET", "/api/usage")).json).toMatchObject({ today: { asks: 0 }, limits: null });
   });
