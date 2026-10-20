@@ -125,8 +125,9 @@ section video, .card video, img.sheet { display: block; max-width: 100%; max-hei
 /* Sizes in em of the title, so the hand keeps its place and its gap at every screen width. */
 .home-hero { display: flex; flex-direction: column; align-items: center; margin: 6px 0 34px; font-size: clamp(64px, 11vw, 168px); }
 .home-hero .big { font: 800 1em/0.9 var(--brand); letter-spacing: -0.075em; margin: 0; text-transform: none; }
-/* The forearm's tip touches the bottom of the D. */
-.home-hero img { width: 2.15em; max-width: 80vw; height: auto; margin-top: -0.14em; transform: translateX(0.22em); }
+/* The forearm's tip sits right on the bottom edge of the D. Measured in em of the title: the D runs 0.95 to 1.61em
+   right of the centre, its baseline is 0.10em above the line box; the tip is at 95.5% of the image's width, at its top. */
+.home-hero img { width: 2.6em; height: auto; margin-top: -0.11em; transform: translateX(0.05em); }
 .projects { display: grid; gap: 26px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
 .pwrap { display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: var(--ink); }
 .pwrap .lbl { font: 400 15px/1.2 var(--mono); padding-left: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
