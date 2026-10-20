@@ -35,6 +35,14 @@ export const StyleSchema = z.strictObject({
       vignette: z.number().min(0).max(1).default(0),
     })
     .default({ warmth: 0, contrast: 0, saturation: 0, brightness: 0, vignette: 0 }),
+  // The inserts' own treatment (image elements), apart from the presenter's grade: black and white, grain, bloom.
+  inserts: z
+    .strictObject({
+      bw: z.number().min(0).max(1).default(0),
+      grain: z.number().min(0).max(1).default(0),
+      bloom: z.number().min(0).max(1).default(0),
+    })
+    .default({ bw: 0, grain: 0, bloom: 0 }),
   caption: z.strictObject({
     size: z.number().positive(),
     stroke: z.number().min(0).default(0.08),
