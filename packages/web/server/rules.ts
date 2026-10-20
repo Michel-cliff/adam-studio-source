@@ -12,6 +12,7 @@ export const GENERAL_RULES = `How a proposal is judged (follow every rule):
 - Less is more: one emphasis mechanism per video, a small sound on a graphic and none on a bare cut, hard cuts by default (113 of 119 transitions in top reels are hard cuts), median shot around 3 s.
 - Talking heads: the face stays on screen at least 65% of the time, at most 3 inserts per minute, full-screen inserts at most 25% of the runtime.
 - Keep everything readable at phone size inside the safe area (x 72 to 900, y 269 to 1248 on 1080x1920); never cover the eyes or mouth; no em dashes on screen.
+- Searching media: at most 3 search_assets calls per proposal. If they bring nothing usable, or a note says no online library answers, stop searching: propose with what exists (titles, text behind the subject, the Inspiration folder) and name the image that would help.
 - The creator's taste so far: animations slower than default, few meaningful effects. The decisions and notes in the project's proposal history are taste: follow them.`;
 
 export const STEP_RULES: Record<string, string> = {

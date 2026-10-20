@@ -19,7 +19,7 @@ export function apiKey(name: string): string | undefined {
 
 async function json(url: string, headers: Record<string, string> = {}, tries = 2): Promise<any> {
   try {
-    const r = await fetch(url, { headers: { "User-Agent": "AdamStudio/0.1", ...headers }, signal: AbortSignal.timeout(30000) });
+    const r = await fetch(url, { headers: { "User-Agent": "AdamStudio/0.1", ...headers }, signal: AbortSignal.timeout(8000) });
     if (!r.ok) throw new Error(`${new URL(url).host} answered ${r.status}`);
     return await r.json();
   } catch (e) {
@@ -81,13 +81,25 @@ async function freesound(q: string, kind: LibraryKind, n: number): Promise<Onlin
 }
 
 /** Searches every connector that can answer for this kind; a failing or keyless source is reported, not thrown. */
-export async function searchOnline(q: string, kind: LibraryKind, n = 8): Promise<{ items: OnlineItem[]; notes: string[] }> {
-  const sources = { openverse, pexels, pixabay, freesound };
+type Source = (q: string, kind: LibraryKind, n: number) => Promise<OnlineItem[]>;
+const SOURCES: Record<string, Source> = { openverse, pexels, pixabay, freesound };
+// A library that failed (timeout, network) is left alone for ten minutes: Claude often searches several times in a
+// row, and waiting on a dead service each time made one ask last minutes.
+const DOWN_MS = 10 * 60_000;
+const downUntil = new Map<string, number>();
+
+export async function searchOnline(q: string, kind: LibraryKind, n = 8, sources: Record<string, Source> = SOURCES, now = Date.now()): Promise<{ items: OnlineItem[]; notes: string[] }> {
   const notes: string[] = [];
+  let answered = 0;
   const results = await Promise.all(Object.entries(sources).map(async ([name, fn]) => {
-    try { return await fn(q, kind, n); } catch (e) { notes.push(`${name}: ${(e as Error).message}`); return []; }
+    const until = downUntil.get(name) ?? 0;
+    if (until > now) { notes.push(`${name}: not answering, skipped until ${new Date(until).toLocaleTimeString()}`); return []; }
+    try { const items = await fn(q, kind, n); answered++; return items; }
+    catch (e) { downUntil.set(name, now + DOWN_MS); notes.push(`${name}: ${(e as Error).message}`); return []; }
   }));
-  const missing = (["PEXELS_API_KEY", "PIXABAY_API_KEY", "FREESOUND_API_KEY"] as const).filter((k) => !apiKey(k));
-  if (missing.length && kind !== "font" && kind !== "lottie") notes.push(`not searched (no key in ~/.adam-studio/.env): ${missing.join(", ")}`);
-  return { items: results.flat().filter((i) => i.url), notes };
+  const items = results.flat().filter((i) => i.url);
+  const keys = (["PEXELS_API_KEY", "PIXABAY_API_KEY", "FREESOUND_API_KEY"] as const).filter((k) => !apiKey(k));
+  if (sources === SOURCES && keys.length && kind !== "font" && kind !== "lottie") notes.push(`not searched (no key in ~/.adam-studio/.env): ${keys.join(", ")}`);
+  if (!items.length && answered === 0) notes.push("No online library answers right now: stop searching online, use the Inspiration folder or propose without images (say which image would help).");
+  return { items, notes };
 }
