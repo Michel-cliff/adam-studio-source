@@ -68,6 +68,13 @@ Claude then reads projects (`get_project`, `get_transcript`, `get_reference`), e
 review and the CapCut export (`run`, shown live in the control panel when it is open). `npm run adam -- still <dir>
 --at 500,1500 [--variant p1:B]` renders the same frames from the terminal.
 
+### The adam-studio skill
+
+`skills/adam-studio` is a Claude Code skill: how to edit a video well with these tools (the guided steps, the editing
+rules, writing proposals, looks and the Inspiration folder, the build then polish method, the review checklist).
+`npm run skill` regenerates its rules from `packages/web/server/rules.ts` (a test fails when they drift) and installs
+it in `~/.claude/skills/adam-studio`; it then shows in the studio's Skills window.
+
 ## Studio (in the browser)
 
     npm run ui
