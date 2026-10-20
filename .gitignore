@@ -10,3 +10,6 @@ __pycache__/
 .venv/
 *.egg-info/
 packages/web/dist/
+
+# The Studio art direction images: third-party, kept local (the interface falls back to flat colours)
+packages/web/app/public/da/

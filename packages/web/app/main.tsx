@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Editor } from "./Editor";
 import { Home } from "./Home";
+import { IconBook, IconGlobe, IconHome } from "./icons";
 import { Insights } from "./Insights";
 import { Library } from "./Library";
 import { NewProject } from "./NewProject";
@@ -26,16 +27,17 @@ function App() {
   else if (page === "p" && name && sub === "edit") { body = <Editor key={name} name={name} />; shell = "wide"; }
   else if (page === "p" && name) { body = <Studio key={name} name={name} jobId={sub === "job" ? id : undefined} />; shell = "full"; }
   else body = <Home />;
-  const on = (p: string) => (page === p || (!page && p === "") ? "on" : "");
+  const on = (p: string) => (page === p || (!page && p === "") ? "pill on" : "pill");
   return (
     <>
       <header className="topbar">
-        <a className="brand" href="#/">Adam <b>Studio</b></a>
-        <nav className="nav">
-          <a className={on("") || (page === "p" ? "on" : "")} href="#/">Projects</a>
-          <a className={on("library")} href="#/library">Library</a>
-          <a className={on("insights")} href="#/insights">Insights</a>
+        <nav aria-label="Main" className="row" style={{ gap: 8 }}>
+          <a className={on("")} href="#/">HOME <IconHome /></a>
+          <a className={on("library")} href="#/library">LIBRARY <IconBook /></a>
         </nav>
+        {/* On the home page the big title says it already. */}
+        <a className={`wordmark${page ? "" : " hidden"}`} href="#/">THE STUDIO</a>
+        <a className={on("insights")} href="#/insights">iNSIGHTS <IconGlobe /></a>
       </header>
       <main className={shell}>{body}</main>
     </>
