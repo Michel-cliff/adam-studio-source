@@ -127,7 +127,9 @@ section video, .card video, img.sheet { display: block; max-width: 100%; max-hei
 .home-hero .big { font: 800 1em/0.9 var(--brand); letter-spacing: -0.075em; margin: 0; text-transform: none; }
 /* The forearm's tip sits right on the bottom edge of the D. Measured in em of the title: the D runs 0.95 to 1.61em
    right of the centre, its baseline is 0.10em above the line box; the tip is at 95.5% of the image's width, at its top. */
-.home-hero img { width: 2.6em; height: auto; margin-top: -0.11em; transform: translateX(0.05em); }
+.home-hero .big { position: relative; margin-bottom: 1.25em; }
+.home-hero .d { position: relative; --d-base: 1.04em; } /* measured: Poppins' baseline is 1.048em below the top of the D's box */
+.home-hero .d img { position: absolute; width: 2.6em; height: auto; left: calc(43% - 2.48em); top: var(--d-base); pointer-events: none; }
 .projects { display: grid; gap: 26px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
 .pwrap { display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: var(--ink); }
 .pwrap .lbl { font: 400 15px/1.2 var(--mono); padding-left: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -295,10 +297,11 @@ textarea.json { width: 100%; min-height: 260px; font: 12.5px/1.5 var(--mono); ma
 .composer .tools button.ghost { display: inline-flex; gap: 6px; align-items: center; padding: 4px 0; font: 400 12.5px/1 var(--mono); }
 
 /* Studio: the model and what the subscription has left */
-.claudebar { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-top: 12px; padding-top: 10px; border-top: 1.5px dashed var(--soft); font: 400 12.5px/1.2 var(--mono); }
-.claudebar select { padding: 5px 8px; font: 400 12.5px/1 var(--mono); }
+/* Same size as the Assets and Connectors links: a plain underlined select, small gauges. */
+.composer .tools select.model { border: 0; background: transparent; padding: 2px 0; border-radius: 0; color: var(--ink); cursor: pointer;
+  font: 400 12.5px/1 var(--mono); text-decoration: underline; text-underline-offset: 3px; }
 .gauge { display: inline-flex; gap: 6px; align-items: center; }
-.gauge .gt { width: 90px; height: 10px; border: 1.5px solid var(--ink); border-radius: 6px; overflow: hidden; background: var(--card); display: inline-block; }
+.gauge .gt { width: 48px; height: 8px; border: 1.5px solid var(--ink); border-radius: 5px; overflow: hidden; background: var(--card); display: inline-block; }
 .gauge .gt i { display: block; height: 100%; background: var(--blue); }
 .gauge.warm .gt i { background: var(--yellow); }
 .gauge.hot .gt i { background: var(--red); }

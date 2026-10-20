@@ -389,11 +389,10 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
                   <div className="tools">
                     <button className="ghost" onClick={() => setAssetsOpen(true)}><IconFolder />Assets{view.assets.length ? ` (${view.assets.length})` : ""}</button>
                     <a href="#/insights"><IconLink />Connectors</a>
-                    <span className="muted">Ctrl+Enter · drop files here to add them</span>
+                    <ClaudeBar stamp={`${claudeJob?.id ?? ""}:${claudeJob?.state ?? ""}`} />
                     <span className="spacer" />
-                    <button className="claude" disabled={!prompt.trim() || Boolean(claudeJob && claudeJob.state === "running") || Boolean(running && running.label.startsWith("Claude"))} onClick={() => ask(prompt)}>Ask Claude <IconSend /></button>
+                    <button className="claude" title="Ctrl+Enter" disabled={!prompt.trim() || Boolean(claudeJob && claudeJob.state === "running") || Boolean(running && running.label.startsWith("Claude"))} onClick={() => ask(prompt)}>Ask Claude <IconSend /></button>
                   </div>
-                  <ClaudeBar stamp={`${claudeJob?.id ?? ""}:${claudeJob?.state ?? ""}`} />
                 </div>
               </div>
             </div>

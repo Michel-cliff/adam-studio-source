@@ -39,8 +39,8 @@ export function Home() {
   return (
     <>
       <div className="home-hero">
-        <h1 className="big">THE STUDIO</h1>
-        {hand && <img src="/da/hand.png" alt="" onError={() => setHand(false)} />}
+        {/* The hand hangs from the D itself, so its forearm always ends on the D's bottom edge. */}
+        <h1 className="big">THE STU<span className="d">D{hand && <img src="/da/hand.png" alt="" onError={() => setHand(false)} />}</span>IO</h1>
       </div>
       {error && <p className="error">{error}</p>}
       <div className="projects">
