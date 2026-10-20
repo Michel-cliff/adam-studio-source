@@ -1,8 +1,8 @@
 import { randomBytes } from "node:crypto";
-import { createWriteStream, existsSync, mkdirSync, rmSync } from "node:fs";
+import { createWriteStream, existsSync, mkdirSync, renameSync, rmSync } from "node:fs";
 import { pipeline } from "node:stream/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { basename, extname, join, relative, isAbsolute } from "node:path";
+import { basename, dirname, extname, join, relative, isAbsolute } from "node:path";
 import { importAsset, type ImportSource } from "@adam-studio/library/src/importer";
 import { inspirationRoot, kindOf, searchLocal, type LibraryKind } from "@adam-studio/library/src/local";
 import { searchOnline } from "@adam-studio/library/src/online";
@@ -41,6 +41,19 @@ export async function libraryRoute(c: Ctx): Promise<boolean> {
     const file = url.searchParams.get("path") ?? "";
     if (!insideInspiration(file) || !existsSync(file)) { send(404, { error: "not in the Inspiration folder" }); return true; }
     serveFile(c.req, c.res, file);
+    return true;
+  }
+  // Deleting an Inspiration file moves it (and its .txt notes) to Inspiration/.trash, keeping its folders: recoverable.
+  if (path === "/api/library/file" && method === "DELETE") {
+    const file = url.searchParams.get("path") ?? "";
+    const rel = relative(inspirationRoot(), file);
+    if (!insideInspiration(file) || !existsSync(file) || rel.split(/[\\/]/)[0]!.startsWith(".")) { send(404, { error: "not in the Inspiration folder" }); return true; }
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const trashed = join(inspirationRoot(), ".trash", stamp, rel);
+    mkdirSync(dirname(trashed), { recursive: true });
+    renameSync(file, trashed);
+    if (existsSync(`${file}.txt`)) renameSync(`${file}.txt`, `${trashed}.txt`);
+    send(200, { trashed });
     return true;
   }
   // A dropped file: saved in Inspiration/Uploads (never over an existing one), and imported into a project if one is named.

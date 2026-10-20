@@ -66,6 +66,17 @@ export function AssetsPanel({ name, view, onClose, onMention, onChanged }: {
       onChanged();
     } catch (e) { setNote((e as Error).message); }
   };
+  // Both are recoverable: an Inspiration file goes to its .trash, a video's asset file to the project's .trash.
+  const deleteFile = async (i: Local) => {
+    if (!confirm(`Delete “${i.title}” from your Inspiration folder?\n\nIt moves to the folder's .trash.`)) return;
+    try { await api(`/library/file?path=${enc(i.path)}`, { method: "DELETE" }); setNote(`${i.title} moved to the trash.`); await search(); }
+    catch (e) { setNote((e as Error).message); }
+  };
+  const removeAsset = async (id: string) => {
+    if (!confirm(`Remove “${id}” from ${name}?\n\nIts file moves to the project's .trash.`)) return;
+    try { await api(`/projects/${enc(name)}/assets/${enc(id)}`, { method: "DELETE" }); setNote(`${id} removed from this video.`); onChanged(); }
+    catch (e) { setNote((e as Error).message); }
+  };
   const drop = async (files: FileList) => {
     setOver(false); setNote("Uploading…");
     const r = await dropInto(files, name);
@@ -107,6 +118,7 @@ export function AssetsPanel({ name, view, onClose, onMention, onChanged }: {
                 <Thumb kind={a.kind} src={fileUrl(name, a.path)} title={a.id} />
                 <b>{a.id}</b><span className="muted">{a.kind}</span>
                 <button className="quiet" onClick={() => onMention(mention(a))}>Name it to Claude</button>
+                <button className="ghost" onClick={() => removeAsset(a.id)}>Remove from this video</button>
               </div>
             ))}
             {tab === "inspiration" && local.map((i) => (
@@ -114,6 +126,7 @@ export function AssetsPanel({ name, view, onClose, onMention, onChanged }: {
                 <Thumb kind={i.kind} src={libFile(i.kind === "video" && i.thumb ? i.thumb : i.path)} title={i.title} />
                 <b>{i.title}</b><span className="muted">{i.kind}{i.durationMs ? ` · ${(i.durationMs / 1000).toFixed(1)} s` : ""}</span>
                 <button onClick={() => use({ path: i.path, kind: i.kind, title: i.title })}>Use in this video</button>
+                <button className="ghost" onClick={() => deleteFile(i)}>Delete</button>
               </div>
             ))}
             {tab === "online" && online.map((i) => (

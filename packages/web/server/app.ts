@@ -16,7 +16,7 @@ import { insightsRoute } from "./insights-routes";
 import { libraryRoute } from "./library-routes";
 import { mediaFile, previewData } from "./preview";
 import { listProjects, projectView } from "./projects";
-import { applySeriesIn, closeCurrentStep, cutWordsIn, decideProposal, firstPassIn, listSeries, loadRaw, patchProject, setValue, ToolError, tightenIn, undo, updateItem } from "./store";
+import { applySeriesIn, closeCurrentStep, removeAssetIn, cutWordsIn, decideProposal, firstPassIn, listSeries, loadRaw, patchProject, setValue, ToolError, tightenIn, undo, updateItem } from "./store";
 import { listLooks, lookBrief } from "@adam-studio/library/src/looks";
 import { CLAUDE_MODELS, claudeModel, lookName, projectsRoot, setClaudeModel, setLookName, SETTINGS_FILE, setProjectsRoot } from "./settings";
 import { parseUsage, recordUsage, usageSummary } from "./usage";
@@ -133,6 +133,15 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const { name } = existing(m[1]!);
       const view = projectView(projectsRoot(settingsFile), name);
       return send(res, 200, { ...view, jobs: jobs.list(name) });
+    }
+    // Removing an asset from a video: refused while the edit uses it; the file goes to the project's .trash.
+    if ((m = path.match(/^\/api\/projects\/([^/]+)\/assets\/([^/]+)$/)) && method === "DELETE") {
+      const { name, dir } = existing(m[1]!);
+      try { const r = removeAssetIn(dir, decodeURIComponent(m[2]!)); notify(name); return send(res, 200, r); }
+      catch (e) {
+        const msg = (e as Error).message;
+        throw new HttpError(/^no asset/.test(msg) ? 404 : /is used by/.test(msg) ? 409 : 400, msg);
+      }
     }
     // Deleting moves the folder to <projects>/.trash/<name> <date>: nothing is lost until the creator empties it.
     if ((m = path.match(/^\/api\/projects\/([^/]+)$/)) && method === "DELETE") {

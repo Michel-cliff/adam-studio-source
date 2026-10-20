@@ -59,6 +59,12 @@ export function Library() {
     try { const r = await api<{ imported: { id: string; path: string }; message?: string }>("/library/import", { method: "POST", body: { project, source } }); setMsg(r.message ?? `Added to ${project} as asset "${r.imported.id}" (${r.imported.path}).`); }
     catch (e) { setMsg((e as Error).message); }
   };
+  // Deleting moves the file (and its notes) to the Inspiration folder's .trash: recoverable.
+  const remove = async (i: Local) => {
+    if (!confirm(`Delete “${i.title}”?\n\nIt moves to the .trash folder of your Inspiration folder.`)) return;
+    try { await api(`/library/file?path=${enc(i.path)}`, { method: "DELETE" }); setMsg(`${i.title} moved to the trash.`); await search(); }
+    catch (e) { setMsg((e as Error).message); }
+  };
   const addBar = (source: Record<string, unknown>) => <button className="quiet" disabled={!project} onClick={() => add(source)}>Add to {project || "a project"}</button>;
   return (
     <>
@@ -84,7 +90,10 @@ export function Library() {
                 <div><strong>{i.title}</strong> <span className="muted">{i.kind}{i.durationMs ? ` · ${(i.durationMs / 1000).toFixed(1)} s` : ""}</span></div>
                 <div className="muted" style={{ fontSize: 13 }}>{i.rel}</div>
                 {i.notes && <div style={{ fontSize: 13 }}>{i.notes.slice(0, 160)}</div>}
-                {addBar({ path: i.path, kind: i.kind, title: i.title })}
+                <div className="row">
+                  {addBar({ path: i.path, kind: i.kind, title: i.title })}
+                  <button className="ghost" onClick={() => remove(i)}>Delete</button>
+                </div>
               </div>
             ))}
           </div>

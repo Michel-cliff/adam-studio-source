@@ -1,5 +1,5 @@
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { isAbsolute, join } from "node:path";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { basename, dirname, isAbsolute, join } from "node:path";
 import {
   applyPatch, closeStep, decide, deepMerge, lint, parseProject, parseStyle, PatchSchema, ProposalSchema, resolve,
   type Decision, type Plain, type Project, type Style, type Timeline,
@@ -167,6 +167,38 @@ export function addAssetIn(dir: string, asset: { id: string; kind: "video" | "au
     if (p.assets.some((a) => a.id === asset.id)) throw new ToolError(`asset id "${asset.id}" is taken: pick another id`);
     return { ...p, assets: [...p.assets, { ...asset, meta: {} }] };
   });
+}
+
+/** Where the edit still uses an asset: every object with `asset: id`, outside the assets list, by its id or path. */
+export function assetUsers(project: Record<string, unknown>, id: string): string[] {
+  const found: string[] = [];
+  const walk = (v: unknown, where: string) => {
+    if (Array.isArray(v)) v.forEach((x, i) => walk(x, `${where}[${i}]`));
+    else if (v && typeof v === "object") {
+      const o = v as Record<string, unknown>;
+      if (o.asset === id) found.push(typeof o.id === "string" ? `${where.split("[")[0]} ${o.id}` : where);
+      for (const [k, x] of Object.entries(o)) if (k !== "asset") walk(x, where ? `${where}.${k}` : k);
+    }
+  };
+  for (const [k, v] of Object.entries(project)) if (k !== "assets") walk(v, k);
+  return [...new Set(found)];
+}
+
+/** Takes an unused asset out of the project; its file goes to the project's .trash. Throws when the edit uses it. */
+export function removeAssetIn(dir: string, id: string): { trashed: string | null } {
+  const raw = loadRaw(dir) as Record<string, unknown>;
+  const assets = (Array.isArray(raw.assets) ? raw.assets : []) as { id: string; path: string }[];
+  const asset = assets.find((a) => a.id === id);
+  if (!asset) throw new ToolError(`no asset "${id}"`);
+  const users = assetUsers(raw, id);
+  if (users.length) throw new ToolError(`"${id}" is used by ${users.slice(0, 4).join(", ")}${users.length > 4 ? "..." : ""}: remove those first`);
+  edit(dir, (p) => ({ ...p, assets: p.assets.filter((a) => a.id !== id) }));
+  const file = join(dir, asset.path);
+  if (!String(asset.path).startsWith("assets/") || !existsSync(file)) return { trashed: null };
+  const to = join(dir, ".trash", "assets", `${new Date().toISOString().replace(/[:.]/g, "-")} ${basename(file)}`);
+  mkdirSync(dirname(to), { recursive: true });
+  renameSync(file, to);
+  return { trashed: to };
 }
 
 /** The mechanical first pass (cuts and captions proposals), validated and backed up like every write. */

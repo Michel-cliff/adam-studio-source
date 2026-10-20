@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { request, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -154,6 +154,30 @@ describe("studio tools", () => {
     const again = await upload(`/api/library/upload?name=${encodeURIComponent("logo final.png")}`, png);
     expect(again.json.saved).toMatch(/logo final [(]2[)][.]png$/);
     expect((await upload("/api/library/upload?name=virus.exe", png)).status).toBe(400);
+  });
+
+  it("deletes an Inspiration file into the folder's trash, and nothing outside the folder", async () => {
+    process.env.ADAM_INSPIRATION = join(root, "inspiration");
+    const r = await upload(`/api/library/upload?name=${encodeURIComponent("to drop.png")}`, Buffer.from("89504e470d0a1a0a", "hex"));
+    writeFileSync(`${r.json.saved}.txt`, "notes");
+    const del = await call("DELETE", `/api/library/file?path=${encodeURIComponent(r.json.saved)}`);
+    expect(del.status).toBe(200);
+    expect(existsSync(r.json.saved)).toBe(false);
+    expect(existsSync(`${r.json.saved}.txt`)).toBe(false);
+    expect(existsSync(del.json.trashed)).toBe(true);
+    expect(del.json.trashed).toMatch(/inspiration.\.trash/);
+    expect((await call("DELETE", `/api/library/file?path=${encodeURIComponent(join(root, "secret.txt"))}`)).status).toBe(404);
+  });
+
+  it("removes an unused asset from the video, and refuses one the edit still uses", async () => {
+    const used = await call("DELETE", `${P}/assets/c01`);
+    expect(used.status).toBe(409);
+    expect(used.json.error).toMatch(/c01.*used/);
+    const del = await call("DELETE", `${P}/assets/logo_final`);
+    expect(del.status).toBe(200);
+    expect((await call("GET", P)).json.assets).toEqual([]);
+    expect(existsSync(join(root, "projet démo", "assets", "logo_final.png"))).toBe(false);
+    expect((await call("DELETE", `${P}/assets/nope`)).status).toBe(404);
   });
 
   it("moves a deleted project to the trash, never while it works", async () => {
