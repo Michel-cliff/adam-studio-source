@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ProjectListItem } from "../server/types";
 import { api, enc } from "./api";
-import { IconEdit } from "./icons";
+import { IconEdit, IconTrash } from "./icons";
 
 type Item = ProjectListItem & { steps?: Record<string, string> };
 // The art direction's halftone keyboards, if they are on this machine (public/da, not in git).
@@ -30,6 +30,11 @@ export function Home() {
     ev.onmessage = () => void load();
     return () => ev.close();
   }, []);
+  // Deleting moves the folder to the projects folder's .trash: recoverable until emptied by hand.
+  const remove = async (name: string) => {
+    if (!confirm(`Delete “${name}”?\n\nIt moves to the .trash folder inside your projects folder: you can still get it back from there.`)) return;
+    try { await api(`/projects/${enc(name)}`, { method: "DELETE" }); await load(); } catch (e) { setError((e as Error).message); }
+  };
   const saveRoot = () => api("/settings", { method: "PUT", body: { projectsRoot: root } }).then(() => { setEditRoot(false); void load(); }, (e) => setError(e.message));
   return (
     <>
@@ -44,15 +49,18 @@ export function Home() {
           <span className="pcard new" aria-hidden="true">+</span>
         </a>
         {projects?.map((p, i) => (
-          <a key={p.name} className="pwrap" href={`#/p/${enc(p.name)}`}>
-            <span className="lbl">{p.name}</span>
-            <span className={`pcard c${i % 3}`}>
-              <span className="thumb" style={{ backgroundImage: `url(/api/projects/${enc(p.name)}/thumb), url(${FALLBACK[i % 3]})` }} />
-              {p.steps && <span className="dots">{Object.values(p.steps).map((s, k) => <i key={k} className={s} />)}</span>}
-              {!p.ok && <span className="err">invalid project.json</span>}
-            </span>
-            <span className="meta">{p.format} · {p.takes} take{p.takes === 1 ? "" : "s"}{p.lastRender ? " · rendered" : ""}</span>
-          </a>
+          <div key={p.name} className="pslot">
+            <a className="pwrap" href={`#/p/${enc(p.name)}`}>
+              <span className="lbl">{p.name}</span>
+              <span className={`pcard c${i % 3}`}>
+                <span className="thumb" style={{ backgroundImage: `url(/api/projects/${enc(p.name)}/thumb), url(${FALLBACK[i % 3]})` }} />
+                {p.steps && <span className="dots">{Object.values(p.steps).map((s, k) => <i key={k} className={s} />)}</span>}
+                {!p.ok && <span className="err">invalid project.json</span>}
+              </span>
+              <span className="meta">{p.format} · {p.takes} take{p.takes === 1 ? "" : "s"}{p.lastRender ? " · rendered" : ""}</span>
+            </a>
+            <button className="pdel" aria-label={`Delete ${p.name}`} title="Move to the trash" onClick={() => void remove(p.name)}><IconTrash /></button>
+          </div>
         ))}
       </div>
       <div className="folder">

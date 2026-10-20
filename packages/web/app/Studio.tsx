@@ -4,6 +4,8 @@ import type { RenderProps } from "@adam-studio/render/src/props";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JobEvent, JobView, ProjectView, ProposalView } from "../server/types";
 import { api, enc, fileUrl, go, ms } from "./api";
+import { AssetsPanel, dropInto, mention } from "./Assets";
+import { ClaudeBar } from "./ClaudeBar";
 import { IconFolder, IconLink, IconSend } from "./icons";
 import { JobLog } from "./JobLog";
 
@@ -252,6 +254,10 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
   const [prompt, setPrompt] = useState("");
   const [refill, setRefill] = useState<ProposalView | null>(null);
   const [toast, setToast] = useState("");
+  const [assetsOpen, setAssetsOpen] = useState(false);
+  const [dropping, setDropping] = useState(false);
+  // An asset named to Claude goes on its own line at the end of the prompt.
+  const addMention = (text: string) => setPrompt((p) => (p.includes(text) ? p : `${p.trimEnd()}${p.trim() ? "\n" : ""}${text}`));
   const load = useCallback(() => api<ProjectView>(`/projects/${enc(name)}`).then((v) => { setView(v); setError(""); }, (e) => setError(e.message)), [name]);
   useEffect(() => {
     void load();
@@ -321,6 +327,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
         ))}
         <div className="foot">
           <a href={`#/p/${enc(name)}/edit`}>Fine-tune the timeline</a>
+          <a href="" onClick={(e) => { e.preventDefault(); setAssetsOpen(true); }}>Assets of this video</a>
           <a href="#/library">Library</a>
           <a href="" onClick={(e) => { e.preventDefault(); void run("studio"); }}>Open Remotion Studio</a>
         </div>
@@ -362,7 +369,16 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
               <div className="row"><button className="quiet" onClick={() => edit({ op: "close_step" }, `${meta.title} done`).then((ok) => ok && setStep((WORKFLOW_STEPS[WORKFLOW_STEPS.indexOf(step) + 1] as StepId) ?? "wrap"))}>
                 {proposals.length ? "Step done, next" : "Skip this step"} →</button></div>
             )}
-            <div className="composer">
+            <div className={`composer${dropping ? " over" : ""}`}
+              onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); setDropping(true); } }}
+              onDragLeave={() => setDropping(false)}
+              onDrop={async (e) => {
+                e.preventDefault(); setDropping(false);
+                const r = await dropInto(e.dataTransfer.files, name);
+                r.added.forEach((a) => addMention(mention(a)));
+                if (r.errors.length) setError(r.errors.join("\n"));
+                if (r.added.length) { setToast(`Added ${r.added.map((a) => a.id).join(", ")} to this video`); await load(); }
+              }}>
               <div className="win">
                 <div className="bar"><span className="t">ask_claude.exe</span><i /><i className="x" /></div>
                 <div className="body">
@@ -371,12 +387,13 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
                   <textarea aria-label={`Tell Claude what you want for the ${meta.title.toLowerCase()}`} value={prompt} placeholder={`Tell Claude what you want for the ${meta.title.toLowerCase()}…`} onChange={(e) => setPrompt(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && prompt.trim()) void ask(prompt); }} />
                   <div className="tools">
-                    <a href="#/library"><IconFolder />Assets</a>
+                    <button className="ghost" onClick={() => setAssetsOpen(true)}><IconFolder />Assets{view.assets.length ? ` (${view.assets.length})` : ""}</button>
                     <a href="#/insights"><IconLink />Connectors</a>
-                    <span className="muted">Ctrl+Enter · Claude Code, your subscription</span>
+                    <span className="muted">Ctrl+Enter · drop files here to add them</span>
                     <span className="spacer" />
                     <button className="claude" disabled={!prompt.trim() || Boolean(claudeJob && claudeJob.state === "running") || Boolean(running && running.label.startsWith("Claude"))} onClick={() => ask(prompt)}>Ask Claude <IconSend /></button>
                   </div>
+                  <ClaudeBar stamp={`${claudeJob?.id ?? ""}:${claudeJob?.state ?? ""}`} />
                 </div>
               </div>
             </div>
@@ -397,6 +414,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
         )}
         <Checklist name={name} />
       </aside>
+      {assetsOpen && <AssetsPanel name={name} view={view} onClose={() => setAssetsOpen(false)} onMention={addMention} onChanged={() => void load()} />}
       {toast && <div className="toast">{toast}</div>}
     </div>
   );

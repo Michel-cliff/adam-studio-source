@@ -10,6 +10,16 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
 }
 
 export const enc = encodeURIComponent;
+
+export type Uploaded = { saved: string; kind: string; imported?: { id: string; kind: string; path: string } };
+/** Sends a dropped file to the Inspiration folder, and into the project when one is given. */
+export async function uploadFile(file: File, project?: string): Promise<Uploaded> {
+  const q = `name=${enc(file.name)}${project ? `&project=${enc(project)}` : ""}`;
+  const r = await fetch(`/api/library/upload?${q}`, { method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: file });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error ?? `${r.status} ${r.statusText}`);
+  return data as Uploaded;
+}
 export const fileUrl = (project: string, rel: string, v?: number) =>
   `/api/projects/${enc(project)}/files/${rel.split("/").map(enc).join("/")}${v ? `?v=${Math.round(v)}` : ""}`;
 export const go = (hash: string) => { location.hash = hash; };

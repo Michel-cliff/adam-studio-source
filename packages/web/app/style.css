@@ -271,6 +271,36 @@ textarea.json { width: 100%; min-height: 260px; font: 12.5px/1.5 var(--mono); ma
 .words { line-height: 2.1; } .word { cursor: pointer; border-radius: 4px; padding: 1px 1px; } .word:hover { background: var(--yellow); }
 .word.cut { text-decoration: line-through; color: var(--muted); } .word.sel { background: var(--blue); color: #fff; }
 
+/* Home: delete a project */
+.pslot { position: relative; }
+.pdel { position: absolute; top: 34px; right: 10px; z-index: 2; width: 38px; height: 38px; padding: 0; justify-content: center;
+  background: var(--card); color: var(--ink); box-shadow: 2px 2px 0 var(--ink); opacity: 0; transition: opacity .15s; }
+.pslot:hover .pdel, .pdel:focus-visible { opacity: 1; }
+.pdel:hover { background: var(--red); color: #fff; }
+@media (hover: none) { .pdel { opacity: 1; } }
+
+/* Studio: assets window and drops */
+.modal.assets { width: min(1100px, 100%); }
+.modal.assets.over, .composer.over .win { outline: 4px dashed var(--blue); outline-offset: 4px; }
+.agrid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.aitem { display: flex; flex-direction: column; gap: 6px; border: 2px solid var(--ink); border-radius: 12px; padding: 10px; background: var(--card); font-size: 13px; min-width: 0; }
+.aitem b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aitem button { padding: 8px 10px; font-size: 12.5px; justify-content: center; }
+.athumb { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; background: var(--paper2); display: block; }
+.athumb.none { display: grid; place-items: center; font: 700 13px/1 var(--mono); text-transform: uppercase; color: var(--muted); }
+.dropzone { margin-top: 16px; border: 2px dashed rgba(22,22,22,.35); border-radius: 12px; padding: 14px; text-align: center; font: 400 13px/1.4 var(--mono); color: var(--muted); }
+.composer .tools button.ghost { display: inline-flex; gap: 6px; align-items: center; padding: 4px 0; font: 400 12.5px/1 var(--mono); }
+
+/* Studio: the model and what the subscription has left */
+.claudebar { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-top: 12px; padding-top: 10px; border-top: 1.5px dashed var(--soft); font: 400 12.5px/1.2 var(--mono); }
+.claudebar select { padding: 5px 8px; font: 400 12.5px/1 var(--mono); }
+.gauge { display: inline-flex; gap: 6px; align-items: center; }
+.gauge .gt { width: 90px; height: 10px; border: 1.5px solid var(--ink); border-radius: 6px; overflow: hidden; background: var(--card); display: inline-block; }
+.gauge .gt i { display: block; height: 100%; background: var(--blue); }
+.gauge.warm .gt i { background: var(--yellow); }
+.gauge.hot .gt i { background: var(--red); }
+.gauge .gv { font-weight: 700; }
+
 @media (max-width: 1180px) {
   .studio { grid-template-columns: 1fr; height: auto; }
   .rail { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 2px solid var(--ink); padding: 10px; }
