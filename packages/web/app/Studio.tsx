@@ -116,7 +116,8 @@ function ProposalCard({ p, seen, onSee, onDecide, onMore, locked }: {
         {p.variants.map((v, i) => (
           <article key={v.key} className={`variant v${i % 4}${seen === v.key ? " seen" : ""}`} onClick={() => onSee(seen === v.key ? null : v.key)}>
             <div className="top"><span className="k">{v.key}</span><span className="label">{v.label}</span></div>
-            <div className="what">{v.summary}</div>
+            {v.why && <div className="what">{v.why}</div>}
+            <div className="adds">{v.summary}</div>
             <div className="acts">
               <button onClick={(e) => { e.stopPropagation(); onDecide(v.key); }} disabled={Boolean(locked)} title={locked ?? ""}>Choose {v.key}</button>
               <button className="quiet" onClick={(e) => { e.stopPropagation(); onSee(v.key); }}>{seen === v.key ? "Watching" : "Watch"}</button>

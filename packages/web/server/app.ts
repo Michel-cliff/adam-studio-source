@@ -1,7 +1,7 @@
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, renameSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { ActionError, addCommand, buildCommand, checkVideos, newProjectCommand } from "./actions";
 import { serveFile } from "./files";
 import { listFolder } from "./fsbrowse";
@@ -14,7 +14,8 @@ import { libraryRoute } from "./library-routes";
 import { mediaFile, previewData } from "./preview";
 import { listProjects, projectView } from "./projects";
 import { applySeriesIn, closeCurrentStep, cutWordsIn, decideProposal, firstPassIn, listSeries, loadRaw, patchProject, setValue, ToolError, tightenIn, undo, updateItem } from "./store";
-import { projectsRoot, SETTINGS_FILE, setProjectsRoot } from "./settings";
+import { CLAUDE_MODELS, claudeModel, projectsRoot, setClaudeModel, SETTINGS_FILE, setProjectsRoot } from "./settings";
+import { parseUsage, recordUsage, usageSummary } from "./usage";
 import { thumbnail } from "./thumb";
 import { watchProjects } from "./watch";
 
@@ -73,15 +74,24 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const handled = await libraryRoute({ req, res, url, method, port, root: projectsRoot(settingsFile), send: (s, b) => send(res, s, b), body: () => body(req) });
       if (handled) return;
     }
-    if (path === "/api/settings" && method === "GET") return send(res, 200, { projectsRoot: projectsRoot(settingsFile) });
+    const settings = () => ({ projectsRoot: projectsRoot(settingsFile), claudeModel: claudeModel(settingsFile), models: CLAUDE_MODELS });
+    if (path === "/api/settings" && method === "GET") return send(res, 200, settings());
     if (path === "/api/settings" && method === "PUT") {
       const b = await body(req);
-      if (typeof b.projectsRoot !== "string") throw new HttpError(400, "projectsRoot must be text");
-      try { setProjectsRoot(b.projectsRoot, settingsFile); } catch (e) { throw new HttpError(400, (e as Error).message); }
-      unwatch();
-      unwatch = watchProjects(b.projectsRoot, notify);
-      return send(res, 200, { projectsRoot: b.projectsRoot });
+      if (b.projectsRoot === undefined && b.claudeModel === undefined) throw new HttpError(400, "give projectsRoot or claudeModel");
+      if (b.projectsRoot !== undefined && typeof b.projectsRoot !== "string") throw new HttpError(400, "projectsRoot must be text");
+      try {
+        if (b.claudeModel !== undefined) setClaudeModel(String(b.claudeModel), settingsFile);
+        if (typeof b.projectsRoot === "string") {
+          setProjectsRoot(b.projectsRoot, settingsFile);
+          unwatch();
+          unwatch = watchProjects(b.projectsRoot, notify);
+        }
+      } catch (e) { throw new HttpError(400, (e as Error).message); }
+      return send(res, 200, settings());
     }
+    // What Claude used: today's asks and the subscription windows Claude Code last reported.
+    if (path === "/api/usage" && method === "GET") return send(res, 200, usageSummary(dirname(settingsFile)));
     if (path === "/api/projects" && method === "GET") return send(res, 200, listProjects(projectsRoot(settingsFile)));
     if (path === "/api/projects" && method === "POST") {
       const b = await body(req);
@@ -95,6 +105,17 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const { name } = existing(m[1]!);
       const view = projectView(projectsRoot(settingsFile), name);
       return send(res, 200, { ...view, jobs: jobs.list(name) });
+    }
+    // Deleting moves the folder to <projects>/.trash/<name> <date>: nothing is lost until the creator empties it.
+    if ((m = path.match(/^\/api\/projects\/([^/]+)$/)) && method === "DELETE") {
+      const { name, dir } = existing(m[1]!);
+      if (jobs.running(name)) throw new HttpError(409, `${name} is busy: stop its job first`);
+      const trash = join(projectsRoot(settingsFile), ".trash");
+      mkdirSync(trash, { recursive: true });
+      const to = join(trash, `${name} ${new Date().toISOString().replace(/[:.]/g, "-")}`);
+      renameSync(dir, to);
+      notify(name);
+      return send(res, 200, { trashed: to });
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/add$/)) && method === "POST") {
       const { name, dir } = existing(m[1]!);
@@ -129,7 +150,12 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/ask$/)) && method === "POST") {
       const { name } = existing(m[1]!);
       const b = await body(req);
-      return started(res, jobs.start(name, askCommand(name, String(b.step ?? ""), String(b.prompt ?? ""))));
+      const step = String(b.step ?? "");
+      const record = (job: { output: string }) => {
+        const u = parseUsage(job.output);
+        if (u) { try { recordUsage(dirname(settingsFile), { project: name, step, ...u }); } catch { /* a full disk must not break the job */ } }
+      };
+      return started(res, jobs.start(name, askCommand(name, step, String(b.prompt ?? ""), claudeModel(settingsFile)), record));
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/thumb$/)) && method === "GET") {
       const { dir } = existing(m[1]!);

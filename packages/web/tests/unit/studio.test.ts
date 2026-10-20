@@ -38,6 +38,18 @@ describe("asking Claude", () => {
     expect(() => askCommand("ep 1", "wrap", "x")).toThrow(/unknown step/);
     expect(() => askCommand("ep 1", "hook", "  ")).toThrow(/write what you want/);
   });
+
+  it("sends the editing rules of the step, asks for a why per variant, and uses the chosen model", () => {
+    const hook = askCommand("ep 1", "hook", "x");
+    const system = hook.args[hook.args.indexOf("--append-system-prompt") + 1]!;
+    expect(system).toMatch(/Hook, rules/);
+    expect(system).toMatch(/curiosity gap/);
+    expect(system).not.toMatch(/Cuts, rules/);
+    expect(system).toMatch(/a why \(what changes/);
+    expect(hook.args).not.toContain("--model");
+    const opus = askCommand("ep 1", "cuts", "x", "opus");
+    expect(opus.args[opus.args.indexOf("--model") + 1]).toBe("opus");
+  });
 });
 
 describe("studio routes", () => {

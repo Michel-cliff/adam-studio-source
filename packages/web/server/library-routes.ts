@@ -1,9 +1,10 @@
 import { randomBytes } from "node:crypto";
-import { existsSync } from "node:fs";
+import { createWriteStream, existsSync, mkdirSync, rmSync } from "node:fs";
+import { pipeline } from "node:stream/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { join, relative, isAbsolute } from "node:path";
+import { basename, extname, join, relative, isAbsolute } from "node:path";
 import { importAsset, type ImportSource } from "@adam-studio/library/src/importer";
-import { inspirationRoot, searchLocal, type LibraryKind } from "@adam-studio/library/src/local";
+import { inspirationRoot, kindOf, searchLocal, type LibraryKind } from "@adam-studio/library/src/local";
 import { searchOnline } from "@adam-studio/library/src/online";
 import { pinterestAuthUrl, pinterestBoards, pinterestExchange, pinterestStatus, syncPinterestBoard } from "@adam-studio/library/src/pinterest";
 import { serveFile } from "./files";
@@ -40,6 +41,28 @@ export async function libraryRoute(c: Ctx): Promise<boolean> {
     const file = url.searchParams.get("path") ?? "";
     if (!insideInspiration(file) || !existsSync(file)) { send(404, { error: "not in the Inspiration folder" }); return true; }
     serveFile(c.req, c.res, file);
+    return true;
+  }
+  // A dropped file: saved in Inspiration/Uploads (never over an existing one), and imported into a project if one is named.
+  if (path === "/api/library/upload" && method === "POST") {
+    const name = basename(url.searchParams.get("name") ?? "").replace(/[<>:"|?*\u0000-\u001f]/g, "_");
+    const kind = kindOf(name);
+    if (!name || !kind) throw new ToolError(`cannot use ${name || "this file"}: drop a video, image, sound, font or Lottie file`);
+    const project = url.searchParams.get("project");
+    if (project && (!safeName(project) || !existsSync(join(c.root, project, "project.json")))) throw new ToolError(`no project "${project}"`);
+    const folder = join(inspirationRoot(), "Uploads");
+    mkdirSync(folder, { recursive: true });
+    const ext = extname(name), stem = basename(name, ext);
+    let saved = join(folder, name);
+    for (let i = 2; existsSync(saved); i++) saved = join(folder, `${stem} (${i})${ext}`);
+    try { await pipeline(c.req, createWriteStream(saved, { flags: "wx" })); }
+    catch (e) { rmSync(saved, { force: true }); throw new ToolError(`upload failed: ${(e as Error).message}`); }
+    if (!project) { send(200, { saved, kind }); return true; }
+    const dir = join(c.root, project);
+    let imported;
+    try { imported = await importAsset(dir, { path: saved, kind }); } catch (e) { throw new ToolError((e as Error).message); }
+    if (imported.kind !== "font") addAssetIn(dir, { id: imported.id, kind: imported.kind, path: imported.path });
+    send(200, { saved, kind, imported: { id: imported.id, kind: imported.kind, path: imported.path } });
     return true;
   }
   if (path === "/api/library/import" && method === "POST") {

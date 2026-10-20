@@ -77,7 +77,7 @@ tool("set_value", "Sets any value of project.json by JSON Pointer (e.g. /caption
     return written(setValue(dirOf(p), pointer, remove ? undefined : value));
   });
 
-tool("propose", "Adds a proposal {id, step, anchor?, reason, variants: [{key: A|B|C, label, patch}]}, or new variants for one sent back with \"more\".",
+tool("propose", "Adds a proposal {id, step, anchor?, reason, variants: [{key: A|B|C, label, why, patch}]} (why: what changes, where, what the viewer gets, in the transcript's language), or new variants for one sent back with \"more\". Follow the editing rules in the first-pass brief.",
   { project, proposal: z.record(z.string(), z.unknown()) }, ({ project: p, proposal }) => written(propose(dirOf(p), proposal)));
 
 tool("decide", "Records the creator's decision on a proposal: A, B or C applies that variant; reject; more asks for new variants.",

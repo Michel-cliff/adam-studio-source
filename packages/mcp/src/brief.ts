@@ -1,3 +1,4 @@
+import { GENERAL_RULES, STEP_RULES } from "@adam-studio/web/server/rules";
 import { FRAMEWORKS, resolve } from "@adam-studio/model";
 import { scanInspiration } from "@adam-studio/library/src/local";
 import { listSeries } from "@adam-studio/render/src/series";
@@ -74,5 +75,9 @@ export function firstPassBrief(dir: string, root: string, summary: FirstPassSumm
     "6. look (step look): setStyle grade variants (warmth, contrast, saturation, vignette).",
     "Lean slower on animations (the creator's taste), keep effects few and meaningful, anchor everything on words. Use ids auto.<step>.",
     "Then look at a still or two of your boldest variant, and tell the creator to review everything in the panel (Review, then Choose).",
+    "",
+    "## Editing rules (every proposal follows them)",
+    GENERAL_RULES,
+    ...Object.values(STEP_RULES).flatMap((r) => ["", r]),
   ].filter((l) => l !== undefined).join("\n");
 }

@@ -75,7 +75,7 @@ function proposal(dir: string, p: Raw): ProposalView {
       clips: Object.fromEntries((index.variants ?? []).map((v: Raw) => [v.key, `${folder}/${v.preview}`])),
     };
   } catch { /* no review rendered */ }
-  return { id: p.id, step: p.step, status, ...(p.reason ? { reason: p.reason } : {}), variants: (p.variants ?? []).map((v: Raw) => ({ key: v.key, label: v.label ?? "", summary: patchSummary(v.patch ?? {}) })), review,
+  return { id: p.id, step: p.step, status, ...(p.reason ? { reason: p.reason } : {}), variants: (p.variants ?? []).map((v: Raw) => ({ key: v.key, label: v.label ?? "", summary: patchSummary(v.patch ?? {}), ...(v.why ? { why: v.why } : {}) })), review,
     ...(p.anchor ? { anchor: p.anchor } : {}), notes: (p.history ?? []).map((h: Raw) => h.note).filter(Boolean) };
 }
 
@@ -90,6 +90,8 @@ export function projectView(root: string, name: string): Omit<ProjectView, "jobs
     renders: renders(dir),
     proposals: Array.isArray(raw?.proposals) ? raw.proposals.map((p: Raw) => proposal(dir, p)) : [],
     workflow: raw?.workflow ?? null,
+    // What was imported into this video (images, sounds, Lottie, b-roll), not the takes.
+    assets: Array.isArray(raw?.assets) ? raw.assets.filter((a: Raw) => String(a.path).startsWith("assets/")).map((a: Raw) => ({ id: a.id, kind: a.kind, path: a.path })) : [],
     durationMs: Array.isArray(raw?.story) ? raw.story.reduce((s: number, c: Raw) => s + (c.outMs - c.inMs), 0) : null,
   };
 }
