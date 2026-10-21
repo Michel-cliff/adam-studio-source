@@ -30,6 +30,11 @@ export const ImagePropsSchema = z.strictObject({
   fit: z.enum(["full", "contain", "cover"]).default("full"),
   intro: z.string().optional(),
   outro: z.string().optional(),
+  // Width as a share of the frame's width (popups beside the speaker); without it, at most 90% of the frame.
+  width: z.number().min(0.03).max(1).optional(),
+  // A video asset plays from startMs in its file, at this volume (muted by default: the speaker talks over it).
+  startMs: Ms.default(0),
+  volume: z.number().min(0).max(2).default(0),
 });
 
 export const SfxPropsSchema = z.strictObject({

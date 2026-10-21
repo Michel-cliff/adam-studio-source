@@ -1,8 +1,9 @@
 import { src } from "../lib/src";
 import type { CSSProperties, FC } from "react";
-import { Img, useCurrentFrame, useVideoConfig } from "remotion";
+import { Img, OffthreadVideo, useCurrentFrame, useVideoConfig } from "remotion";
 import type { ImageProps, Style, TimelineElement } from "@adam-studio/model";
 import { bloomLayer, grainLayer, insertFilter } from "../lib/inserts";
+import { isVideoFile, startFrames } from "../lib/media-kind";
 import { presetStyle } from "../lib/presets";
 import type { MediaFiles } from "../props";
 
@@ -34,7 +35,10 @@ export const ImageElement: FC<{ el: TimelineElement; media: Record<string, Media
     : { position: "absolute", left: el.x * width, top: el.y * height, translate: "-50% -50%" };
   const picture: CSSProperties = full
     ? { display: "block", width: "100%", height: "100%", objectFit: "fill" }
-    : { display: "block", maxWidth: width * 0.9, maxHeight: height * 0.9, objectFit: props.fit as "contain" | "cover" };
+    : props.width
+      ? { display: "block", width: props.width * width, height: "auto", maxHeight: height * 0.9, objectFit: props.fit as "contain" | "cover" }
+      : { display: "block", maxWidth: width * 0.9, maxHeight: height * 0.9, objectFit: props.fit as "contain" | "cover" };
+  const video = isVideoFile(file);
   const cover: CSSProperties = { position: "absolute", left: 0, top: 0, width: "100%", height: "100%", pointerEvents: "none" };
   const grainId = `adam-grain-${el.id}`;
   return (
@@ -46,8 +50,13 @@ export const ImageElement: FC<{ el: TimelineElement; media: Record<string, Media
         filter: [intro.filter, outro.filter].filter(Boolean).join(" ") || undefined,
       }}
     >
-      <Img src={src(file)} style={{ ...picture, filter: look === "none" ? undefined : look }} />
-      {bloom ? <Img src={src(file)} style={{ ...cover, objectFit: "fill", filter: bloom.filter, opacity: bloom.opacity, mixBlendMode: bloom.mixBlendMode }} /> : null}
+      {video ? (
+        <OffthreadVideo src={src(file)} trimBefore={startFrames(props.startMs ?? 0, fps)} volume={props.volume ?? 0} muted={!props.volume}
+          style={{ ...picture, filter: look === "none" ? undefined : look }} />
+      ) : (
+        <Img src={src(file)} style={{ ...picture, filter: look === "none" ? undefined : look }} />
+      )}
+      {bloom && !video ? <Img src={src(file)} style={{ ...cover, objectFit: "fill", filter: bloom.filter, opacity: bloom.opacity, mixBlendMode: bloom.mixBlendMode }} /> : null}
       {grain ? (
         <svg style={{ ...cover, opacity: grain.opacity, mixBlendMode: "overlay" }} aria-hidden="true">
           <filter id={grainId} x="0" y="0" width="100%" height="100%">
