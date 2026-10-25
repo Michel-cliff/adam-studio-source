@@ -1,6 +1,6 @@
 // Connectors: MCP servers Claude may use when the creator asks it something in the studio, beyond Adam Studio's own
 // tools. They come from Claude Code's own configuration (~/.claude.json: Blender, CapCut, TouchDesigner...) or are
-// added here by URL (Higgsfield...). Which ones are on is kept in ~/.adam-studio/connectors.json. The interface only
+// added here by URL (Higgsfield...), and a few are built in (Savee). Which ones are on is kept in ~/.adam-studio/connectors.json. The interface only
 // ever sees names and types: commands, env and headers stay on the server.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -9,10 +9,13 @@ import { dirname, join } from "node:path";
 export const CONNECTORS_FILE = join(homedir(), ".adam-studio", "connectors.json");
 type Server = Record<string, unknown>;
 type Saved = { enabled: string[]; added: Record<string, Server> };
-export type Connector = { name: string; type: string; source: "claude-code" | "added"; enabled: boolean };
+export type Connector = { name: string; type: string; source: "claude-code" | "built-in" | "added"; enabled: boolean };
 
 const NAME = /^[a-z0-9][a-z0-9_-]{0,40}$/i;
 const OWN = "adam-studio";
+/** Offered without being added. Savee (saved images and moodboards) signs in with OAuth: Claude Code's own entry,
+    once signed in there, wins over this one. */
+const BUILT_IN: Record<string, Server> = { savee: { type: "http", url: "https://mcp.savee.com/mcp" } };
 
 function load(file: string): Saved {
   try {
@@ -39,9 +42,11 @@ export function listConnectors(home = homedir(), file = CONNECTORS_FILE): Connec
   const saved = load(file), on = new Set(saved.enabled), mine = claudeServers(home);
   const fromClaude = Object.entries(mine).filter(([n]) => !saved.added[n]).sort(([a], [b]) => a.localeCompare(b))
     .map(([name, v]) => ({ name, type: typeOf(v), source: "claude-code" as const, enabled: on.has(name) }));
+  const builtIn = Object.entries(BUILT_IN).filter(([n]) => !mine[n] && !saved.added[n])
+    .map(([name, v]) => ({ name, type: typeOf(v), source: "built-in" as const, enabled: on.has(name) }));
   const added = Object.entries(saved.added).sort(([a], [b]) => a.localeCompare(b))
     .map(([name, v]) => ({ name, type: typeOf(v), source: "added" as const, enabled: on.has(name) }));
-  return [...fromClaude, ...added];
+  return [...fromClaude, ...builtIn, ...added];
 }
 
 export function setEnabled(names: string[], home = homedir(), file = CONNECTORS_FILE): void {
@@ -73,7 +78,7 @@ export function askServers(home = homedir(), file = CONNECTORS_FILE): { servers:
   const saved = load(file), mine = claudeServers(home);
   const servers: Record<string, Server> = {};
   for (const name of saved.enabled) {
-    const config = saved.added[name] ?? mine[name];
+    const config = saved.added[name] ?? mine[name] ?? BUILT_IN[name];
     if (config) servers[name] = config;
   }
   return { servers, tools: Object.keys(servers).map((n) => `mcp__${n}`) };

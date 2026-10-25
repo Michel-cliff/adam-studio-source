@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, enc } from "./api";
 
-type Connector = { name: string; type: string; source: "claude-code" | "added"; enabled: boolean };
+type Connector = { name: string; type: string; source: "claude-code" | "built-in" | "added"; enabled: boolean };
 export type Skill = { name: string; description: string };
 
 function useEsc(onClose: () => void) {
@@ -44,7 +44,7 @@ export function ConnectorsPanel({ onClose }: { onClose: () => void }) {
                   <input type="checkbox" checked={c.enabled} onChange={() => void toggle(c)} />
                   <b>{c.name}</b>
                   <span className="tag">{c.type}</span>
-                  <span className="muted">{c.source === "claude-code" ? "from Claude Code" : "added here"}</span>
+                  <span className="muted">{c.source === "claude-code" ? "from Claude Code" : c.source === "built-in" ? "built in" : "added here"}</span>
                 </label>
                 {c.source === "added" && <button className="ghost" onClick={() => void remove(c)}>Remove</button>}
               </li>

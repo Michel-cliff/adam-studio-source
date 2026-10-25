@@ -29,11 +29,28 @@ describe("connectors", () => {
   it("lists Claude Code's MCP servers without their secrets, Adam Studio's own one aside", () => {
     const h = home();
     const list = listConnectors(h, join(h, "connectors.json"));
-    expect(list).toEqual([
+    expect(list.filter((c) => c.source === "claude-code")).toEqual([
       { name: "blender", type: "stdio", source: "claude-code", enabled: false },
       { name: "motion", type: "http", source: "claude-code", enabled: false },
     ]);
     expect(JSON.stringify(list)).not.toMatch(/SECRET|Bearer/);
+  });
+
+  it("offers Savee out of the box, off until turned on, and hands its URL to an ask", () => {
+    const h = home(), file = join(h, "connectors.json");
+    expect(listConnectors(h, file).find((c) => c.name === "savee")).toEqual({ name: "savee", type: "http", source: "built-in", enabled: false });
+    setEnabled(["savee"], h, file);
+    expect(askServers(h, file).servers.savee).toEqual({ type: "http", url: "https://mcp.savee.com/mcp" });
+    expect(askServers(h, file).tools).toContain("mcp__savee");
+  });
+
+  it("prefers Claude Code's own Savee entry (it may carry its sign-in) over the built-in one", () => {
+    const h = home(), file = join(h, "connectors.json");
+    writeFileSync(join(h, ".claude.json"), JSON.stringify({ mcpServers: { savee: { type: "http", url: "https://mcp.savee.com/mcp", headers: { Authorization: "Bearer z" } } } }));
+    const savees = listConnectors(h, file).filter((c) => c.name === "savee");
+    expect(savees).toEqual([{ name: "savee", type: "http", source: "claude-code", enabled: false }]);
+    setEnabled(["savee"], h, file);
+    expect(askServers(h, file).servers.savee).toEqual({ type: "http", url: "https://mcp.savee.com/mcp", headers: { Authorization: "Bearer z" } });
   });
 
   it("gives an ask the enabled servers with their full config, and their tools", () => {

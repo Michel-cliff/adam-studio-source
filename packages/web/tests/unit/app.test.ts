@@ -125,12 +125,12 @@ describe("studio tools", () => {
 
   it("lists Claude Code's skills and manages the connectors without showing their secrets", async () => {
     expect((await call("GET", "/api/skills")).json).toEqual([{ name: "pm-kinator", description: "interview" }]);
-    expect((await call("GET", "/api/connectors")).json).toEqual([{ name: "blender", type: "stdio", source: "claude-code", enabled: false }]);
+    expect((await call("GET", "/api/connectors")).json).toEqual([{ name: "blender", type: "stdio", source: "claude-code", enabled: false }, { name: "savee", type: "http", source: "built-in", enabled: false }]);
     expect((await call("PUT", "/api/connectors", { body: { enabled: ["blender"] } })).json[0].enabled).toBe(true);
     const added = await call("POST", "/api/connectors", { body: { name: "higgsfield", url: "https://mcp.example/h" } });
-    expect(added.json.map((c: { name: string }) => c.name)).toEqual(["blender", "higgsfield"]);
+    expect(added.json.map((c: { name: string }) => c.name)).toEqual(["blender", "savee", "higgsfield"]);
     expect((await call("POST", "/api/connectors", { body: { name: "x", url: "http://plain" } })).status).toBe(400);
-    expect((await call("DELETE", "/api/connectors/higgsfield")).json.map((c: { name: string }) => c.name)).toEqual(["blender"]);
+    expect((await call("DELETE", "/api/connectors/higgsfield")).json.map((c: { name: string }) => c.name)).toEqual(["blender", "savee"]);
   });
 
   it("says what Claude used, even before the first ask", async () => {
