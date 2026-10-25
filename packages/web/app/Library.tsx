@@ -14,31 +14,6 @@ function Preview({ kind, src }: { kind: string; src: string }) {
   return null;
 }
 
-function Pinterest() {
-  const [status, setStatus] = useState<{ configured: boolean; connected: boolean } | null>(null);
-  const [boards, setBoards] = useState<{ id: string; name: string; pins: number }[]>([]);
-  const [note, setNote] = useState("");
-  useEffect(() => { api<{ configured: boolean; connected: boolean }>("/pinterest/status").then(setStatus, () => {}); }, []);
-  useEffect(() => { if (status?.connected) api<typeof boards>("/pinterest/boards").then(setBoards, (e) => setNote(e.message)); }, [status?.connected]);
-  const sync = async (id: string) => {
-    setNote("Syncing...");
-    try { const r = await api<{ added: number; total: number; folder: string }>("/pinterest/sync", { method: "POST", body: { board: id } }); setNote(`${r.added} new pins of ${r.total} in ${r.folder}`); }
-    catch (e) { setNote((e as Error).message); }
-  };
-  if (!status) return null;
-  return (
-    <section>
-      <strong>Pinterest</strong>
-      {!status.configured && <p className="muted">Add PINTEREST_APP_ID and PINTEREST_APP_SECRET (or PINTEREST_ACCESS_TOKEN) to ~/.adam-studio/.env, then reload. Redirect URI to register in the Pinterest app: http://localhost:{location.port}/api/pinterest/callback</p>}
-      {status.configured && !status.connected && <p><a className="button" href="/api/pinterest/login">Connect Pinterest</a></p>}
-      {status.connected && (
-        <ul>{boards.map((b) => <li key={b.id}>{b.name} <span className="muted">{b.pins} pins</span> <button className="quiet" onClick={() => sync(b.id)}>Sync to Inspiration</button></li>)}</ul>
-      )}
-      {note && <p className="muted">{note}</p>}
-    </section>
-  );
-}
-
 export function Library() {
   const [q, setQ] = useState("");
   const [kind, setKind] = useState("");
@@ -111,8 +86,6 @@ export function Library() {
           </div>
         </>
       )}
-      <h2>Connections</h2>
-      <Pinterest />
     </>
   );
 }

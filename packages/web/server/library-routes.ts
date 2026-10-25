@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { createWriteStream, existsSync, mkdirSync, renameSync, rmSync } from "node:fs";
 import { pipeline } from "node:stream/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -6,13 +5,11 @@ import { basename, dirname, extname, join, relative, isAbsolute } from "node:pat
 import { importAsset, type ImportSource } from "@adam-studio/library/src/importer";
 import { inspirationRoot, kindOf, searchLocal, type LibraryKind } from "@adam-studio/library/src/local";
 import { searchOnline } from "@adam-studio/library/src/online";
-import { pinterestAuthUrl, pinterestBoards, pinterestExchange, pinterestStatus, syncPinterestBoard } from "@adam-studio/library/src/pinterest";
 import { serveFile } from "./files";
 import { safeName } from "./guards";
 import { addAssetIn, ToolError } from "./store";
 
 const KINDS = new Set(["video", "image", "audio", "font", "lottie"]);
-const states = new Set<string>();
 
 type Ctx = {
   req: IncomingMessage; res: ServerResponse; url: URL; method: string; port: number; root: string;
@@ -24,7 +21,7 @@ function insideInspiration(path: string): boolean {
   return Boolean(r) && !r.startsWith("..") && !isAbsolute(r);
 }
 
-/** Library and Pinterest routes; returns false when the path is not one of them. */
+/** Library routes; returns false when the path is not one of them. */
 export async function libraryRoute(c: Ctx): Promise<boolean> {
   const { url, method, send } = c;
   const path = url.pathname;
@@ -90,28 +87,6 @@ export async function libraryRoute(c: Ctx): Promise<boolean> {
     try { imported = await importAsset(dir, source, b.id || undefined); } catch (e) { throw new ToolError((e as Error).message); }
     if (imported.kind === "font") { send(200, { imported, message: `font copied to ${imported.path}: use it in the style (fonts.caption or fonts.title)` }); return true; }
     send(200, { imported, ...addAssetIn(dir, { id: imported.id, kind: imported.kind, path: imported.path }) });
-    return true;
-  }
-  if (path === "/api/pinterest/status" && method === "GET") { send(200, pinterestStatus()); return true; }
-  const redirect = `http://localhost:${c.port}/api/pinterest/callback`;
-  if (path === "/api/pinterest/login" && method === "GET") {
-    const state = randomBytes(12).toString("hex");
-    states.add(state);
-    c.res.writeHead(302, { Location: pinterestAuthUrl(redirect, state) }).end();
-    return true;
-  }
-  if (path === "/api/pinterest/callback" && method === "GET") {
-    const state = url.searchParams.get("state") ?? "";
-    const code = url.searchParams.get("code");
-    if (!states.delete(state) || !code) { send(400, { error: "Pinterest answered without a valid state or code: connect again" }); return true; }
-    await pinterestExchange(code, redirect);
-    c.res.writeHead(302, { Location: "/#/library" }).end();
-    return true;
-  }
-  if (path === "/api/pinterest/boards" && method === "GET") { send(200, await pinterestBoards()); return true; }
-  if (path === "/api/pinterest/sync" && method === "POST") {
-    const b = await c.body();
-    send(200, await syncPinterestBoard(String(b.board ?? "")));
     return true;
   }
   return false;

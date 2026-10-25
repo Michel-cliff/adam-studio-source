@@ -36,8 +36,8 @@ polish. The look's `references/revision-checklist.md` is the polish checklist.
 
 - The creator's references set the vibe: study them (frames for composition, videos for motion and timing), then
   apply their grammar to the creator's own story. Take the technique from the reference, the story from the brand.
-- A reference found online teaches; it does not grant the right to reuse it. Pinterest alone does not establish
-  usage rights.
+- A reference found online teaches; it does not grant the right to reuse it. Seeing it on a moodboard does not
+  establish usage rights.
 
 ## Let the creator choose from what they can see
 

@@ -5,7 +5,6 @@ import { FRAMEWORKS, resolve } from "@adam-studio/model";
 import { scanInspiration } from "@adam-studio/library/src/local";
 import { listSeries } from "@adam-studio/render/src/series";
 import { keptWords, type FirstPassSummary } from "@adam-studio/web/server/firstpass";
-import { insightsReport } from "@adam-studio/web/server/insights-routes";
 import { load } from "@adam-studio/web/server/store";
 
 const s = (ms: number) => (ms / 1000).toFixed(1);
@@ -26,19 +25,6 @@ export function firstPassBrief(dir: string, root: string, summary: FirstPassSumm
     }
   }
   if (cur.length) lines.push(`[${cur[0]!.id} .. ${cur[cur.length - 1]!.id}] ${s(cur[0]!.startMs)}s ${cur.map((x) => x.text).join(" ")}`);
-
-  let insights = "no Insights yet (no platform connected, or no video linked to a project)";
-  try {
-    const r = insightsReport(root);
-    const linked = r.rows.filter((x) => x.features).slice(0, 8);
-    if (r.rows.length) {
-      insights = [
-        `${r.rows.length} published videos. Top by views: ${r.rows.slice(0, 5).map((x) => `${x.views} views, ${(x.engagement * 100).toFixed(1)}% eng, "${x.caption.slice(0, 50)}"`).join(" | ")}`,
-        linked.length ? `Linked edits: ${linked.map((x) => `${x.project}: ${x.views} views, ${x.features!.durationS}s, ${x.features!.cutsPerMin} cuts/min, hook ${x.features!.hookS ?? "?"}s, ${x.features!.framework ?? "no framework"}`).join(" | ")}` : "",
-        r.compare.length ? `Medians by edit choice: ${r.compare.map((c) => `${c.feature}: ${c.groups.map((g) => `${g.label} -> ${g.medianViews} views, ${(g.medianEngagement * 100).toFixed(1)}%`).join(" vs ")}`).join(" ; ")}` : "",
-      ].filter(Boolean).join("\n");
-    }
-  } catch { /* insights unavailable */ }
 
   const inspiration = scanInspiration().slice(0, 40).map((i) => `- ${i.kind} ${i.rel}${i.notes ? `: ${i.notes.replace(/\s+/g, " ").slice(0, 120)}` : ""}`);
   const series = listSeries().filter((x) => !x.error).map((x) => x.name);
@@ -61,9 +47,6 @@ export function firstPassBrief(dir: string, root: string, summary: FirstPassSumm
     "",
     "## Frameworks (get_reference frameworks for details)",
     ...FRAMEWORKS.map((f) => `- ${f.id}: ${f.beats.map((b) => b.role).join(", ")}`),
-    "",
-    "## What the numbers say",
-    insights,
     "",
     "## Inspiration folder (look_at to see one, import_asset to use it)",
     ...(inspiration.length ? inspiration : ["(empty)"]),

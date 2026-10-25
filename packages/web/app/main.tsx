@@ -2,8 +2,7 @@ import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Editor } from "./Editor";
 import { Home } from "./Home";
-import { IconBook, IconGlobe, IconHome } from "./icons";
-import { Insights } from "./Insights";
+import { IconBook, IconHome } from "./icons";
 import { Library } from "./Library";
 import { NewProject } from "./NewProject";
 import { Studio } from "./Studio";
@@ -22,7 +21,6 @@ function App() {
   let shell = "";
   if (page === "new") body = <NewProject />;
   else if (page === "library") body = <Library />;
-  else if (page === "insights") body = <Insights />;
   else if (page === "p" && name && sub === "add") body = <NewProject addTo={name} />;
   else if (page === "p" && name && sub === "edit") { body = <Editor key={name} name={name} />; shell = "wide"; }
   else if (page === "p" && name) { body = <Studio key={name} name={name} jobId={sub === "job" ? id : undefined} />; shell = "full"; }
@@ -37,7 +35,7 @@ function App() {
         </nav>
         {/* On the home page the big title says it already. */}
         <a className={`wordmark${page ? "" : " hidden"}`} href="#/">THE STUDIO</a>
-        <a className={on("insights")} href="#/insights">iNSIGHTS <IconGlobe /></a>
+        <span aria-hidden="true" />
       </header>
       <main className={shell}>{body}</main>
     </>

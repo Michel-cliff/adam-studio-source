@@ -13,7 +13,6 @@ looks/<look>/
                        revision-checklist.md, media-manifest.json, photos/ videos/ frames/
   skill/               the original skill the look comes from (read only)
 Uploads/               files dropped in the studio
-Pinterest/<board>/     synced boards
 ```
 
 - The look applied to every project is chosen on the studio's home page; it is sent with every request and is in the

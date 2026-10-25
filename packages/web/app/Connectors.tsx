@@ -50,10 +50,6 @@ export function ConnectorsPanel({ onClose }: { onClose: () => void }) {
               </li>
             ))}
             {list && list.length === 0 && <li className="muted">No MCP server in Claude Code yet. Add one below.</li>}
-            <li>
-              <span className="row" style={{ gap: 10, flex: 1 }}><b>TikTok, Instagram</b><span className="muted">your published numbers</span></span>
-              <a href="#/insights" onClick={onClose}>Insights</a>
-            </li>
           </ul>
           <h3 style={{ margin: "18px 0 8px" }}>Add a server</h3>
           <div className="row">

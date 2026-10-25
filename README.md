@@ -12,8 +12,7 @@ Status: sub-project 1 (the edit core) in progress. See `docs/superpowers/specs/`
   transcript editing (`cutWords`, `restoreWords`, `trimToWords`), and the guided workflow (`decide()`).
 - `packages/render`: the Remotion composition and the `adam` CLI (`npm run adam -- render | review | decide |
   studio | capcut-prep <projectDir>`).
-- `packages/library`: the Inspiration folder, online asset search, Pinterest.
-- `packages/insights`: TikTok and Instagram numbers related to the edits.
+- `packages/library`: the Inspiration folder and online asset search (Pixabay, Freesound).
 - `packages/mcp`: the MCP server Claude Code edits projects through.
 - `packages/web`: the control panel in the browser (`npm run ui`).
 - `py/analysis`: the analysis pipeline (`python -m adam_analysis run`), called by `npm run adam -- new | add | analyze`.
@@ -30,7 +29,7 @@ Requirements: Node 24 or later.
 
 Projects and media live outside this repository; never commit footage or third-party assets.
 
-## Editor, series, effects, library, insights
+## Editor, series, effects, library
 
 - **Editor** (panel, project page, **Open editor**): live Remotion preview, timeline of clips, elements and captions
   (click to inspect and edit as JSON; nudge clip in and out points), transcript (click a word to jump, shift+click to
@@ -38,7 +37,7 @@ Projects and media live outside this repository; never commit footage or third-p
 - **First pass** (panel button, MCP `first_pass`): proposals for the cuts (A tight: fillers of the transcript's language,
   failed takes where a sentence restarts after a pause or a take change, pauses over 0.4 s; B light) and the captions
   (A two lines with a highlighted word, B one line). From Claude Code, "first pass on <project>" also returns a brief
-  (the edit as sentences with word ids, frameworks, Insights, Inspiration) and Claude writes the structure, hook,
+  (the edit as sentences with word ids, frameworks, Inspiration) and Claude writes the structure, hook,
   beats, visuals, sound and look proposals. Review and choose in the panel; nothing is applied before a decision.
 - **Series** (`~/AdamStudioSeries/<name>/series.json`): a style, shared assets and treatments, element templates
   placed at the start, at each cut, at each structure beat and at the end, with `{{project.name}}`, `{{beat.word}}`
@@ -50,13 +49,10 @@ Projects and media live outside this repository; never commit footage or third-p
   every animation). In CapCut, zooms and these transitions are baked into the main track, HUD and Lottie come as
   transparent overlays.
 - **Library** (panel **Library**, MCP `search_assets`, `look_at`, `import_asset`): your Inspiration folder
-  (`~/AdamStudioInspiration`: folder and file names are tags, a `<file>.txt` adds notes) first, then Openverse, Pexels,
-  Pixabay and Freesound; imports land in `<project>/assets/` with `CREDITS.md`. Pinterest boards sync into the
-  Inspiration folder.
-- **Insights** (panel **Insights**, MCP `insights`): your TikTok and Instagram videos ranked by views and engagement,
-  linked to their projects, with medians by edit choice (length, cuts per minute, hook length, framework, series).
+  (`~/AdamStudioInspiration`: folder and file names are tags, a `<file>.txt` adds notes) first, then Pixabay
+  (images, videos) and Freesound (CC0 sounds); imports land in `<project>/assets/` with `CREDITS.md`.
 
-Keys and sign-ins: [docs/connections.md](docs/connections.md).
+Keys: [docs/connections.md](docs/connections.md).
 
 ## Claude Code (MCP)
 
@@ -85,7 +81,7 @@ middle (switch between the edit as it stands and each variant), and the step's p
 the first pass** on Rushes, then at each step choose a variant, ask for more options, or tell Claude what you want
 (suggestions or your own words): the studio runs Claude Code headless (`claude -p`, your subscription, the adam-studio
 tools only) and its proposal appears when it is written. **Wrap** renders the video and exports to CapCut.
-**Fine-tune the timeline** opens the timeline and transcript editor. Library and Insights are in the top bar.
+**Fine-tune the timeline** opens the timeline and transcript editor. Library is in the top bar.
 `ADAM_CLAUDE` points to another Claude Code executable. It only answers your own machine.
 
 ## Analysis

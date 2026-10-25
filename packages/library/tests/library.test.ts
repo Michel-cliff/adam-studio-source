@@ -66,11 +66,12 @@ describe("import and look", () => {
 });
 
 describe("online", () => {
-  it("finds CC0 or CC BY sounds on Openverse and says which keys are missing", async () => {
+  it("finds CC0 sounds on Freesound when its key is there", async () => {
     let r;
     try { r = await searchOnline("whoosh", "audio", 3); } catch { return; }
-    if (r.notes.some((n) => n.startsWith("openverse:"))) return; // offline
+    // no key on this machine, or offline: nothing to check
+    if (r.notes.some((n) => n.startsWith("freesound:") || n.includes("FREESOUND_API_KEY"))) return;
     expect(r.items.length).toBeGreaterThan(0);
-    for (const i of r.items.filter((x) => x.source === "openverse")) expect(i.license).toMatch(/^(CC0|PDM|BY)\b/);
+    for (const i of r.items) expect(i.license).toBe("CC0 1.0");
   }, 30000);
 });

@@ -12,7 +12,6 @@ import { hostAllowed, inside, originAllowed, safeName } from "./guards";
 import { BusyError, JobManager } from "./jobs";
 import { venvPython, WEB } from "./paths";
 import { askCommand } from "./claude";
-import { insightsRoute } from "./insights-routes";
 import { libraryRoute } from "./library-routes";
 import { mediaFile, previewData } from "./preview";
 import { listProjects, projectView } from "./projects";
@@ -71,11 +70,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     let m: RegExpMatchArray | null;
 
     if (path === "/api/ping") return send(res, 200, { app: "adam-studio" });
-    if (path.startsWith("/api/insights") || path.startsWith("/api/tiktok/")) {
-      const handled = await insightsRoute({ req, res, url, method, port, root: projectsRoot(settingsFile), send: (s, b) => send(res, s, b), body: () => body(req) });
-      if (handled) return;
-    }
-    if (path.startsWith("/api/library/") || path.startsWith("/api/pinterest/")) {
+    if (path.startsWith("/api/library/")) {
       const handled = await libraryRoute({ req, res, url, method, port, root: projectsRoot(settingsFile), send: (s, b) => send(res, s, b), body: () => body(req) });
       if (handled) return;
     }

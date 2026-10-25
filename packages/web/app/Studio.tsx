@@ -42,7 +42,7 @@ const WORKFLOW_STEPS = ["cuts", "structure", "captions", "hook", "beats", "visua
 const ACTIVITY: Record<string, string> = {
   get_project: "Reading the project", get_transcript: "Reading what you say", get_reference: "Checking the formats",
   search_assets: "Searching your Inspiration and free libraries", look_at: "Looking at a reference", import_asset: "Importing a file",
-  propose: "Writing the proposal", still: "Rendering a frame to check it", list_series: "Looking at the series", insights: "Reading your numbers",
+  propose: "Writing the proposal", still: "Rendering a frame to check it", list_series: "Looking at the series",
 };
 
 /** Claude's job, as a feed: what it does (from the stream-json tool calls) and what it says at the end. */

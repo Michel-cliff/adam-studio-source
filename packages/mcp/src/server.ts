@@ -11,10 +11,8 @@ import { nameInRoot, runAction, runSetup, stills, tail } from "./run";
 import { importAsset, lookAt } from "@adam-studio/library/src/importer";
 import { inspirationRoot, searchLocal, type LibraryKind } from "@adam-studio/library/src/local";
 import { searchOnline } from "@adam-studio/library/src/online";
-import { pinterestBoards, syncPinterestBoard } from "@adam-studio/library/src/pinterest";
 import { saveSeries } from "@adam-studio/render/src/series";
 import { firstPassBrief } from "./brief";
-import { insightsReport, refreshInsights } from "@adam-studio/web/server/insights-routes";
 import { addAssetIn, applySeriesIn, firstPassIn, closeCurrentStep, listSeries, decideProposal, patchProject, projectDir, propose, setValue, ToolError, undo, updateItem } from "@adam-studio/web/server/store";
 import { projectSummary, transcriptText } from "./view";
 
@@ -100,7 +98,7 @@ tool("save_series", "Starts a series from a project: its style, the images and s
 
 const kind = z.enum(["video", "image", "audio", "font", "lottie"]);
 
-tool("search_assets", "Searches the creator's Inspiration folder first (their own references: videos, images, sounds, fonts, Lottie, notes), then, with online, free sources (Openverse CC0/CC BY images and sounds, Pexels, Pixabay, Freesound when keys exist).",
+tool("search_assets", "Searches the creator's Inspiration folder first (their own references: videos, images, sounds, fonts, Lottie, notes), then, with online, Pixabay (images, videos) and Freesound (CC0 sounds).",
   { query: z.string(), kind: kind.optional(), online: z.boolean().optional() },
   async ({ query, kind: k, online }) => {
     const local = searchLocal(query, k as LibraryKind | undefined).slice(0, 30).map(({ path, kind: kk, title, notes, durationMs, rel }) => ({ path, kind: kk, title, rel, notes: notes.slice(0, 300), durationMs }));
@@ -124,20 +122,7 @@ tool("import_asset", "Copies a file (path) or downloads one (url) into the proje
     return text(`asset "${a.id}" (${a.kind}) added: ${a.path}\n${r.lint.join("\n") || "lint: clean"}`);
   });
 
-tool("pinterest_boards", "The creator's Pinterest boards (official API; connect from the panel's Library page).", {}, async () => text(JSON.stringify(await pinterestBoards(), null, 1)));
-
-tool("pinterest_sync", "Copies a Pinterest board's pins into the Inspiration folder (Pinterest/<board>/) with their notes.",
-  { board: z.string() }, async ({ board }) => text(JSON.stringify(await syncPinterestBoard(board))));
-
-tool("insights", "The creator's published videos (TikTok, Instagram) ranked by views, with engagement, the features of the linked project's edit (length, cuts per minute, hook length, framework, series), and medians by edit choice. refresh: true fetches fresh numbers first.",
-  { refresh: z.boolean().optional() }, async ({ refresh }) => {
-    const notes = refresh ? await refreshInsights() : [];
-    const r = insightsReport(root());
-    const rows = r.rows.map(({ cover, url, ...rest }) => (void cover, void url, rest));
-    return text(JSON.stringify({ notes, fetchedAt: r.fetchedAt, status: r.status, compare: r.compare, videos: rows.slice(0, 60) }, null, 1));
-  });
-
-tool("first_pass", "Automatic first pass of a project: writes the mechanical proposals (cuts: fillers, failed takes, dead air; captions) and returns a brief (the edit as sentences with word ids, frameworks, Insights, Inspiration, style) for you to write the creative proposals (structure, hook, beats, visuals, sound, look) with propose.",
+tool("first_pass", "Automatic first pass of a project: writes the mechanical proposals (cuts: fillers, failed takes, dead air; captions) and returns a brief (the edit as sentences with word ids, frameworks, Inspiration, style) for you to write the creative proposals (structure, hook, beats, visuals, sound, look) with propose.",
   { project }, ({ project: p }) => {
     const dir = dirOf(p);
     const r = firstPassIn(dir);

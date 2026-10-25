@@ -6,7 +6,7 @@
   with ids like `c03.w12`, times in ms, pauses). The proposal history holds every past decision and note: it is the
   creator's taste, follow it.
 - A new project: `first_pass` writes the mechanical proposals (cuts of fillers, failed takes and dead air; captions)
-  and returns a brief: the edit as sentences with word ids, frameworks, Insights, the Inspiration folder, the style,
+  and returns a brief: the edit as sentences with word ids, frameworks, the Inspiration folder, the style,
   the look and every rule. Then write the creative proposals it asks for.
 
 ## The guided steps, in order
