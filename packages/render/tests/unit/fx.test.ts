@@ -45,6 +45,21 @@ describe("zoom blur", () => {
   });
 });
 
+describe("opening dezoom", () => {
+  const tl = timeline([el("open", "camera.zoom", 0, 45, { scale: 1.3, x: 0.5, y: 0.5, easeMs: 1200, enter: "cut" })]);
+  it("blurs a slow move far less than a fast one", () => {
+    const fast = timeline([el("f", "camera.zoom", 0, 60, { scale: 1.3, easeMs: 300 })]);
+    const blurPx = (t: Timeline, f: number) => Number(/blur\(([\d.]+)px\)/.exec(cameraAt(t, f).filter ?? "")?.[1] ?? 0);
+    expect(blurPx(fast, 4)).toBeGreaterThan(8);
+    expect(blurPx(tl, 18)).toBeLessThan(4);
+  });
+  it("starts zoomed in and eases back to the full shot", () => {
+    expect(cameraAt(tl, 0).transform).toBe("scale(1.3000)");
+    expect(cameraAt(tl, 40).transform).toMatch(/scale\(1\.0\d+\)/);
+    expect(cameraAt(tl, 50).transform).toBeUndefined();
+  });
+});
+
 describe("the 4:3 window", () => {
   const tl = timeline([el("w", "camera.window", 60, 90, { color: "#F3BA20", barColor: "#2B6FD4", width: 0.8, y: 0.42, focusY: 0.4, easeMs: 300 })]);
   it("is off outside its element", () => {

@@ -77,6 +77,8 @@ export const CameraZoomPropsSchema = z.strictObject({
   x: z.number().min(0).max(1).default(0.5),
   y: z.number().min(0).max(1).default(0.4),
   easeMs: Ms.default(300),
+  // "cut": the element starts already zoomed in and only eases out at its end (an opening dezoom).
+  enter: z.enum(["ease", "cut"]).default("ease"),
 });
 
 /**

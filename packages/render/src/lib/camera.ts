@@ -24,10 +24,13 @@ export function cameraAt(timeline: Timeline, frame: number): Camera {
     if (e.kind !== "camera.zoom" || frame < e.fromFrame || frame >= e.fromFrame + e.durationFrames) continue;
     const p = e.props as CameraZoomProps;
     const ease = Math.max(1, ((p.easeMs ?? 300) / speed / 1000) * fps);
-    const m = Math.min((frame - e.fromFrame) / ease, (e.fromFrame + e.durationFrames - frame) / ease);
+    const toEnd = (e.fromFrame + e.durationFrames - frame) / ease;
+    const m = p.enter === "cut" ? toEnd : Math.min((frame - e.fromFrame) / ease, toEnd);
     const s = 1 + ((p.scale ?? 1.3) - 1) * smooth(m);
     if (s > scale) { scale = s; origin = `${(p.x ?? 0.5) * 100}% ${(p.y ?? 0.4) * 100}%`; }
-    if (zoomBlur > 0) blur = Math.max(blur, zoomBlur * slope(m));
+    // The blur follows the speed of the move: full for a 450 ms move or faster, less for slower ones (an opening
+    // dezoom over 1.4 s barely blurs).
+    if (zoomBlur > 0) blur = Math.max(blur, zoomBlur * slope(m) * Math.min(1, 450 / Math.max(1, (p.easeMs ?? 300) / speed)));
   }
   for (const c of timeline.clips) {
     const t = c.transitionOut;
