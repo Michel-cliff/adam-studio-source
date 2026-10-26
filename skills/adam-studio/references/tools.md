@@ -25,7 +25,7 @@ colour, with an outline and a title bar; the captions follow under it). Transiti
 are milliseconds; word ids are `<take>.w<n>`.
 
 Entrances and exits (`intro` / `outro` of `image`): `fade`, `pop`, `pixel` (big blocks that resolve, 250 ms), `step`
-(stop-motion pop for pixel icons, 4 frames at 12 fps), `window` (opens wide then tall, 250 ms), `glitch`. Screen effects
+(stop-motion pop for pixel icons, 4 frames at 12 fps), `popOut` (an icon springing out past its size, 400 ms), `window` (opens wide then tall, 250 ms), `glitch`. Screen effects
 of the style (`fx`): `grain` (footage grain, 0 to 1), `scanlines` {`window` level during a 4:3 window, `burst` when a
 zoom or window lands or a `window` insert opens, `burstFrames`}, `zoomBlur` (px of blur on a zoom's move).
 
