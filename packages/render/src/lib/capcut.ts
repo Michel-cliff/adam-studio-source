@@ -47,6 +47,8 @@ export function planCapcut(timeline: Timeline, nativeKinds: ReadonlySet<string> 
       // Drawn as nothing: the exporter places it from the timeline's audio items.
     } else if (e.kind === "camera.zoom") {
       entries.push({ id: e.id, kind: e.kind, status: "baked", reason: "screen zoom, baked into the main track" });
+    } else if (e.kind === "camera.window") {
+      entries.push({ id: e.id, kind: e.kind, status: "baked", reason: "4:3 window move, baked into the main track (captions stay in place in CapCut)" });
     } else if (!nativeKinds.has(e.kind)) {
       overlays.push({ elementId: e.id, fromFrame: e.fromFrame, durationFrames: e.durationFrames });
       entries.push({ id: e.id, kind: e.kind, status: "baked", reason: "no native CapCut equivalent: transparent overlay (MOV ProRes 4444)" });

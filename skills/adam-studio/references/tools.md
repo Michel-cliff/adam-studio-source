@@ -20,8 +20,14 @@
 | `decide` | record the creator's choice | only when the creator asks |
 
 Element kinds (`get_reference kinds`): `title`, `text.behindSubject` (needs the subject matte), `image`, `hud.panel`,
-`hud.stat`, `lottie`, `camera.zoom` (punch-in). Transitions: `flash`, `whip`, `zoom`. Times are milliseconds; word
-ids are `<take>.w<n>`.
+`hud.stat`, `lottie`, `camera.zoom` (punch-in), `camera.window` (the take shrinks like a window to a 4:3 box on a flat
+colour, with an outline and a title bar; the captions follow under it). Transitions: `flash`, `whip`, `zoom`. Times
+are milliseconds; word ids are `<take>.w<n>`.
+
+Entrances and exits (`intro` / `outro` of `image`): `fade`, `pop`, `pixel` (big blocks that resolve, 250 ms), `step`
+(stop-motion pop for pixel icons, 4 frames at 12 fps), `window` (opens wide then tall, 250 ms), `glitch`. Screen effects
+of the style (`fx`): `grain` (footage grain, 0 to 1), `scanlines` {`window` level during a 4:3 window, `burst` when a
+zoom or window lands or a `window` insert opens, `burstFrames`}, `zoomBlur` (px of blur on a zoom's move).
 
 Traps:
 - A punch-in the speaker's own movement cancels does nothing: check with `still`.

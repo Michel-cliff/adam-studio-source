@@ -43,6 +43,21 @@ export const StyleSchema = z.strictObject({
       bloom: z.number().min(0).max(1).default(0),
     })
     .default({ bw: 0, grain: 0, bloom: 0 }),
+  // Screen effects over the footage: a fine grain drawn anew each frame, CRT scanlines (a level while a 4:3 window is on screen, and a short
+  // burst when a zoom lands, a 4:3 window lands or an inserted video opens), and a blur on the move of a zoom (px at 1080 wide).
+  fx: z
+    .strictObject({
+      grain: z.number().min(0).max(1).default(0),
+      scanlines: z
+        .strictObject({
+          window: z.number().min(0).max(1).default(0),
+          burst: z.number().min(0).max(1).default(0),
+          burstFrames: z.number().int().min(1).max(30).default(3),
+        })
+        .default({ window: 0, burst: 0, burstFrames: 3 }),
+      zoomBlur: z.number().min(0).max(40).default(0),
+    })
+    .default({ grain: 0, scanlines: { window: 0, burst: 0, burstFrames: 3 }, zoomBlur: 0 }),
   caption: z.strictObject({
     size: z.number().positive(),
     stroke: z.number().min(0).default(0.08),

@@ -417,6 +417,63 @@
                   "durationMs"
                 ],
                 "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "flash"
+                  },
+                  "durationMs": {
+                    "default": 240,
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "whip"
+                  },
+                  "durationMs": {
+                    "default": 300,
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "zoom"
+                  },
+                  "durationMs": {
+                    "default": 360,
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
               }
             ]
           },
@@ -770,6 +827,10 @@
                 "label": {
                   "type": "string",
                   "minLength": 1
+                },
+                "why": {
+                  "type": "string",
+                  "maxLength": 400
                 },
                 "patch": {
                   "type": "object",
@@ -1193,6 +1254,63 @@
                                   "durationMs"
                                 ],
                                 "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "const": "flash"
+                                  },
+                                  "durationMs": {
+                                    "default": 240,
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "kind"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "const": "whip"
+                                  },
+                                  "durationMs": {
+                                    "default": 300,
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "kind"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "const": "zoom"
+                                  },
+                                  "durationMs": {
+                                    "default": 360,
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "kind"
+                                ],
+                                "additionalProperties": false
                               }
                             ]
                           },
@@ -1328,6 +1446,10 @@
                       "label": {
                         "type": "string",
                         "minLength": 1
+                      },
+                      "why": {
+                        "type": "string",
+                        "maxLength": 400
                       },
                       "patch": {
                         "type": "object",
@@ -1749,6 +1871,63 @@
                                       "required": [
                                         "kind",
                                         "durationMs"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "const": "flash"
+                                        },
+                                        "durationMs": {
+                                          "default": 240,
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 9007199254740991
+                                        }
+                                      },
+                                      "required": [
+                                        "kind"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "const": "whip"
+                                        },
+                                        "durationMs": {
+                                          "default": 300,
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 9007199254740991
+                                        }
+                                      },
+                                      "required": [
+                                        "kind"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "const": "zoom"
+                                        },
+                                        "durationMs": {
+                                          "default": 360,
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 9007199254740991
+                                        }
+                                      },
+                                      "required": [
+                                        "kind"
                                       ],
                                       "additionalProperties": false
                                     }

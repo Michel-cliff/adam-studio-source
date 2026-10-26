@@ -1,6 +1,18 @@
 import { clamp01, easeOutCubic } from "./text";
 
-export type PresetStyle = { opacity?: number; transform?: string; filter?: string };
+/** `pixel`: the picture's block size in px at 1080 wide (0 or absent: sharp), drawn by the element's mosaic filter. */
+export type PresetStyle = { opacity?: number; transform?: string; filter?: string; pixel?: number };
+
+const round = (n: number) => Math.round(n * 1000) / 1000;
+
+// pixel: the picture appears in big blocks that resolve to full resolution over six frames, growing from 0.96.
+const PIXEL_MS = 250;
+const PIXEL_BLOCKS = [24, 24, 16, 8, 4, 2];
+// step: a stop-motion pop for pixel icons, four frames at 12 fps, no smoothing.
+const STEP_MS = 1000 / 12;
+const STEP_SCALES = [0, 0.6, 1.1, 1];
+// window: opens wide first (40 % of the time), then tall, like a window drawn on screen.
+const WINDOW_MS = 250;
 
 /** Style of an entrance (or exit, with msFromEdge counted from the end) preset at msFromEdge. */
 export function presetStyle(name: string | undefined, msFromEdge: number, frame: number): PresetStyle {
@@ -20,7 +32,35 @@ export function presetStyle(name: string | undefined, msFromEdge: number, frame:
         filter: `drop-shadow(${-shift}px 0 rgba(255,0,60,0.8)) drop-shadow(${shift}px 0 rgba(0,220,255,0.8))`,
       };
     }
+    case "pixel": {
+      if (msFromEdge >= PIXEL_MS) return {};
+      const step = Math.min(PIXEL_BLOCKS.length - 1, Math.max(0, Math.floor(msFromEdge / (PIXEL_MS / PIXEL_BLOCKS.length))));
+      return { pixel: PIXEL_BLOCKS[step], transform: `scale(${round(0.96 + 0.04 * easeOutCubic(msFromEdge / PIXEL_MS))})` };
+    }
+    case "step": {
+      if (msFromEdge >= STEP_MS * STEP_SCALES.length) return {};
+      const i = Math.max(0, Math.floor(msFromEdge / STEP_MS));
+      return i === 0 ? { opacity: 0, transform: "scale(0)" } : { transform: `scale(${STEP_SCALES[i]})` };
+    }
+    case "window": {
+      if (msFromEdge >= WINDOW_MS) return {};
+      const t = clamp01(msFromEdge / WINDOW_MS);
+      const wide = t < 0.4;
+      const sx = wide ? 0.2 + 0.8 * (t / 0.4) : 1;
+      const sy = wide ? 0.04 : 0.04 + 0.96 * easeOutCubic((t - 0.4) / 0.6);
+      return { transform: `scaleX(${round(sx)}) scaleY(${round(sy)})` };
+    }
     default:
       return {};
+  }
+}
+
+/** How long an entrance preset runs, in ms (0 when it has no fixed length). */
+export function presetMs(name: string | undefined): number {
+  switch (name) {
+    case "pixel": return PIXEL_MS;
+    case "step": return STEP_MS * STEP_SCALES.length;
+    case "window": return WINDOW_MS;
+    default: return 0;
   }
 }

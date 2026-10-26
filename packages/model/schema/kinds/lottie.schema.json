@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "asset": {
+      "type": "string",
+      "minLength": 1
+    },
+    "loop": {
+      "default": false,
+      "type": "boolean"
+    },
+    "playbackRate": {
+      "default": 1,
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "width": {
+      "default": 0.5,
+      "type": "number",
+      "minimum": 0.05,
+      "maximum": 1
+    }
+  },
+  "required": [
+    "asset"
+  ],
+  "additionalProperties": false
+}

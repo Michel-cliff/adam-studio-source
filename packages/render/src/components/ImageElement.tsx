@@ -41,15 +41,30 @@ export const ImageElement: FC<{ el: TimelineElement; media: Record<string, Media
   const video = isVideoFile(file);
   const cover: CSSProperties = { position: "absolute", left: 0, top: 0, width: "100%", height: "100%", pointerEvents: "none" };
   const grainId = `adam-grain-${el.id}`;
+  // The pixel entrance: a mosaic filter (sample one point per block, tile it, grow it back to the block) at the
+  // preset's block size, scaled to the frame width.
+  const block = Math.round(((intro.pixel || outro.pixel || 0) * width) / 1080);
+  const pixelId = `adam-px-${el.id}`;
   return (
     <div
       style={{
         ...wrap,
         opacity: Math.min(intro.opacity ?? 1, outro.opacity ?? 1),
         transform: [intro.transform, outro.transform].filter(Boolean).join(" ") || undefined,
-        filter: [intro.filter, outro.filter].filter(Boolean).join(" ") || undefined,
+        filter: [intro.filter, outro.filter, block > 1 ? `url(#${pixelId})` : ""].filter(Boolean).join(" ") || undefined,
       }}
     >
+      {block > 1 ? (
+        <svg width={0} height={0} style={{ position: "absolute" }} aria-hidden="true">
+          <filter id={pixelId} x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
+            <feFlood x={Math.floor(block / 2) - 1} y={Math.floor(block / 2) - 1} width={2} height={2} />
+            <feComposite width={block} height={block} />
+            <feTile result="grid" />
+            <feComposite in="SourceGraphic" in2="grid" operator="in" />
+            <feMorphology operator="dilate" radius={block / 2} />
+          </filter>
+        </svg>
+      ) : null}
       {video ? (
         <OffthreadVideo src={src(file)} trimBefore={startFrames(props.startMs ?? 0, fps)} volume={props.volume ?? 0} muted={!props.volume}
           style={{ ...picture, filter: look === "none" ? undefined : look }} />
