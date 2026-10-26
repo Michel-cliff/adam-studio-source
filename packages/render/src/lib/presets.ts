@@ -11,6 +11,9 @@ const PIXEL_BLOCKS = [24, 24, 16, 8, 4, 2];
 // step: a stop-motion pop for pixel icons, four frames at 12 fps, no smoothing.
 const STEP_MS = 1000 / 12;
 const STEP_SCALES = [0, 0.6, 1.1, 1];
+// popOut: an icon springing out of nothing, past its size (back easing), settled at 1 after 400 ms.
+const POPOUT_MS = 400;
+const easeOutBack = (t: number) => 1 + 2.70158 * (t - 1) ** 3 + 1.70158 * (t - 1) ** 2;
 // window: opens wide first (40 % of the time), then tall, like a window drawn on screen.
 const WINDOW_MS = 250;
 
@@ -42,6 +45,11 @@ export function presetStyle(name: string | undefined, msFromEdge: number, frame:
       const i = Math.max(0, Math.floor(msFromEdge / STEP_MS));
       return i === 0 ? { opacity: 0, transform: "scale(0)" } : { transform: `scale(${STEP_SCALES[i]})` };
     }
+    case "popOut": {
+      if (msFromEdge >= POPOUT_MS) return {};
+      const t = clamp01(msFromEdge / POPOUT_MS);
+      return { opacity: clamp01(msFromEdge / 80), transform: `scale(${round(Math.max(0, easeOutBack(t)))})` };
+    }
     case "window": {
       if (msFromEdge >= WINDOW_MS) return {};
       const t = clamp01(msFromEdge / WINDOW_MS);
@@ -61,6 +69,7 @@ export function presetMs(name: string | undefined): number {
     case "pixel": return PIXEL_MS;
     case "step": return STEP_MS * STEP_SCALES.length;
     case "window": return WINDOW_MS;
+    case "popOut": return POPOUT_MS;
     default: return 0;
   }
 }

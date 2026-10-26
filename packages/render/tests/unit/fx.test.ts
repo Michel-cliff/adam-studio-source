@@ -30,6 +30,12 @@ describe("element entrances of the look", () => {
     expect(at(300).transform).toBe("scale(1)");
     expect(at(400)).toEqual({});
   });
+  it("popOut: springs from nothing past its size, then settles at 1", () => {
+    const scale = (ms: number) => Number(/scale\(([\d.]+)\)/.exec(presetStyle("popOut", ms, 0).transform ?? "")?.[1] ?? 1);
+    expect(scale(0)).toBe(0);
+    expect(Math.max(scale(200), scale(250), scale(300))).toBeGreaterThan(1.05);
+    expect(presetStyle("popOut", 450, 0)).toEqual({});
+  });
   it("window: opens wide first, then tall", () => {
     expect(presetStyle("window", 50, 0).transform).toMatch(/scaleY\(0\.04\)/);
     expect(presetStyle("window", 240, 0).transform).toMatch(/scaleX\(1\)/);
