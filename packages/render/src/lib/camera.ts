@@ -47,7 +47,7 @@ export function cameraAt(timeline: Timeline, frame: number): Camera {
 
 /** The 4:3 window at a frame: how far it has moved (0 full frame, 1 landed), its box on screen and the main track's move. */
 export type WindowState = {
-  amount: number; color: string; barColor: string;
+  amount: number; color: string; barColor: string; backdrop: "color" | "blur";
   /** Transform of the main track, with transform-origin 0 0, and its clip in its own coordinates. */
   transform: string; clip: string;
   box: { left: number; top: number; width: number; height: number };
@@ -83,7 +83,7 @@ export function windowAt(timeline: Timeline, frame: number): WindowState | null 
     const clipBottom = (H - fy - srcH / 2) * a;
     const r = (n: number) => Math.round(n * 100) / 100;
     return {
-      amount: a, color: p.color ?? "#F3BA20", barColor: p.barColor ?? "#2B6FD4",
+      amount: a, color: p.color ?? "#F3BA20", barColor: p.barColor ?? "#2B6FD4", backdrop: p.backdrop ?? "color",
       transform: `translate(${r(tx)}px, ${r(ty)}px) scale(${scale.toFixed(4)})`,
       clip: `inset(${r(clipTop)}px 0px ${r(clipBottom)}px 0px)`,
       box: { left: tx, top: ty + scale * clipTop, width: scale * W, height: scale * (H - clipTop - clipBottom) },

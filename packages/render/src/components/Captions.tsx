@@ -32,7 +32,8 @@ const CaptionView: FC<{ c: TimelineCaption; timeline: Timeline }> = ({ c, timeli
   const top = win ? home + (under - home) * win.amount : home;
   const anchor = -50 * (1 - (win?.amount ?? 0));
   const onWindow = win !== null && win.amount > 0.5;
-  const light = onWindow && luminance(win!.color) > 0.35;
+  // A blurred take behind the window reads like an image: the caption keeps its colour and outline.
+  const light = onWindow && win!.backdrop === "color" && luminance(win!.color) > 0.35;
   const stroke = onWindow ? (light ? 0 : (8 * width) / 1080) : size * style.caption.stroke * 0.5;
   return (
     <div

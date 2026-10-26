@@ -31,6 +31,8 @@ describe("effects in the model", () => {
     expect(ok({ color: "#2B6FD4", width: 0.75, y: 0.4, focusY: 0.35, easeMs: 300 })).toBe(true);
     expect(ok({ color: "blue" })).toBe(false);
     expect(ok({ width: 1.2 })).toBe(false);
+    expect(ok({ backdrop: "blur" })).toBe(true);
+    expect(ok({ backdrop: "video" })).toBe(false);
   });
 
   it("has screen effects in the style (grain, scanlines, zoom blur), all off by default", () => {

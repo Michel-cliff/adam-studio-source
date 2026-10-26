@@ -43,7 +43,13 @@ export const Edit: FC<RenderProps> = (props) => {
         </filter>
       </svg>
       {/* The 4:3 window: the flat colour is already behind while the main track shrinks onto it. */}
-      {win ? <AbsoluteFill style={{ backgroundColor: win.color }} /> : null}
+      {win?.backdrop === "color" ? <AbsoluteFill style={{ backgroundColor: win.color }} /> : null}
+      {/* or the take itself, blurred and dimmed, filling the frame behind the box */}
+      {win?.backdrop === "blur" ? (
+        <AbsoluteFill style={{ filter: `${filter === "none" ? "" : filter} blur(${Math.round(timeline.width * 0.04)}px) brightness(0.75)`, transform: "scale(1.12)" }}>
+          <ClipLayer timeline={timeline} media={media} slides={slides} />
+        </AbsoluteFill>
+      ) : null}
       <AbsoluteFill style={win ? { transform: win.transform, transformOrigin: "0 0", clipPath: win.clip } : undefined}>
         <AbsoluteFill style={{ transform: cam.transform, transformOrigin: cam.origin, filter: cam.filter }}>
           <AbsoluteFill style={{ filter }}>

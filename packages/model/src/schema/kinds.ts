@@ -85,6 +85,8 @@ export const CameraZoomPropsSchema = z.strictObject({
  * as a share of the frame height); y is where the box sits.
  */
 export const CameraWindowPropsSchema = z.strictObject({
+  // What sits behind the box: the flat colour, or the take itself, blurred and dimmed.
+  backdrop: z.enum(["color", "blur"]).default("color"),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "expected a #RRGGBB color").default("#F3BA20"),
   barColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "expected a #RRGGBB color").default("#2B6FD4"),
   width: z.number().min(0.3).max(1).default(0.8),
