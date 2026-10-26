@@ -61,6 +61,13 @@ describe("planMedia", () => {
     expect(planMedia(dir, project, timeline).media.s!.video).toBe("cache/s/edit.mp4");
   });
 
+  it("reads the full-resolution take for a scaled export", () => {
+    const { project, timeline } = setup();
+    touch("cache/s/edit@2x.mp4");
+    expect(planMedia(dir, project, timeline, { scale: 2 }).media.s!.video).toBe("cache/s/edit@2x.mp4");
+    expect(planMedia(dir, project, timeline).media.s!.video).toBe("cache/s/edit.mp4");
+  });
+
   it("names missing files and the analysis step to run", () => {
     rmSync(join(dir, "cache/s/plate.png"));
     rmSync(join(dir, "cache/s/subject.webm"));

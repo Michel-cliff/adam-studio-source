@@ -28,11 +28,12 @@ export async function renderVideo(
   props: RenderProps,
   outFile: string,
   frameRange: number | [number, number] | [number, number][] | null = null,
-  opts: { transparent?: boolean } = {},
+  opts: { transparent?: boolean; scale?: number } = {},
 ): Promise<void> {
   const composition = await selectComposition({ serveUrl, id: COMPOSITION_ID, inputProps: props });
   const concurrency = safeConcurrency({
-    freeBytes: freemem(), cores: cpus().length, width: composition.width, height: composition.height, fps: composition.fps,
+    freeBytes: freemem(), cores: cpus().length, fps: composition.fps,
+    width: composition.width * (opts.scale ?? 1), height: composition.height * (opts.scale ?? 1),
     videoSources: activeVideoSources(props.timeline),
   });
   // Decision 0001: CapCut keeps the alpha of MOV ProRes 4444 (and ignores it in WebM).
@@ -40,7 +41,8 @@ export async function renderVideo(
     ? ({ codec: "prores", proResProfile: "4444", pixelFormat: "yuva444p10le", imageFormat: "png", muted: true } as const)
     : // BT.709 limited range, like the takes: Remotion's default (full-range BT.601) shifts brightness in CapCut.
       ({ codec: "h264", colorSpace: "bt709" } as const);
-  await renderMedia({ composition, serveUrl, outputLocation: outFile, inputProps: props, frameRange, concurrency, ...output });
+  // scale renders the 1080 x 1920 layout at n times its pixels (4K with 2); the takes come from edit@<n>x.mp4.
+  await renderMedia({ composition, serveUrl, outputLocation: outFile, inputProps: props, frameRange, concurrency, scale: opts.scale ?? 1, ...output });
 }
 
 export async function renderFrame(serveUrl: string, props: RenderProps, frame: number, outFile: string): Promise<void> {

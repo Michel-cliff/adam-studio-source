@@ -14,7 +14,7 @@ import { CliError } from "./project-io";
 const base = process.env.INIT_CWD ?? process.cwd();
 
 const USAGE = `usage: npm run adam -- <command> <projectDir> [options]
-  render <dir> [--out file.mp4] [--frames a-b] [--force]
+  render <dir> [--out file.mp4] [--frames a-b] [--scale 2] [--force]
   review <dir> [--step <step>]
   decide <dir> <proposalId> <A|B|C|reject|more> [--note "..."]
   studio <dir>
@@ -26,6 +26,14 @@ const USAGE = `usage: npm run adam -- <command> <projectDir> [options]
   analyze <dir> [--assets c01,c02] [--steps subject,plate] [--force]
   (render, review, studio and capcut-prep take --no-analyze)`;
 
+/** --scale: a whole factor from 1 to 4 (2 renders 1080 x 1920 as 4K). */
+function parseScale(s?: string): number | undefined {
+  if (s === undefined) return undefined;
+  const n = Number(s);
+  if (!Number.isInteger(n) || n < 1 || n > 4) throw new CliError(`--scale expects 1 to 4, got "${s}"`);
+  return n;
+}
+
 async function main(argv: string[]): Promise<void> {
   const { values, positionals } = parseArgs({
     args: argv,
@@ -33,6 +41,7 @@ async function main(argv: string[]): Promise<void> {
     options: {
       out: { type: "string" },
       frames: { type: "string" },
+      scale: { type: "string" },
       force: { type: "boolean" },
       step: { type: "string" },
       note: { type: "string" },
@@ -71,7 +80,7 @@ async function main(argv: string[]): Promise<void> {
       analyzeCommand(dir, { assets: values.assets, steps: values.steps, force: values.force ?? false, lang: values.lang });
       return;
     case "render":
-      await renderCommand(dir, { out: values.out ? resolve(base, values.out) : undefined, frames: values.frames, force: values.force ?? false, analyze: !values["no-analyze"] });
+      await renderCommand(dir, { out: values.out ? resolve(base, values.out) : undefined, frames: values.frames, force: values.force ?? false, analyze: !values["no-analyze"], scale: parseScale(values.scale) });
       return;
     case "review":
       await reviewCommand(dir, { step: values.step, analyze: !values["no-analyze"] });
