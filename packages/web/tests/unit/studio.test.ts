@@ -61,8 +61,14 @@ describe("asking Claude", () => {
     expect(allowed.split(",")).toEqual(["mcp__adam-studio", "mcp__blender", "Skill", "Read", "Glob", "Grep"]);
     const system = c.args[c.args.indexOf("--append-system-prompt") + 1]!;
     expect(system).toMatch(/Skill tool: anthropic-skills:editorial-film-edit/);
+    expect(c.args[c.args.indexOf("--tools") + 1]).toBe("Skill,Read,Glob,Grep");
+    expect(c.args).not.toContain("--disable-slash-commands");
     const plain = askCommand("ep 1", "visuals", "x");
     expect(plain.args[plain.args.indexOf("--allowedTools") + 1]).toBe("mcp__adam-studio");
+    // Without skills, Claude Code's own tools, skill list and plugin hooks stay out of the context.
+    expect(plain.args[plain.args.indexOf("--tools") + 1]).toBe("");
+    expect(plain.args).toContain("--disable-slash-commands");
+    expect(plain.args[plain.args.indexOf("--setting-sources") + 1]).toBe("");
   });
 
   it("does an explicit request directly: no proposal, no still, few turns", () => {

@@ -77,7 +77,10 @@ export function askCommand(project: string, step: string, prompt: string, model:
   return {
     cmd: claudeBin(),
     args: ["-p", prompt, "--append-system-prompt", system, ...(model === "default" ? [] : ["--model", model]), "--output-format", "stream-json", "--verbose",
-      "--max-turns", String(MAX_TURNS[mode]), "--strict-mcp-config", "--mcp-config", mcp, "--allowedTools", allowed.join(",")],
+      "--max-turns", String(MAX_TURNS[mode]), "--strict-mcp-config", "--mcp-config", mcp, "--allowedTools", allowed.join(","),
+      // Claude Code's own tools, skill list and the user's plugin hooks weigh tens of thousands of tokens re-read
+      // every turn: an ask without skills goes without them (the adam-studio tools come from --mcp-config).
+      ...(extras.skills?.length ? ["--tools", "Skill,Read,Glob,Grep"] : ["--tools", "", "--disable-slash-commands", "--setting-sources", ""])],
     label: mode === "do" ? `Claude: ${step} (do)` : `Claude: ${step}`,
   };
 }
