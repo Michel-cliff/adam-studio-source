@@ -9,6 +9,7 @@ import { ClaudeBar } from "./ClaudeBar";
 import { ConnectorsPanel, SkillsPanel } from "./Connectors";
 import { IconFolder, IconLink, IconSend, IconSpark } from "./icons";
 import { JobLog } from "./JobLog";
+import { VariantStrip } from "./VariantStrip";
 
 type StepId = "rushes" | "cuts" | "structure" | "captions" | "hook" | "beats" | "visuals" | "sound" | "look" | "wrap";
 const TAGLINE: Record<StepId, string> = {
@@ -95,8 +96,8 @@ function ClaudeFeed({ job, onEnd }: { job: JobView; onEnd: () => void }) {
   );
 }
 
-function ProposalCard({ p, seen, onSee, onDecide, onMore, locked }: {
-  p: ProposalView; seen: string | null; locked: string | null;
+function ProposalCard({ name, stamp, p, seen, onSee, onDecide, onMore, locked }: {
+  name: string; stamp: string; p: ProposalView; seen: string | null; locked: string | null;
   onSee: (key: string | null) => void; onDecide: (decision: string) => void; onMore: (p: ProposalView) => void;
 }) {
   const pending = p.status === "pending";
@@ -117,10 +118,10 @@ function ProposalCard({ p, seen, onSee, onDecide, onMore, locked }: {
       {p.variants.length === 0 && <p className="muted">Sent back for new options{p.notes.length ? `: “${p.notes.at(-1)}”` : ""}. Ask Claude below.</p>}
       <div className="variants">
         {p.variants.map((v, i) => (
-          <article key={v.key} className={`variant v${i % 4}${seen === v.key ? " seen" : ""}`} onClick={() => onSee(seen === v.key ? null : v.key)}>
+          <article key={v.key} className={`variant v${i % 4}${seen === v.key ? " seen" : ""}`} onClick={() => onSee(seen === v.key ? null : v.key)}
+            title={[v.why, v.summary].filter(Boolean).join("\n")}>
+            <VariantStrip name={name} proposal={p.id} variant={v.key} stamp={stamp} />
             <div className="top"><span className="k">{v.key}</span><span className="label">{v.label}</span></div>
-            {v.why && <div className="what">{v.why}</div>}
-            <div className="adds">{v.summary}</div>
             <div className="acts">
               <button onClick={(e) => { e.stopPropagation(); onDecide(v.key); }} disabled={Boolean(locked)} title={locked ?? ""}>Choose {v.key}</button>
               <button className="quiet" onClick={(e) => { e.stopPropagation(); onSee(v.key); }}>{seen === v.key ? "Watching" : "Watch"}</button>
@@ -162,7 +163,7 @@ function Screen({ name, view, proposal, variant }: { name: string; view: Project
   const [base, setBase] = useState<RenderProps | null>(null);
   const [error, setError] = useState("");
   const player = useRef<PlayerRef>(null);
-  const stamp = JSON.stringify(view.proposals.map((p) => [p.id, p.status, p.variants.length])) + view.durationMs;
+  const stamp = JSON.stringify(view.proposals.map((p) => [p.id, p.status, p.variants.length])) + (view?.durationMs ?? "");
   useEffect(() => {
     let alive = true;
     const q = proposal && variant ? `?proposal=${enc(proposal)}&variant=${variant}` : "";
@@ -299,6 +300,10 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
   };
 
   const proposals = useMemo(() => (view?.proposals ?? []).filter((p) => p.step === step).sort((a, b) => (a.status === "pending" ? 0 : 1) - (b.status === "pending" ? 0 : 1)), [view, step]);
+
+  // Changes when a proposal or the edit changes: the cards redraw their frames then.
+
+  const cardStamp = JSON.stringify((view?.proposals ?? []).map((p) => [p.id, p.status, p.variants.length])) + (view?.durationMs ?? "");
   const running = view?.jobs.find((j) => j.state === "running");
   const claudeJob = view?.jobs.find((j) => j.label.startsWith("Claude") && (j.state === "running" || Date.now() - (j.endedAt ?? 0) < 60_000) && (j.label === `Claude: ${step}` || j.label === `Claude: ${step} (do)`));
   const otherJob = jobId ? view?.jobs.find((j) => j.id === jobId && !j.label.startsWith("Claude")) : running && !running.label.startsWith("Claude") ? running : undefined;
@@ -366,7 +371,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
             {lockedWhy && <p className="muted">{lockedWhy} to choose here; you can already explore.</p>}
             {proposals.length === 0 && !claudeJob && <p className="muted">Nothing proposed yet for this step. Ask Claude below, or skip it.</p>}
             {proposals.map((p) => (
-              <ProposalCard key={p.id} p={p} locked={lockedWhy} seen={seen?.proposal === p.id ? seen.key : null}
+              <ProposalCard key={p.id} name={name} stamp={cardStamp} p={p} locked={lockedWhy} seen={seen?.proposal === p.id ? seen.key : null}
                 onSee={(key) => setSeen(key ? { proposal: p.id, key } : null)}
                 onDecide={async (d) => { if (await edit({ op: "decide", proposal: p.id, decision: d }, d === "reject" ? "Proposal set aside" : `Variant ${d} applied`)) setSeen(null); }}
                 onMore={(pp) => { setRefill(pp); setPrompt(""); }} />

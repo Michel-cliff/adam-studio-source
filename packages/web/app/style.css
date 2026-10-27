@@ -204,6 +204,11 @@ section video, .card video, img.sheet { display: block; max-width: 100%; max-hei
 .variant .what { color: var(--ink2); font-size: 13.5px; line-height: 1.5; }
 .variant .adds { font: 400 12px/1.4 var(--mono); color: var(--muted); }
 .variant .acts { margin-top: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+/* the variant as pictures: three frames drawn in the browser, at what it changes */
+.variant .strip { display: flex; gap: 6px; margin: -4px -4px 2px; }
+.variant .strip .th { flex: 1; min-width: 0; max-height: 210px; overflow: hidden; border: 2px solid var(--ink); border-radius: 10px; background: var(--ink); }
+.variant .strip .th.loading { aspect-ratio: 9 / 16; background: repeating-linear-gradient(45deg, var(--blue-soft) 0 8px, var(--card) 8px 16px); animation: shimmer 1.2s linear infinite; }
+@keyframes shimmer { to { background-position: 45px 0; } }
 .variant .acts button { padding: 9px 12px; font-size: 13px; }
 .decided { display: flex; gap: 10px; align-items: center; padding: 10px 14px; border: 2px dashed rgba(22,22,22,.35); border-radius: 12px; font: 400 13px/1.35 var(--mono); color: var(--ink2); margin-bottom: 10px; }
 .chosen { font: 700 13px/1 var(--mono); background: var(--yellow); color: var(--ink); padding: 6px 9px; border-radius: 7px; white-space: nowrap; }
