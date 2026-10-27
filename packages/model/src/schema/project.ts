@@ -115,7 +115,8 @@ export const PatchSchema = z.strictObject({
 });
 
 export const VariantKeySchema = z.enum(["A", "B", "C"]);
-export const VariantSchema = z.strictObject({ key: VariantKeySchema, label: z.string().min(1), patch: PatchSchema });
+// `why`: what changes, where, and what the viewer gets, in a sentence or two (shown on the variant card).
+export const VariantSchema = z.strictObject({ key: VariantKeySchema, label: z.string().min(1), why: z.string().max(400).optional(), patch: PatchSchema });
 export const ProposalStatusSchema = z.union([
   z.literal("pending"),
   z.literal("rejected"),

@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { request, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -30,7 +30,12 @@ beforeAll(async () => {
   writeFileSync(join(root, "secret.txt"), "secret");
   const settingsFile = join(root, "ui.json");
   setProjectsRoot(root, settingsFile);
-  server = createApp({ settingsFile, jobs, capcutPython: () => null, dist: join(root, "no-dist") }).listen(0, "127.0.0.1");
+  // A home of its own, so the tests never read the real ~/.claude.json or skills.
+  const home = join(root, "home");
+  mkdirSync(join(home, ".claude", "skills", "pm-kinator"), { recursive: true });
+  writeFileSync(join(home, ".claude", "skills", "pm-kinator", "SKILL.md"), "---\nname: pm-kinator\ndescription: interview\n---\n");
+  writeFileSync(join(home, ".claude.json"), JSON.stringify({ mcpServers: { blender: { command: "uvx", args: ["blender-mcp"] } } }));
+  server = createApp({ settingsFile, jobs, capcutPython: () => null, dist: join(root, "no-dist"), home }).listen(0, "127.0.0.1");
   await new Promise((r) => server.once("listening", r));
   port = (server.address() as AddressInfo).port;
 });
@@ -77,8 +82,8 @@ describe("app", () => {
   });
 
   it("lists folders and keeps settings", async () => {
-    expect((await call("GET", `/api/fs?path=${encodeURIComponent(root)}`)).json.folders).toEqual([join(root, "projet démo")]);
-    expect((await call("GET", "/api/settings")).json).toEqual({ projectsRoot: root });
+    expect((await call("GET", `/api/fs?path=${encodeURIComponent(root)}`)).json.folders).toContain(join(root, "projet démo"));
+    expect((await call("GET", "/api/settings")).json).toMatchObject({ projectsRoot: root });
     expect((await call("PUT", "/api/settings", { body: { projectsRoot: "relative" } })).status).toBe(400);
   });
 
@@ -86,5 +91,102 @@ describe("app", () => {
     const r = await call("GET", "/");
     expect(r.status).toBe(503);
     expect(r.text).toMatch(/npm run build -w packages\/web/);
+  });
+});
+
+function upload(path: string, data: Buffer) {
+  return new Promise<{ status: number; json: any }>((res) => {
+    const req = request({ host: "127.0.0.1", port, method: "POST", path, headers: { host: `127.0.0.1:${port}`, "content-type": "application/octet-stream", "content-length": data.length } }, (r) => {
+      let text = ""; r.on("data", (c) => (text += c)); r.on("end", () => res({ status: r.statusCode!, json: JSON.parse(text) }));
+    });
+    req.end(data);
+  });
+}
+
+describe("studio tools", () => {
+  it("keeps the Claude model with the projects folder", async () => {
+    expect((await call("GET", "/api/settings")).json).toMatchObject({ projectsRoot: root, claudeModel: "default", models: ["default", "opus", "sonnet", "haiku"] });
+    expect((await call("PUT", "/api/settings", { body: { claudeModel: "opus" } })).status).toBe(200);
+    expect((await call("GET", "/api/settings")).json).toMatchObject({ projectsRoot: root, claudeModel: "opus" });
+    expect((await call("PUT", "/api/settings", { body: { claudeModel: "gpt" } })).status).toBe(400);
+  });
+
+  it("keeps the look applied to every video, among the Inspiration folder's looks", async () => {
+    process.env.ADAM_INSPIRATION = join(root, "inspiration");
+    mkdirSync(join(root, "inspiration", "looks", "editorial-archival"), { recursive: true });
+    writeFileSync(join(root, "inspiration", "looks", "editorial-archival", "LOOK.md"), "---\ntitle: Editorial archival\n---\nSoft archival.\n");
+    const s = (await call("GET", "/api/settings")).json;
+    expect(s.look).toBe("editorial-archival");
+    expect(s.looks).toEqual([{ name: "editorial-archival", title: "Editorial archival", for: "" }]);
+    expect((await call("PUT", "/api/settings", { body: { look: "" } })).json.look).toBe("");
+    expect((await call("PUT", "/api/settings", { body: { look: "nope" } })).status).toBe(400);
+    expect((await call("PUT", "/api/settings", { body: { look: "editorial-archival" } })).json.look).toBe("editorial-archival");
+  });
+
+  it("lists Claude Code's skills and manages the connectors without showing their secrets", async () => {
+    expect((await call("GET", "/api/skills")).json).toEqual([{ name: "pm-kinator", description: "interview" }]);
+    expect((await call("GET", "/api/connectors")).json).toEqual([{ name: "blender", type: "stdio", source: "claude-code", enabled: false }, { name: "savee", type: "http", source: "built-in", enabled: false }]);
+    expect((await call("PUT", "/api/connectors", { body: { enabled: ["blender"] } })).json[0].enabled).toBe(true);
+    const added = await call("POST", "/api/connectors", { body: { name: "higgsfield", url: "https://mcp.example/h" } });
+    expect(added.json.map((c: { name: string }) => c.name)).toEqual(["blender", "savee", "higgsfield"]);
+    expect((await call("POST", "/api/connectors", { body: { name: "x", url: "http://plain" } })).status).toBe(400);
+    expect((await call("DELETE", "/api/connectors/higgsfield")).json.map((c: { name: string }) => c.name)).toEqual(["blender", "savee"]);
+  });
+
+  it("says what Claude used, even before the first ask", async () => {
+    expect((await call("GET", "/api/usage")).json).toMatchObject({ today: { asks: 0 }, limits: null });
+  });
+
+  it("drops a file into Inspiration and straight into the video", async () => {
+    process.env.ADAM_INSPIRATION = join(root, "inspiration");
+    // Importing validates the whole project, style included.
+    const font = { family: "Arial", file: "C:/Windows/Fonts/arialbd.ttf" };
+    writeFileSync(join(root, "projet démo", "style.json"), JSON.stringify({ name: "t", fonts: { caption: font, title: font }, colors: { text: "#FFFFFF", highlight: "#FFD100", accent: "#FF6B35", ink: "#0E0C0A" },
+      caption: { size: 0.052 }, slots: { "9:16": { caption: { x: 0.5, y: 0.76 }, title: { x: 0.5, y: 0.3 }, center: { x: 0.5, y: 0.5 } }, "16:9": { caption: { x: 0.5, y: 0.86 }, title: { x: 0.5, y: 0.22 }, center: { x: 0.5, y: 0.5 } } },
+      lint: { "9:16": { minDurationMs: 0, maxDurationMs: 60000 }, "16:9": { minDurationMs: 0, maxDurationMs: 1200000 } } }));
+    const png = Buffer.from("89504e470d0a1a0a", "hex");
+    const r = await upload(`/api/library/upload?name=${encodeURIComponent("logo final.png")}&project=${encodeURIComponent("projet démo")}`, png);
+    expect(r.status).toBe(200);
+    expect(r.json.saved).toMatch(/inspiration.Uploads.logo final[.]png$/);
+    expect(r.json.imported).toMatchObject({ id: "logo_final", kind: "image", path: "assets/logo_final.png" });
+    expect((await call("GET", P)).json.assets).toEqual([{ id: "logo_final", kind: "image", path: "assets/logo_final.png" }]);
+    // A second drop of the same name does not overwrite the first.
+    const again = await upload(`/api/library/upload?name=${encodeURIComponent("logo final.png")}`, png);
+    expect(again.json.saved).toMatch(/logo final [(]2[)][.]png$/);
+    expect((await upload("/api/library/upload?name=virus.exe", png)).status).toBe(400);
+  });
+
+  it("deletes an Inspiration file into the folder's trash, and nothing outside the folder", async () => {
+    process.env.ADAM_INSPIRATION = join(root, "inspiration");
+    const r = await upload(`/api/library/upload?name=${encodeURIComponent("to drop.png")}`, Buffer.from("89504e470d0a1a0a", "hex"));
+    writeFileSync(`${r.json.saved}.txt`, "notes");
+    const del = await call("DELETE", `/api/library/file?path=${encodeURIComponent(r.json.saved)}`);
+    expect(del.status).toBe(200);
+    expect(existsSync(r.json.saved)).toBe(false);
+    expect(existsSync(`${r.json.saved}.txt`)).toBe(false);
+    expect(existsSync(del.json.trashed)).toBe(true);
+    expect(del.json.trashed).toMatch(/inspiration.\.trash/);
+    expect((await call("DELETE", `/api/library/file?path=${encodeURIComponent(join(root, "secret.txt"))}`)).status).toBe(404);
+  });
+
+  it("removes an unused asset from the video, and refuses one the edit still uses", async () => {
+    const used = await call("DELETE", `${P}/assets/c01`);
+    expect(used.status).toBe(409);
+    expect(used.json.error).toMatch(/c01.*used/);
+    const del = await call("DELETE", `${P}/assets/logo_final`);
+    expect(del.status).toBe(200);
+    expect((await call("GET", P)).json.assets).toEqual([]);
+    expect(existsSync(join(root, "projet démo", "assets", "logo_final.png"))).toBe(false);
+    expect((await call("DELETE", `${P}/assets/nope`)).status).toBe(404);
+  });
+
+  it("moves a deleted project to the trash, never while it works", async () => {
+    const dir = join(root, "old one");
+    mkdirSync(dir);
+    writeFileSync(join(dir, "project.json"), "{}");
+    expect((await call("DELETE", `/api/projects/${encodeURIComponent("old one")}`)).status).toBe(200);
+    expect((await call("GET", "/api/projects")).json.map((p: { name: string }) => p.name)).not.toContain("old one");
+    expect(readdirSync(join(root, ".trash")).some((d) => d.startsWith("old one "))).toBe(true);
+    expect((await call("DELETE", `/api/projects/${encodeURIComponent("nope")}`)).status).toBe(404);
   });
 });

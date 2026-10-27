@@ -31,7 +31,7 @@ const ElementView: FC<{ el: TimelineElement; timeline: Timeline; media: Record<s
     case "text.behindSubject":
       return <BigWord el={el} style={timeline.style} />;
     case "image":
-      return <ImageElement el={el} media={media} speed={timeline.style.motion?.speed ?? 1} />;
+      return <ImageElement el={el} media={media} speed={timeline.style.motion?.speed ?? 1} inserts={timeline.style.inserts} />;
     case "hud.panel":
       return <HudPanel el={el} style={timeline.style} media={media} />;
     case "hud.stat":

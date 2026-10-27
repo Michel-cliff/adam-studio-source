@@ -18,7 +18,7 @@ export function expandEnv(path: string): string {
   return path.replace(/%([^%]+)%/g, (whole, name: string) => process.env[name] ?? whole);
 }
 
-export function planMedia(projectDir: string, project: Project, timeline: Timeline, opts: { preview?: boolean } = {}): MediaPlan {
+export function planMedia(projectDir: string, project: Project, timeline: Timeline, opts: { preview?: boolean; scale?: number } = {}): MediaPlan {
   const files = new Map<string, string>(); // public path -> source path
   const media: Record<string, MediaFiles> = {};
   const missing: string[] = [];
@@ -43,9 +43,12 @@ export function planMedia(projectDir: string, project: Project, timeline: Timeli
     if (c.framing.mode === "split") videoAssets.add(c.framing.asset);
   }
   for (const id of videoAssets) {
-    // Previews read the half-resolution proxy when the analysis made one; exports always read edit.mp4.
+    // Previews read the half-resolution proxy when the analysis made one; exports read edit.mp4, or edit@<n>x.mp4
+    // (made by ensureScaledTakes) for an export scaled by n.
     const proxy = cache(id, "proxy.mp4");
-    if (opts.preview && existsSync(proxy)) add(id, "video", proxy, `cache/${id}/proxy.mp4`, "run the variants analysis step");
+    const scaled = `edit@${opts.scale}x.mp4`;
+    if (opts.scale && opts.scale > 1) add(id, "video", cache(id, scaled), `cache/${id}/${scaled}`, "render with --scale, which makes it");
+    else if (opts.preview && existsSync(proxy)) add(id, "video", proxy, `cache/${id}/proxy.mp4`, "run the variants analysis step");
     else add(id, "video", cache(id, "edit.mp4"), `cache/${id}/edit.mp4`, "run the variants analysis step");
     const meta = assets.get(id)?.meta;
     if (meta?.width && meta.height) media[id] = { ...media[id], width: meta.width, height: meta.height };

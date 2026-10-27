@@ -11,10 +11,8 @@ import { nameInRoot, runAction, runSetup, stills, tail } from "./run";
 import { importAsset, lookAt } from "@adam-studio/library/src/importer";
 import { inspirationRoot, searchLocal, type LibraryKind } from "@adam-studio/library/src/local";
 import { searchOnline } from "@adam-studio/library/src/online";
-import { pinterestBoards, syncPinterestBoard } from "@adam-studio/library/src/pinterest";
 import { saveSeries } from "@adam-studio/render/src/series";
 import { firstPassBrief } from "./brief";
-import { insightsReport, refreshInsights } from "@adam-studio/web/server/insights-routes";
 import { addAssetIn, applySeriesIn, firstPassIn, closeCurrentStep, listSeries, decideProposal, patchProject, projectDir, propose, setValue, ToolError, undo, updateItem } from "@adam-studio/web/server/store";
 import { projectSummary, transcriptText } from "./view";
 
@@ -26,7 +24,9 @@ Creative choices: propose one to three variants (A, B, C) with propose; the crea
 (npm run ui) or you render them with run review; decide records the choice. Guided steps run in order: cuts, structure,
 captions, hook, beats, visuals, sound, look. Every write is validated and backed up: undo puts back the previous version.
 Creator taste so far: default effect animations feel a bit fast; lean slower (style motion.speed below 1 slows every effect).
-Effects: element kinds hud.panel, hud.stat, lottie, camera.zoom (punch-in); transitions flash, whip, zoom (get_reference kind:<name>).`;
+Effects: element kinds hud.panel, hud.stat, lottie, camera.zoom (punch-in), camera.window (4:3 window on a flat colour);
+image intro/outro fade, pop, pixel, step, window, glitch; style fx {grain, scanlines, zoomBlur}; transitions flash, whip,
+zoom (get_reference kind:<name>, get_reference style).`;
 
 // stdout carries the protocol: library logs go to stderr.
 console.log = console.error;
@@ -77,7 +77,7 @@ tool("set_value", "Sets any value of project.json by JSON Pointer (e.g. /caption
     return written(setValue(dirOf(p), pointer, remove ? undefined : value));
   });
 
-tool("propose", "Adds a proposal {id, step, anchor?, reason, variants: [{key: A|B|C, label, patch}]}, or new variants for one sent back with \"more\".",
+tool("propose", "Adds a proposal {id, step, anchor?, reason, variants: [{key: A|B|C, label, why, patch}]} (why: what changes, where, what the viewer gets, in the transcript's language), or new variants for one sent back with \"more\". Follow the editing rules in the first-pass brief.",
   { project, proposal: z.record(z.string(), z.unknown()) }, ({ project: p, proposal }) => written(propose(dirOf(p), proposal)));
 
 tool("decide", "Records the creator's decision on a proposal: A, B or C applies that variant; reject; more asks for new variants.",
@@ -100,7 +100,7 @@ tool("save_series", "Starts a series from a project: its style, the images and s
 
 const kind = z.enum(["video", "image", "audio", "font", "lottie"]);
 
-tool("search_assets", "Searches the creator's Inspiration folder first (their own references: videos, images, sounds, fonts, Lottie, notes), then, with online, free sources (Openverse CC0/CC BY images and sounds, Pexels, Pixabay, Freesound when keys exist).",
+tool("search_assets", "Searches the creator's Inspiration folder first (their own references: videos, images, sounds, fonts, Lottie, notes), then, with online, Pixabay (images, videos) and Freesound (CC0 sounds).",
   { query: z.string(), kind: kind.optional(), online: z.boolean().optional() },
   async ({ query, kind: k, online }) => {
     const local = searchLocal(query, k as LibraryKind | undefined).slice(0, 30).map(({ path, kind: kk, title, notes, durationMs, rel }) => ({ path, kind: kk, title, rel, notes: notes.slice(0, 300), durationMs }));
@@ -124,20 +124,7 @@ tool("import_asset", "Copies a file (path) or downloads one (url) into the proje
     return text(`asset "${a.id}" (${a.kind}) added: ${a.path}\n${r.lint.join("\n") || "lint: clean"}`);
   });
 
-tool("pinterest_boards", "The creator's Pinterest boards (official API; connect from the panel's Library page).", {}, async () => text(JSON.stringify(await pinterestBoards(), null, 1)));
-
-tool("pinterest_sync", "Copies a Pinterest board's pins into the Inspiration folder (Pinterest/<board>/) with their notes.",
-  { board: z.string() }, async ({ board }) => text(JSON.stringify(await syncPinterestBoard(board))));
-
-tool("insights", "The creator's published videos (TikTok, Instagram) ranked by views, with engagement, the features of the linked project's edit (length, cuts per minute, hook length, framework, series), and medians by edit choice. refresh: true fetches fresh numbers first.",
-  { refresh: z.boolean().optional() }, async ({ refresh }) => {
-    const notes = refresh ? await refreshInsights() : [];
-    const r = insightsReport(root());
-    const rows = r.rows.map(({ cover, url, ...rest }) => (void cover, void url, rest));
-    return text(JSON.stringify({ notes, fetchedAt: r.fetchedAt, status: r.status, compare: r.compare, videos: rows.slice(0, 60) }, null, 1));
-  });
-
-tool("first_pass", "Automatic first pass of a project: writes the mechanical proposals (cuts: fillers, failed takes, dead air; captions) and returns a brief (the edit as sentences with word ids, frameworks, Insights, Inspiration, style) for you to write the creative proposals (structure, hook, beats, visuals, sound, look) with propose.",
+tool("first_pass", "Automatic first pass of a project: writes the mechanical proposals (cuts: fillers, failed takes, dead air; captions) and returns a brief (the edit as sentences with word ids, frameworks, Inspiration, style) for you to write the creative proposals (structure, hook, beats, visuals, sound, look) with propose.",
   { project }, ({ project: p }) => {
     const dir = dirOf(p);
     const r = firstPassIn(dir);

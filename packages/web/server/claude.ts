@@ -3,6 +3,8 @@ import { join } from "node:path";
 import type { Command } from "./actions";
 import { ActionError } from "./actions";
 import { REPO, TSX } from "./paths";
+import { rulesFor } from "./rules";
+import type { ClaudeModel } from "./settings";
 
 /** Claude Code's executable: ADAM_CLAUDE, the npm install's claude.exe on Windows, or `claude` on the PATH. */
 export function claudeBin(): string {
@@ -26,7 +28,10 @@ export const STEP_BRIEFS: Record<string, string> = {
  * Asks Claude Code (headless, the creator's subscription) to write one proposal for a step, through the
  * adam-studio MCP tools only. Its stream-json output is the job's log; the panel turns it into an activity feed.
  */
-export function askCommand(project: string, step: string, prompt: string): Command {
+/** Beyond Adam Studio's tools: the connectors the creator turned on and the skills picked for this ask. */
+export type AskExtras = { servers?: Record<string, unknown>; tools?: string[]; skills?: string[] };
+
+export function askCommand(project: string, step: string, prompt: string, model: ClaudeModel = "default", look: string | null = null, extras: AskExtras = {}): Command {
   if (!STEP_BRIEFS[step]) throw new ActionError(`unknown step "${step}"`);
   if (!prompt.trim()) throw new ActionError("write what you want first");
   const id = `ask.${step}.${Date.now().toString(36)}`;
@@ -34,16 +39,26 @@ export function askCommand(project: string, step: string, prompt: string): Comma
     "You are the editor inside Adam Studio, working for the creator through the adam-studio tools only.",
     `Project: "${project}" (pass it as the project argument). Current step: ${step}. ${STEP_BRIEFS[step]}`,
     `Write exactly ONE proposal with the propose tool: id "${id}", step "${step}", two or three variants (A, B, C) that are genuinely different,`,
-    "labels of at most 60 characters that say what the creator will see, and a one-sentence reason. Anchor on word ids (get_transcript).",
-    "Check get_project first; use get_reference for schemas, search_assets / look_at / import_asset for media, still to look at a variant.",
-    "The creator's taste: animations a bit slower than default, few meaningful effects. Never call decide or run.",
+    "each with a label (at most 60 characters, what the creator will see), a why (what changes, where, what the viewer gets) and the patch,",
+    "plus a one-sentence reason for the proposal. Labels, why and reason in the transcript's language. Anchor on word ids (get_transcript).",
+    "Check get_project first (its proposal history holds the creator's past choices and notes); use get_reference for schemas,",
+    "search_assets / look_at / import_asset for media, still to look at your boldest variant before you finish. Never call decide or run.",
+    "",
+    rulesFor(step),
+    "",
+    ...(look ? ["The video's look (it wins over generic defaults; say plainly what the renderer cannot do yet):", look, ""] : []),
+    ...(extras.skills?.length ? [`The creator asked for these skills: invoke each with the Skill tool: ${extras.skills.join(", ")}.`,
+      "Apply their rules through the adam-studio tools (the proposal is still written with propose); read their files when they point to them.", ""] : []),
+    ...(extras.tools?.length ? [`Connected tools you may also use: ${extras.tools.join(", ")}.`, ""] : []),
     "End with ONE short plain sentence (under 30 words) for the creator, in the language of the transcript: no markdown, no ids, no list.",
   ].join("\n");
-  const mcp = JSON.stringify({ mcpServers: { "adam-studio": { command: process.execPath, args: [TSX, join(REPO, "packages", "mcp", "src", "server.ts")] } } });
+  const mcp = JSON.stringify({ mcpServers: { "adam-studio": { command: process.execPath, args: [TSX, join(REPO, "packages", "mcp", "src", "server.ts")] }, ...(extras.servers ?? {}) } });
+  // A skill is read with Skill, then its files with Read, Glob and Grep: no shell, no writes outside the tools.
+  const allowed = ["mcp__adam-studio", ...(extras.tools ?? []), ...(extras.skills?.length ? ["Skill", "Read", "Glob", "Grep"] : [])];
   return {
     cmd: claudeBin(),
-    args: ["-p", prompt, "--append-system-prompt", system, "--output-format", "stream-json", "--verbose",
-      "--strict-mcp-config", "--mcp-config", mcp, "--allowedTools", "mcp__adam-studio"],
+    args: ["-p", prompt, "--append-system-prompt", system, ...(model === "default" ? [] : ["--model", model]), "--output-format", "stream-json", "--verbose",
+      "--strict-mcp-config", "--mcp-config", mcp, "--allowedTools", allowed.join(",")],
     label: `Claude: ${step}`,
   };
 }

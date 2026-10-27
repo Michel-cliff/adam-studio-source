@@ -1,6 +1,8 @@
 import type { FC } from "react";
 import { AbsoluteFill, useCurrentFrame } from "remotion";
-import { cameraAt } from "./lib/camera";
+import { cameraAt, windowAt } from "./lib/camera";
+import { scanlinesAt } from "./lib/fx";
+import { FootageGrain, Scanlines, WindowChrome } from "./components/ScreenFx";
 import { AudioLayer } from "./components/AudioLayer";
 import { Captions } from "./components/Captions";
 import { ClipLayer } from "./components/ClipLayer";
@@ -31,6 +33,8 @@ export const Edit: FC<RenderProps> = (props) => {
   const filter = full ? gradeFilter(grade, GRADE_FILTER_ID) : warmthFilter(grade, GRADE_FILTER_ID);
   const slides = slideWindows(timeline);
   const cam = cameraAt(timeline, frame);
+  const win = windowAt(timeline, frame);
+  const fx = timeline.style.fx;
   return (
     <AbsoluteFill style={{ backgroundColor: "black" }}>
       <svg width={0} height={0} style={{ position: "absolute" }}>
@@ -38,17 +42,30 @@ export const Edit: FC<RenderProps> = (props) => {
           <feColorMatrix type="matrix" values={warmthMatrix(grade.warmth).join(" ")} />
         </filter>
       </svg>
-      <AbsoluteFill style={{ transform: cam.transform, transformOrigin: cam.origin, filter: cam.filter }}>
-        <AbsoluteFill style={{ filter }}>
+      {/* The 4:3 window: the flat colour is already behind while the main track shrinks onto it. */}
+      {win?.backdrop === "color" ? <AbsoluteFill style={{ backgroundColor: win.color }} /> : null}
+      {/* or the take itself, blurred and dimmed, filling the frame behind the box */}
+      {win?.backdrop === "blur" ? (
+        <AbsoluteFill style={{ filter: `${filter === "none" ? "" : filter} blur(${Math.round(timeline.width * 0.04)}px) brightness(0.75)`, transform: "scale(1.12)" }}>
           <ClipLayer timeline={timeline} media={media} slides={slides} />
         </AbsoluteFill>
-        <ElementLayer timeline={timeline} media={media} layer="behind-subject" />
-        <AbsoluteFill style={{ filter }}>
-          <SubjectLayer timeline={timeline} media={media} windows={subjectWindows(timeline)} slides={slides} />
+      ) : null}
+      <AbsoluteFill style={win ? { transform: win.transform, transformOrigin: "0 0", clipPath: win.clip } : undefined}>
+        <AbsoluteFill style={{ transform: cam.transform, transformOrigin: cam.origin, filter: cam.filter }}>
+          <AbsoluteFill style={{ filter }}>
+            <ClipLayer timeline={timeline} media={media} slides={slides} />
+          </AbsoluteFill>
+          <ElementLayer timeline={timeline} media={media} layer="behind-subject" />
+          <AbsoluteFill style={{ filter }}>
+            <SubjectLayer timeline={timeline} media={media} windows={subjectWindows(timeline)} slides={slides} />
+          </AbsoluteFill>
         </AbsoluteFill>
       </AbsoluteFill>
+      {win ? <WindowChrome win={win} /> : null}
+      <FootageGrain amount={fx?.grain ?? 0} frame={frame} />
+      <Scanlines amount={scanlinesAt(timeline, frame)} />
       {cam.flash > 0 ? <AbsoluteFill style={{ backgroundColor: "white", opacity: cam.flash }} /> : null}
-      {full && grade.vignette > 0 ? <AbsoluteFill style={{ background: vignetteBackground(grade.vignette) }} /> : null}
+      {full && grade.vignette > 0 ? <AbsoluteFill style={{ background: vignetteBackground(grade.vignette), opacity: 1 - (win?.amount ?? 0) }} /> : null}
       {full ? <ElementLayer timeline={timeline} media={media} layer="front" /> : null}
       {full ? <Captions timeline={timeline} /> : null}
       <AudioLayer timeline={timeline} media={media} clipAudioOnly={!full} />

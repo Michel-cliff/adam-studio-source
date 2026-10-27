@@ -53,6 +53,7 @@ export function defaultStyle(fontFile: string) {
     fonts: { caption: font, title: font },
     colors: { text: "#FFFFFF", highlight: "#FFD100", accent: "#FF6B35", ink: "#0E0C0A" },
     grade: { warmth: 0, contrast: 0, saturation: 0, brightness: 0, vignette: 0 },
+    inserts: { bw: 0, grain: 0, bloom: 0 },
     caption: { size: 0.0525, stroke: 0.08, shadow: true, maxCharsPerLine: 22, intro: "miniZoom" },
     slots: { "9:16": slots, "16:9": { caption: { x: 0.5, y: 0.86 }, title: { x: 0.5, y: 0.22 }, center: { x: 0.5, y: 0.5 } } },
     lint: { "9:16": { minDurationMs: 0, maxDurationMs: 90000 }, "16:9": { minDurationMs: 0, maxDurationMs: 1200000 } },

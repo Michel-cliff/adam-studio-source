@@ -30,6 +30,11 @@ export const ImagePropsSchema = z.strictObject({
   fit: z.enum(["full", "contain", "cover"]).default("full"),
   intro: z.string().optional(),
   outro: z.string().optional(),
+  // Width as a share of the frame's width (popups beside the speaker); without it, at most 90% of the frame.
+  width: z.number().min(0.03).max(1).optional(),
+  // A video asset plays from startMs in its file, at this volume (muted by default: the speaker talks over it).
+  startMs: Ms.default(0),
+  volume: z.number().min(0).max(2).default(0),
 });
 
 export const SfxPropsSchema = z.strictObject({
@@ -72,6 +77,24 @@ export const CameraZoomPropsSchema = z.strictObject({
   x: z.number().min(0).max(1).default(0.5),
   y: z.number().min(0).max(1).default(0.4),
   easeMs: Ms.default(300),
+  // "cut": the element starts already zoomed in and only eases out at its end (an opening dezoom).
+  enter: z.enum(["ease", "cut"]).default("ease"),
+});
+
+/**
+ * The 4:3 window move: the main track shrinks like a window to a 4:3 box on a flat colour, with a black outline and a
+ * title bar, then grows back at the end; not drawn itself. focusY is the part of the take the box keeps (its centre,
+ * as a share of the frame height); y is where the box sits.
+ */
+export const CameraWindowPropsSchema = z.strictObject({
+  // What sits behind the box: the flat colour, or the take itself, blurred and dimmed.
+  backdrop: z.enum(["color", "blur"]).default("color"),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "expected a #RRGGBB color").default("#F3BA20"),
+  barColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "expected a #RRGGBB color").default("#2B6FD4"),
+  width: z.number().min(0.3).max(1).default(0.8),
+  y: z.number().min(0).max(1).default(0.42),
+  focusY: z.number().min(0).max(1).default(0.4),
+  easeMs: Ms.default(300),
 });
 
 export const KIND_SCHEMAS = {
@@ -83,6 +106,7 @@ export const KIND_SCHEMAS = {
   "hud.stat": HudStatPropsSchema,
   lottie: LottiePropsSchema,
   "camera.zoom": CameraZoomPropsSchema,
+  "camera.window": CameraWindowPropsSchema,
 } as const;
 
 export type KindName = keyof typeof KIND_SCHEMAS;
@@ -101,4 +125,5 @@ export type HudPanelProps = z.output<typeof HudPanelPropsSchema>;
 export type HudStatProps = z.output<typeof HudStatPropsSchema>;
 export type LottieProps = z.output<typeof LottiePropsSchema>;
 export type CameraZoomProps = z.output<typeof CameraZoomPropsSchema>;
+export type CameraWindowProps = z.output<typeof CameraWindowPropsSchema>;
 export type SfxProps = z.output<typeof SfxPropsSchema>;

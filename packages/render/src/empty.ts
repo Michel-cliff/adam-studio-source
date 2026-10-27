@@ -14,6 +14,8 @@ export const EMPTY_PROPS: RenderProps = {
       motion: { speed: 1 },
     fillers: {},
     grade: { warmth: 0, contrast: 0, saturation: 0, brightness: 0, vignette: 0 },
+    inserts: { bw: 0, grain: 0, bloom: 0 },
+    fx: { grain: 0, scanlines: { window: 0, burst: 0, burstFrames: 3 }, zoomBlur: 0 },
       caption: { size: 0.05, stroke: 0.08, shadow: true, maxCharsPerLine: 22, intro: "miniZoom" },
       slots: { "9:16": {}, "16:9": {} },
       lint: { "9:16": lintRules, "16:9": lintRules },

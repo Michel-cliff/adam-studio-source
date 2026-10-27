@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FolderView } from "../server/types";
 import { api, enc, go } from "./api";
+import { IconFolder } from "./icons";
 
 const LANGS = ["auto", "fr", "en", "es", "de", "it", "pt"];
 const leaf = (p: string) => p.split(/[\\/]/).filter(Boolean).pop() ?? p;
@@ -20,7 +21,7 @@ function FolderPicker({ picked, setPicked }: { picked: string[]; setPicked: (v: 
       </div>
       {error && <p className="error">{error}</p>}
       <ul>
-        {view?.folders.map((f) => <li key={f}><a href="" onClick={(e) => { e.preventDefault(); open(f); }}>📁 {leaf(f)}</a></li>)}
+        {view?.folders.map((f) => <li key={f}><a href="" onClick={(e) => { e.preventDefault(); open(f); }}><IconFolder /> {leaf(f)}</a></li>)}
         {view?.videos.map((v) => (
           <li key={v}><label><input type="checkbox" checked={picked.includes(v)} onChange={() => toggle(v)} /> {leaf(v)}</label></li>
         ))}
@@ -54,7 +55,7 @@ export function NewProject({ addTo }: { addTo?: string }) {
   };
   return (
     <>
-      <h1>{addTo ? `Add rushes to ${addTo}` : "New project"}</h1>
+      <h1>{addTo ? `Add rushes to ${addTo}` : "New video"}</h1>
       {!addTo && (
         <div className="row" style={{ marginBottom: 12 }}>
           <input placeholder="Project name" value={name} onChange={(e) => setName(e.target.value)} />

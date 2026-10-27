@@ -1,7 +1,10 @@
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, renameSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
-import { join } from "node:path";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
+import { addConnector, askServers, listConnectors, removeConnector, setEnabled } from "./connectors";
+import { listSkills } from "./skills";
 import { ActionError, addCommand, buildCommand, checkVideos, newProjectCommand } from "./actions";
 import { serveFile } from "./files";
 import { listFolder } from "./fsbrowse";
@@ -9,12 +12,13 @@ import { hostAllowed, inside, originAllowed, safeName } from "./guards";
 import { BusyError, JobManager } from "./jobs";
 import { venvPython, WEB } from "./paths";
 import { askCommand } from "./claude";
-import { insightsRoute } from "./insights-routes";
 import { libraryRoute } from "./library-routes";
 import { mediaFile, previewData } from "./preview";
 import { listProjects, projectView } from "./projects";
-import { applySeriesIn, closeCurrentStep, cutWordsIn, decideProposal, firstPassIn, listSeries, loadRaw, patchProject, setValue, ToolError, tightenIn, undo, updateItem } from "./store";
-import { projectsRoot, SETTINGS_FILE, setProjectsRoot } from "./settings";
+import { applySeriesIn, closeCurrentStep, removeAssetIn, cutWordsIn, decideProposal, firstPassIn, listSeries, loadRaw, patchProject, setValue, ToolError, tightenIn, undo, updateItem } from "./store";
+import { listLooks, lookBrief } from "@adam-studio/library/src/looks";
+import { CLAUDE_MODELS, claudeModel, lookName, projectsRoot, setClaudeModel, setLookName, SETTINGS_FILE, setProjectsRoot } from "./settings";
+import { parseUsage, recordUsage, usageSummary } from "./usage";
 import { thumbnail } from "./thumb";
 import { watchProjects } from "./watch";
 
@@ -37,7 +41,8 @@ function sse(res: ServerResponse): (data: unknown) => void {
   return (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 }
 
-export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capcutPython?: () => string | null; dist?: string } = {}): Server {
+export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capcutPython?: () => string | null; dist?: string; home?: string } = {}): Server {
+  const home = opts.home ?? homedir();
   const settingsFile = opts.settingsFile ?? SETTINGS_FILE;
   const jobs = opts.jobs ?? new JobManager();
   const capcutPython = opts.capcutPython ?? (() => venvPython("capcut", "ADAM_CAPCUT_PYTHON"));
@@ -65,22 +70,50 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     let m: RegExpMatchArray | null;
 
     if (path === "/api/ping") return send(res, 200, { app: "adam-studio" });
-    if (path.startsWith("/api/insights") || path.startsWith("/api/tiktok/")) {
-      const handled = await insightsRoute({ req, res, url, method, port, root: projectsRoot(settingsFile), send: (s, b) => send(res, s, b), body: () => body(req) });
-      if (handled) return;
-    }
-    if (path.startsWith("/api/library/") || path.startsWith("/api/pinterest/")) {
+    if (path.startsWith("/api/library/")) {
       const handled = await libraryRoute({ req, res, url, method, port, root: projectsRoot(settingsFile), send: (s, b) => send(res, s, b), body: () => body(req) });
       if (handled) return;
     }
-    if (path === "/api/settings" && method === "GET") return send(res, 200, { projectsRoot: projectsRoot(settingsFile) });
+    const settings = () => ({ projectsRoot: projectsRoot(settingsFile), claudeModel: claudeModel(settingsFile), models: CLAUDE_MODELS,
+      look: lookName(settingsFile), looks: listLooks() });
+    if (path === "/api/settings" && method === "GET") return send(res, 200, settings());
     if (path === "/api/settings" && method === "PUT") {
       const b = await body(req);
-      if (typeof b.projectsRoot !== "string") throw new HttpError(400, "projectsRoot must be text");
-      try { setProjectsRoot(b.projectsRoot, settingsFile); } catch (e) { throw new HttpError(400, (e as Error).message); }
-      unwatch();
-      unwatch = watchProjects(b.projectsRoot, notify);
-      return send(res, 200, { projectsRoot: b.projectsRoot });
+      if (b.projectsRoot === undefined && b.claudeModel === undefined && b.look === undefined) throw new HttpError(400, "give projectsRoot, claudeModel or look");
+      if (b.projectsRoot !== undefined && typeof b.projectsRoot !== "string") throw new HttpError(400, "projectsRoot must be text");
+      if (b.look !== undefined && b.look !== "" && !listLooks().some((l) => l.name === b.look)) throw new HttpError(400, `no look "${b.look}" in the Inspiration folder's looks/`);
+      try {
+        if (b.look !== undefined) setLookName(String(b.look), settingsFile);
+        if (b.claudeModel !== undefined) setClaudeModel(String(b.claudeModel), settingsFile);
+        if (typeof b.projectsRoot === "string") {
+          setProjectsRoot(b.projectsRoot, settingsFile);
+          unwatch();
+          unwatch = watchProjects(b.projectsRoot, notify);
+        }
+      } catch (e) { throw new HttpError(400, (e as Error).message); }
+      return send(res, 200, settings());
+    }
+    // What Claude used: today's asks and the subscription windows Claude Code last reported.
+    if (path === "/api/usage" && method === "GET") return send(res, 200, usageSummary(dirname(settingsFile)));
+    // Skills Claude Code has, and the connectors (MCP servers) Claude may use from the studio.
+    const connectorsFile = join(dirname(settingsFile), "connectors.json");
+    if (path === "/api/skills" && method === "GET") return send(res, 200, listSkills(home));
+    if (path === "/api/connectors" && method === "GET") return send(res, 200, listConnectors(home, connectorsFile));
+    if (path === "/api/connectors" && method === "PUT") {
+      const b = await body(req);
+      if (!Array.isArray(b.enabled)) throw new HttpError(400, "enabled must be a list of names");
+      setEnabled(b.enabled.map(String), home, connectorsFile);
+      return send(res, 200, listConnectors(home, connectorsFile));
+    }
+    if (path === "/api/connectors" && method === "POST") {
+      const b = await body(req);
+      try { addConnector({ name: String(b.name ?? ""), url: b.url ? String(b.url) : undefined }, connectorsFile); }
+      catch (e) { throw new HttpError(400, (e as Error).message); }
+      return send(res, 200, listConnectors(home, connectorsFile));
+    }
+    if ((m = path.match(/^\/api\/connectors\/([^/]+)$/)) && method === "DELETE") {
+      removeConnector(decodeURIComponent(m[1]!), connectorsFile);
+      return send(res, 200, listConnectors(home, connectorsFile));
     }
     if (path === "/api/projects" && method === "GET") return send(res, 200, listProjects(projectsRoot(settingsFile)));
     if (path === "/api/projects" && method === "POST") {
@@ -95,6 +128,26 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const { name } = existing(m[1]!);
       const view = projectView(projectsRoot(settingsFile), name);
       return send(res, 200, { ...view, jobs: jobs.list(name) });
+    }
+    // Removing an asset from a video: refused while the edit uses it; the file goes to the project's .trash.
+    if ((m = path.match(/^\/api\/projects\/([^/]+)\/assets\/([^/]+)$/)) && method === "DELETE") {
+      const { name, dir } = existing(m[1]!);
+      try { const r = removeAssetIn(dir, decodeURIComponent(m[2]!)); notify(name); return send(res, 200, r); }
+      catch (e) {
+        const msg = (e as Error).message;
+        throw new HttpError(/^no asset/.test(msg) ? 404 : /is used by/.test(msg) ? 409 : 400, msg);
+      }
+    }
+    // Deleting moves the folder to <projects>/.trash/<name> <date>: nothing is lost until the creator empties it.
+    if ((m = path.match(/^\/api\/projects\/([^/]+)$/)) && method === "DELETE") {
+      const { name, dir } = existing(m[1]!);
+      if (jobs.running(name)) throw new HttpError(409, `${name} is busy: stop its job first`);
+      const trash = join(projectsRoot(settingsFile), ".trash");
+      mkdirSync(trash, { recursive: true });
+      const to = join(trash, `${name} ${new Date().toISOString().replace(/[:.]/g, "-")}`);
+      renameSync(dir, to);
+      notify(name);
+      return send(res, 200, { trashed: to });
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/add$/)) && method === "POST") {
       const { name, dir } = existing(m[1]!);
@@ -129,7 +182,17 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/ask$/)) && method === "POST") {
       const { name } = existing(m[1]!);
       const b = await body(req);
-      return started(res, jobs.start(name, askCommand(name, String(b.step ?? ""), String(b.prompt ?? ""))));
+      const step = String(b.step ?? "");
+      const record = (job: { output: string }) => {
+        const u = parseUsage(job.output);
+        if (u) { try { recordUsage(dirname(settingsFile), { project: name, step, ...u }); } catch { /* a full disk must not break the job */ } }
+      };
+      const look = lookName(settingsFile);
+      // Only skills Claude Code really has; the connectors the creator turned on.
+      const known = new Set(listSkills(home).map((s) => s.name));
+      const skills = Array.isArray(b.skills) ? b.skills.map(String).filter((s: string) => known.has(s)) : [];
+      const extras = { ...askServers(home, connectorsFile), skills };
+      return started(res, jobs.start(name, askCommand(name, step, String(b.prompt ?? ""), claudeModel(settingsFile), look ? lookBrief(look) : null, extras), record));
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/thumb$/)) && method === "GET") {
       const { dir } = existing(m[1]!);

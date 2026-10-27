@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "backdrop": {
+      "default": "color",
+      "type": "string",
+      "enum": [
+        "color",
+        "blur"
+      ]
+    },
+    "color": {
+      "default": "#F3BA20",
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}$"
+    },
+    "barColor": {
+      "default": "#2B6FD4",
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}$"
+    },
+    "width": {
+      "default": 0.8,
+      "type": "number",
+      "minimum": 0.3,
+      "maximum": 1
+    },
+    "y": {
+      "default": 0.42,
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "focusY": {
+      "default": 0.4,
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "easeMs": {
+      "default": 300,
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  },
+  "additionalProperties": false
+}

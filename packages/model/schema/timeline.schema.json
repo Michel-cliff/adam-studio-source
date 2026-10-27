@@ -297,6 +297,66 @@
                   "durationMs"
                 ],
                 "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "flash"
+                  },
+                  "durationMs": {
+                    "default": 240,
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "kind",
+                  "durationMs"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "whip"
+                  },
+                  "durationMs": {
+                    "default": 300,
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "kind",
+                  "durationMs"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "zoom"
+                  },
+                  "durationMs": {
+                    "default": 360,
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "kind",
+                  "durationMs"
+                ],
+                "additionalProperties": false
               }
             ]
           },
@@ -672,6 +732,106 @@
           ],
           "additionalProperties": false
         },
+        "inserts": {
+          "default": {
+            "bw": 0,
+            "grain": 0,
+            "bloom": 0
+          },
+          "type": "object",
+          "properties": {
+            "bw": {
+              "default": 0,
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "grain": {
+              "default": 0,
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "bloom": {
+              "default": 0,
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "required": [
+            "bw",
+            "grain",
+            "bloom"
+          ],
+          "additionalProperties": false
+        },
+        "fx": {
+          "default": {
+            "grain": 0,
+            "scanlines": {
+              "window": 0,
+              "burst": 0,
+              "burstFrames": 3
+            },
+            "zoomBlur": 0
+          },
+          "type": "object",
+          "properties": {
+            "grain": {
+              "default": 0,
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "scanlines": {
+              "default": {
+                "window": 0,
+                "burst": 0,
+                "burstFrames": 3
+              },
+              "type": "object",
+              "properties": {
+                "window": {
+                  "default": 0,
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "burst": {
+                  "default": 0,
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "burstFrames": {
+                  "default": 3,
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 30
+                }
+              },
+              "required": [
+                "window",
+                "burst",
+                "burstFrames"
+              ],
+              "additionalProperties": false
+            },
+            "zoomBlur": {
+              "default": 0,
+              "type": "number",
+              "minimum": 0,
+              "maximum": 40
+            }
+          },
+          "required": [
+            "grain",
+            "scanlines",
+            "zoomBlur"
+          ],
+          "additionalProperties": false
+        },
         "caption": {
           "type": "object",
           "properties": {
@@ -707,6 +867,83 @@
             "intro"
           ],
           "additionalProperties": false
+        },
+        "motion": {
+          "default": {
+            "speed": 1
+          },
+          "type": "object",
+          "properties": {
+            "speed": {
+              "default": 1,
+              "type": "number",
+              "minimum": 0.25,
+              "maximum": 3
+            }
+          },
+          "required": [
+            "speed"
+          ],
+          "additionalProperties": false
+        },
+        "fillers": {
+          "default": {
+            "fr": [
+              "euh",
+              "heu",
+              "bah",
+              "ben",
+              "du coup",
+              "en fait"
+            ],
+            "en": [
+              "um",
+              "uh",
+              "erm",
+              "like",
+              "you know",
+              "i mean",
+              "basically"
+            ],
+            "es": [
+              "eh",
+              "este",
+              "o sea",
+              "pues",
+              "bueno"
+            ],
+            "de": [
+              "äh",
+              "ähm",
+              "also",
+              "halt",
+              "sozusagen"
+            ],
+            "it": [
+              "ehm",
+              "cioè",
+              "tipo",
+              "allora",
+              "praticamente"
+            ],
+            "pt": [
+              "é",
+              "tipo",
+              "né",
+              "então",
+              "assim"
+            ]
+          },
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
         },
         "slots": {
           "type": "object",
@@ -777,14 +1014,6 @@
                 "maximum": 9007199254740991
               },
               "fillers": {
-                "default": [
-                  "euh",
-                  "heu",
-                  "bah",
-                  "ben",
-                  "du coup",
-                  "en fait"
-                ],
                 "type": "array",
                 "items": {
                   "type": "string"
@@ -794,8 +1023,7 @@
             "required": [
               "minDurationMs",
               "maxDurationMs",
-              "maxPauseMs",
-              "fillers"
+              "maxPauseMs"
             ],
             "additionalProperties": false
           },
@@ -810,7 +1038,11 @@
         "fonts",
         "colors",
         "grade",
+        "inserts",
+        "fx",
         "caption",
+        "motion",
+        "fillers",
         "slots",
         "lint"
       ],

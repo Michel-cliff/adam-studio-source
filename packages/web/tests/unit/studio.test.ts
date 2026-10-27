@@ -38,6 +38,41 @@ describe("asking Claude", () => {
     expect(() => askCommand("ep 1", "wrap", "x")).toThrow(/unknown step/);
     expect(() => askCommand("ep 1", "hook", "  ")).toThrow(/write what you want/);
   });
+
+  it("sends the editing rules of the step, asks for a why per variant, and uses the chosen model", () => {
+    const hook = askCommand("ep 1", "hook", "x");
+    const system = hook.args[hook.args.indexOf("--append-system-prompt") + 1]!;
+    expect(system).toMatch(/Hook, rules/);
+    expect(system).toMatch(/curiosity gap/);
+    expect(system).not.toMatch(/Cuts, rules/);
+    expect(system).toMatch(/a why \(what changes/);
+    expect(hook.args).not.toContain("--model");
+    const opus = askCommand("ep 1", "cuts", "x", "opus");
+    expect(opus.args[opus.args.indexOf("--model") + 1]).toBe("opus");
+  });
+
+  it("lets Claude use the enabled connectors and the skills the creator picked", () => {
+    const c = askCommand("ep 1", "visuals", "x", "default", null, {
+      servers: { blender: { type: "stdio", command: "uvx", args: ["blender-mcp"] } }, tools: ["mcp__blender"], skills: ["anthropic-skills:editorial-film-edit"],
+    });
+    const mcp = JSON.parse(c.args[c.args.indexOf("--mcp-config") + 1]!);
+    expect(Object.keys(mcp.mcpServers)).toEqual(["adam-studio", "blender"]);
+    const allowed = c.args[c.args.indexOf("--allowedTools") + 1]!;
+    expect(allowed.split(",")).toEqual(["mcp__adam-studio", "mcp__blender", "Skill", "Read", "Glob", "Grep"]);
+    const system = c.args[c.args.indexOf("--append-system-prompt") + 1]!;
+    expect(system).toMatch(/Skill tool: anthropic-skills:editorial-film-edit/);
+    const plain = askCommand("ep 1", "visuals", "x");
+    expect(plain.args[plain.args.indexOf("--allowedTools") + 1]).toBe("mcp__adam-studio");
+  });
+
+  it("sends the chosen look so every proposal follows its style guide", () => {
+    const c = askCommand("ep 1", "visuals", "x", "default", "Look \"editorial-archival\"\n\nInserts in soft black and white.");
+    const system = c.args[c.args.indexOf("--append-system-prompt") + 1]!;
+    expect(system).toMatch(/The video's look \(it wins over generic defaults/);
+    expect(system).toMatch(/Inserts in soft black and white/);
+    const none = askCommand("ep 1", "visuals", "x");
+    expect(none.args[none.args.indexOf("--append-system-prompt") + 1]).not.toMatch(/The video's look/);
+  });
 });
 
 describe("studio routes", () => {
