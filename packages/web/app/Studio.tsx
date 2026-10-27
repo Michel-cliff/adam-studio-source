@@ -9,7 +9,7 @@ import { ClaudeBar } from "./ClaudeBar";
 import { ConnectorsPanel, SkillsPanel } from "./Connectors";
 import { IconFolder, IconLink, IconSend, IconSpark } from "./icons";
 import { JobLog } from "./JobLog";
-import { VariantStrip } from "./VariantStrip";
+import { VariantShot } from "./VariantShot";
 
 type StepId = "rushes" | "cuts" | "structure" | "captions" | "hook" | "beats" | "visuals" | "sound" | "look" | "wrap";
 const TAGLINE: Record<StepId, string> = {
@@ -120,7 +120,7 @@ function ProposalCard({ name, stamp, p, seen, onSee, onDecide, onMore, locked }:
         {p.variants.map((v, i) => (
           <article key={v.key} className={`variant v${i % 4}${seen === v.key ? " seen" : ""}`} onClick={() => onSee(seen === v.key ? null : v.key)}
             title={[v.why, v.summary].filter(Boolean).join("\n")}>
-            <VariantStrip name={name} proposal={p.id} variant={v.key} stamp={stamp} />
+            <VariantShot name={name} proposal={p.id} variant={v.key} stamp={stamp} />
             <div className="top"><span className="k">{v.key}</span><span className="label">{v.label}</span></div>
             <div className="acts">
               <button onClick={(e) => { e.stopPropagation(); onDecide(v.key); }} disabled={Boolean(locked)} title={locked ?? ""}>Choose {v.key}</button>
