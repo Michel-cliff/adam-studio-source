@@ -283,10 +283,10 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
     try { const { job } = await api<{ job: JobView }>(`/projects/${enc(name)}/jobs`, { method: "POST", body: { action, options } }); go(`#/p/${enc(name)}/job/${job.id}`); await load(); }
     catch (e) { setError((e as Error).message); }
   };
-  const ask = async (text: string) => {
+  const ask = async (text: string, mode: "do" | "propose" = "propose") => {
     if (!step || step === "rushes" || step === "wrap") return;
     const full = refill ? `${text}\n\n(The creator sent proposal ${refill.id} back for more options: refill that proposal with propose, same id, new variants.)` : text;
-    try { await api(`/projects/${enc(name)}/ask`, { method: "POST", body: { step, prompt: full, skills } }); setPrompt(""); setRefill(null); setSkills([]); await load(); }
+    try { await api(`/projects/${enc(name)}/ask`, { method: "POST", body: { step, prompt: full, skills, mode: refill ? "propose" : mode } }); setPrompt(""); setRefill(null); setSkills([]); await load(); }
     catch (e) { setError((e as Error).message); }
   };
   const firstPass = async () => {
@@ -300,7 +300,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
 
   const proposals = useMemo(() => (view?.proposals ?? []).filter((p) => p.step === step).sort((a, b) => (a.status === "pending" ? 0 : 1) - (b.status === "pending" ? 0 : 1)), [view, step]);
   const running = view?.jobs.find((j) => j.state === "running");
-  const claudeJob = view?.jobs.find((j) => j.label.startsWith("Claude") && (j.state === "running" || Date.now() - (j.endedAt ?? 0) < 60_000) && j.label === `Claude: ${step}`);
+  const claudeJob = view?.jobs.find((j) => j.label.startsWith("Claude") && (j.state === "running" || Date.now() - (j.endedAt ?? 0) < 60_000) && (j.label === `Claude: ${step}` || j.label === `Claude: ${step} (do)`));
   const otherJob = jobId ? view?.jobs.find((j) => j.id === jobId && !j.label.startsWith("Claude")) : running && !running.label.startsWith("Claude") ? running : undefined;
   if (!view) return <main>{error ? <p className="error">{error}</p> : <p className="muted">Opening the project</p>}</main>;
   const wf = view.workflow;
@@ -403,7 +403,13 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
                     <button className="ghost" onClick={() => setSkillsOpen(true)}><IconSpark />Skills{skills.length ? ` (${skills.length})` : ""}</button>
                     <ClaudeBar stamp={`${claudeJob?.id ?? ""}:${claudeJob?.state ?? ""}`} />
                     <span className="spacer" />
-                    <button className="claude" title="Ctrl+Enter" disabled={!prompt.trim() || Boolean(claudeJob && claudeJob.state === "running") || Boolean(running && running.label.startsWith("Claude"))} onClick={() => ask(prompt)}>Ask Claude <IconSend /></button>
+                    {(() => {
+                      const off = !prompt.trim() || Boolean(claudeJob && claudeJob.state === "running") || Boolean(running && running.label.startsWith("Claude"));
+                      return <>
+                        <button className="ghost" title="Applies your request directly, in about a minute (Undo puts it back)" disabled={off} onClick={() => ask(prompt, "do")}>Do it</button>
+                        <button className="claude" title="Two or three options to choose from (Ctrl+Enter)" disabled={off} onClick={() => ask(prompt)}>Propose options <IconSend /></button>
+                      </>;
+                    })()}
                   </div>
                 </div>
               </div>

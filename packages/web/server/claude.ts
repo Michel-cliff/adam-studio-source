@@ -29,21 +29,40 @@ export const STEP_BRIEFS: Record<string, string> = {
  * adam-studio MCP tools only. Its stream-json output is the job's log; the panel turns it into an activity feed.
  */
 /** Beyond Adam Studio's tools: the connectors the creator turned on and the skills picked for this ask. */
-export type AskExtras = { servers?: Record<string, unknown>; tools?: string[]; skills?: string[] };
+/**
+ * `mode`: "propose" writes A/B/C variants for the creator to choose from; "do" applies an explicit request directly.
+ * `context`: the step's context (stepContext), sent up front so Claude does not explore the project tool by tool.
+ */
+export type AskExtras = { servers?: Record<string, unknown>; tools?: string[]; skills?: string[]; mode?: "do" | "propose"; context?: string };
+
+// Turn caps: most of an ask's time and tokens went into exploring (26 to 80 turns, the context re-read each turn).
+const MAX_TURNS = { do: 10, propose: 22 };
 
 export function askCommand(project: string, step: string, prompt: string, model: ClaudeModel = "default", look: string | null = null, extras: AskExtras = {}): Command {
   if (!STEP_BRIEFS[step]) throw new ActionError(`unknown step "${step}"`);
   if (!prompt.trim()) throw new ActionError("write what you want first");
+  const mode = extras.mode ?? "propose";
   const id = `ask.${step}.${Date.now().toString(36)}`;
+  const task = mode === "do"
+    ? [
+      "The creator's request is explicit: apply it directly with apply_patch, update_item or set_value, no proposal.",
+      "Make the smallest change that does what is asked, anchored on word ids. Do not call still, run, propose or decide: the creator watches the preview.",
+    ]
+    : [
+      `Write exactly ONE proposal with the propose tool: id "${id}", step "${step}", two or three variants (A, B, C) that are genuinely different,`,
+      "each with a label (at most 60 characters, what the creator will see), a why (what changes, where, what the viewer gets) and the patch,",
+      "plus a one-sentence reason for the proposal. Labels, why and reason in the transcript's language. Anchor on word ids.",
+      "search_assets / look_at / import_asset for media; look at most one still of your boldest variant. Never call decide or run.",
+    ];
   const system = [
     "You are the editor inside Adam Studio, working for the creator through the adam-studio tools only.",
     `Project: "${project}" (pass it as the project argument). Current step: ${step}. ${STEP_BRIEFS[step]}`,
-    `Write exactly ONE proposal with the propose tool: id "${id}", step "${step}", two or three variants (A, B, C) that are genuinely different,`,
-    "each with a label (at most 60 characters, what the creator will see), a why (what changes, where, what the viewer gets) and the patch,",
-    "plus a one-sentence reason for the proposal. Labels, why and reason in the transcript's language. Anchor on word ids (get_transcript).",
-    "Check get_project first (its proposal history holds the creator's past choices and notes); use get_reference for schemas,",
-    "search_assets / look_at / import_asset for media, still to look at your boldest variant before you finish. Never call decide or run.",
+    ...task,
+    extras.context
+      ? "Everything the step needs is in the context below: call get_project, get_transcript or get_reference only if something you need is missing."
+      : "Check get_project first (its proposal history holds the creator's past choices); get_reference gives the schemas.",
     "",
+    ...(extras.context ? ["# Context of the step", extras.context, ""] : []),
     rulesFor(step),
     "",
     ...(look ? ["The video's look (it wins over generic defaults; say plainly what the renderer cannot do yet):", look, ""] : []),
@@ -58,7 +77,7 @@ export function askCommand(project: string, step: string, prompt: string, model:
   return {
     cmd: claudeBin(),
     args: ["-p", prompt, "--append-system-prompt", system, ...(model === "default" ? [] : ["--model", model]), "--output-format", "stream-json", "--verbose",
-      "--strict-mcp-config", "--mcp-config", mcp, "--allowedTools", allowed.join(",")],
-    label: `Claude: ${step}`,
+      "--max-turns", String(MAX_TURNS[mode]), "--strict-mcp-config", "--mcp-config", mcp, "--allowedTools", allowed.join(",")],
+    label: mode === "do" ? `Claude: ${step} (do)` : `Claude: ${step}`,
   };
 }

@@ -16,7 +16,7 @@ export function projectSummary(dir: string): string {
     lint: lintLines(dir, project, timeline),
     ...project,
     transcript: { lang: project.transcript.lang, words },
-  }, null, 1);
+  });
 }
 
 /** One line per word ("c01.w12 1.23-1.50 bonjour") with the pauses between them, optionally for one take and a time range. */

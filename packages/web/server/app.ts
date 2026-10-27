@@ -12,6 +12,7 @@ import { hostAllowed, inside, originAllowed, safeName } from "./guards";
 import { BusyError, JobManager } from "./jobs";
 import { venvPython, WEB } from "./paths";
 import { askCommand } from "./claude";
+import { stepContext } from "./context";
 import { libraryRoute } from "./library-routes";
 import { mediaFile, previewData } from "./preview";
 import { listProjects, projectView } from "./projects";
@@ -180,7 +181,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       return serveFile(req, res, file);
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/ask$/)) && method === "POST") {
-      const { name } = existing(m[1]!);
+      const { name, dir } = existing(m[1]!);
       const b = await body(req);
       const step = String(b.step ?? "");
       const record = (job: { output: string }) => {
@@ -191,7 +192,10 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       // Only skills Claude Code really has; the connectors the creator turned on.
       const known = new Set(listSkills(home).map((s) => s.name));
       const skills = Array.isArray(b.skills) ? b.skills.map(String).filter((s: string) => known.has(s)) : [];
-      const extras = { ...askServers(home, connectorsFile), skills };
+      const mode = b.mode === "do" ? "do" as const : "propose" as const;
+      let context: string | undefined;
+      try { context = stepContext(dir, step); } catch { /* an unreadable project: Claude reads it with its tools */ }
+      const extras = { ...askServers(home, connectorsFile), skills, mode, context };
       return started(res, jobs.start(name, askCommand(name, step, String(b.prompt ?? ""), claudeModel(settingsFile), look ? lookBrief(look) : null, extras), record));
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/thumb$/)) && method === "GET") {

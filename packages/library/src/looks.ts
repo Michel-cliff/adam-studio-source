@@ -31,14 +31,25 @@ export function listLooks(root = inspirationRoot()): Look[] {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** What Claude reads for a look: its LOOK.md and its style guide, with the folder to open for the rest. Null if unknown. */
+// The parts of a style guide every ask needs; the rest stays in the file, read only when a value is missing.
+const KEY_SECTION = /correction|adam studio|default/i;
+const SHORT_GUIDE = 6000;
+
+/** A style guide cut to its opening, its correction sections and its Adam Studio recipe when it is long. */
+function guideDigest(text: string): string {
+  if (text.length <= SHORT_GUIDE) return text;
+  const sections = text.split(/\n(?=## )/);
+  return sections.filter((s, i) => i === 0 || KEY_SECTION.test(s.split("\n")[0]!)).join("\n").trim();
+}
+
+/** What Claude reads for a look: its LOOK.md and the key parts of its style guide. Null if unknown. */
 export function lookBrief(name: string, root = inspirationRoot()): string | null {
   if (!SAFE.test(name)) return null;
   const dir = join(root, "looks", name);
   const entry = join(dir, "LOOK.md");
   if (!existsSync(entry)) return null;
-  const parts = [`Look "${name}" (folder ${dir}: open its references/ and skill/ with look_at or by path when you need more).`, split(readFileSync(entry, "utf8")).body.trim()];
   const guide = join(dir, "references", "style-guide.md");
-  if (existsSync(guide)) parts.push(readFileSync(guide, "utf8").trim());
-  return parts.join("\n\n").slice(0, 16000);
+  const parts = [`Look "${name}" (full style guide: ${guide}; open it only for a value missing here).`, split(readFileSync(entry, "utf8")).body.trim()];
+  if (existsSync(guide)) parts.push(guideDigest(readFileSync(guide, "utf8").trim()));
+  return parts.join("\n\n").slice(0, 12000);
 }
