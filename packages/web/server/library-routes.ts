@@ -3,13 +3,20 @@ import { pipeline } from "node:stream/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { basename, dirname, extname, join, relative, isAbsolute } from "node:path";
 import { importAsset, type ImportSource } from "@adam-studio/library/src/importer";
-import { inspirationRoot, kindOf, searchLocal, type LibraryKind } from "@adam-studio/library/src/local";
+import { inspirationRoot, kindOf, REFERENCE_FOLDERS, scanInspiration, searchLocal, type LibraryKind, type ReferenceFolder } from "@adam-studio/library/src/local";
 import { searchOnline } from "@adam-studio/library/src/online";
 import { serveFile } from "./files";
 import { safeName } from "./guards";
 import { addAssetIn, ToolError } from "./store";
 
 const KINDS = new Set(["video", "image", "audio", "font", "lottie"]);
+
+/** A reference folder named in a query (or none); an unknown one is refused, so it never becomes a path. */
+function folderParam(v: string | null): ReferenceFolder | undefined {
+  if (!v) return undefined;
+  if (v !== "other" && !REFERENCE_FOLDERS.some((f) => f.id === v)) throw new ToolError(`unknown folder "${v}"`);
+  return v as ReferenceFolder;
+}
 
 type Ctx = {
   req: IncomingMessage; res: ServerResponse; url: URL; method: string; port: number; root: string;
@@ -25,11 +32,19 @@ function insideInspiration(path: string): boolean {
 export async function libraryRoute(c: Ctx): Promise<boolean> {
   const { url, method, send } = c;
   const path = url.pathname;
+  // The reference folders with how many files each holds, plus everything else as "other".
+  if (path === "/api/library/folders" && method === "GET") {
+    const items = scanInspiration();
+    const count = (id: string) => items.filter((i) => i.category === id).length;
+    send(200, { root: inspirationRoot(), folders: [...REFERENCE_FOLDERS.map((f) => ({ ...f, count: count(f.id) })), { id: "other", title: "Other", count: count("other") }] });
+    return true;
+  }
   if (path === "/api/library/search" && method === "GET") {
     const q = url.searchParams.get("q") ?? "";
     const kind = url.searchParams.get("kind") || undefined;
     if (kind && !KINDS.has(kind)) throw new ToolError(`unknown kind "${kind}"`);
-    const local = searchLocal(q, kind as LibraryKind | undefined);
+    const category = folderParam(url.searchParams.get("category"));
+    const local = searchLocal(q, kind as LibraryKind | undefined, inspirationRoot(), category);
     const online = url.searchParams.get("online") === "1" && q && kind ? await searchOnline(q, kind as LibraryKind) : { items: [], notes: [] };
     send(200, { root: inspirationRoot(), local, online: online.items, notes: online.notes });
     return true;
@@ -53,14 +68,16 @@ export async function libraryRoute(c: Ctx): Promise<boolean> {
     send(200, { trashed });
     return true;
   }
-  // A dropped file: saved in Inspiration/Uploads (never over an existing one), and imported into a project if one is named.
+  // A dropped file: saved in its reference folder, or Inspiration/Uploads (never over an existing one), and imported
+  // into a project if one is named.
   if (path === "/api/library/upload" && method === "POST") {
     const name = basename(url.searchParams.get("name") ?? "").replace(/[<>:"|?*\u0000-\u001f]/g, "_");
     const kind = kindOf(name);
     if (!name || !kind) throw new ToolError(`cannot use ${name || "this file"}: drop a video, image, sound, font or Lottie file`);
     const project = url.searchParams.get("project");
     if (project && (!safeName(project) || !existsSync(join(c.root, project, "project.json")))) throw new ToolError(`no project "${project}"`);
-    const folder = join(inspirationRoot(), "Uploads");
+    const category = folderParam(url.searchParams.get("category"));
+    const folder = category && category !== "other" ? join(inspirationRoot(), "references", category) : join(inspirationRoot(), "Uploads");
     mkdirSync(folder, { recursive: true });
     const ext = extname(name), stem = basename(name, ext);
     let saved = join(folder, name);

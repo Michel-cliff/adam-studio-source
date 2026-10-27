@@ -40,6 +40,18 @@ describe("library routes", () => {
     expect(project.assets.find((a: { id: string }) => a.id === "boom")).toMatchObject({ kind: "audio", path: "assets/boom.wav" });
   });
 
+  it("lists the four reference folders, takes a drop into one, and searches one folder at a time", async () => {
+    const f = await (await fetch(`${base}/api/library/folders`)).json();
+    expect(f.folders.map((x: { id: string }) => x.id)).toEqual(["typo", "plans", "sous-titres", "images-textures-palettes", "sons", "interdits", "other"]);
+    const up = await fetch(`${base}/api/library/upload?name=yellow.png&category=sous-titres`, { method: "POST", body: "x" });
+    expect((await up.json()).saved).toMatch(/references[\\/]sous-titres[\\/]yellow\.png$/);
+    const s = await (await fetch(`${base}/api/library/search?q=&category=sous-titres`)).json();
+    expect(s.local.map((i: { title: string; category: string }) => [i.title, i.category])).toEqual([["yellow", "sous-titres"]]);
+    const after = await (await fetch(`${base}/api/library/folders`)).json();
+    expect(after.folders.find((x: { id: string }) => x.id === "sous-titres").count).toBe(1);
+    expect((await fetch(`${base}/api/library/upload?name=a.png&category=../x`, { method: "POST", body: "x" })).status).toBe(400);
+  });
+
   it("never reads or imports outside the Inspiration folder", async () => {
     expect((await fetch(`${base}/api/library/file?path=${encodeURIComponent(join(root, "secret.wav"))}`)).status).toBe(404);
     expect((await post("/api/library/import", { project: "ep1", source: { path: join(root, "secret.wav") } })).status).toBe(400);

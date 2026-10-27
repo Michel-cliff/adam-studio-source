@@ -1,4 +1,5 @@
 import { exportSchemas, mergeStyle, resolve, type Project } from "@adam-studio/model";
+import { searchLocal } from "@adam-studio/library/src/local";
 import { lintLines, load } from "./store";
 
 /** Element kinds each step works with: their schemas travel with the ask, and the step sees its elements. */
@@ -28,6 +29,14 @@ function transcript(project: Project): string {
   }
   const text = lines.join("\n");
   return text.length > TRANSCRIPT_CHARS ? `${text.slice(0, TRANSCRIPT_CHARS)}\n… (cut here: get_transcript with a range for the rest)` : text;
+}
+
+/** The creator's don'ts folder as rules: each file by name, with its notes. */
+function donts(): string {
+  let items: ReturnType<typeof searchLocal> = [];
+  try { items = searchLocal("", undefined, undefined, "interdits"); } catch { /* no Inspiration folder */ }
+  if (!items.length) return "none";
+  return items.slice(0, 20).map((i) => `- ${i.title} (${i.kind}, ${i.path})${i.notes ? `: ${i.notes.slice(0, 200)}` : ""}`).join("\n");
 }
 
 /**
@@ -70,6 +79,8 @@ export function stepContext(dir: string, step: string): string {
     "## Patch shape (variant patch, apply_patch)",
     json(patchSchema()),
     ...kinds.flatMap((k) => [`## Props of ${k}`, json(schemas[`kinds/${k}.schema.json`])]),
+    "## Don'ts (references/interdits: what the creator never wants; rules, never material)",
+    donts(),
     "## The creator's past choices",
     decided.length ? decided.join("\n") : "none yet",
     ...(pending.length ? ["## Pending proposals", pending.join("\n")] : []),

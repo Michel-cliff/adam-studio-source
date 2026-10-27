@@ -5,6 +5,7 @@ import { api, enc } from "./api";
 type Local = { path: string; rel: string; kind: string; title: string; notes: string; durationMs?: number; thumb?: string };
 type Online = { source: string; kind: string; title: string; url: string; preview: string; page: string; license: string; creator: string };
 const KINDS = ["", "video", "image", "audio", "font", "lottie"];
+type Folder = { id: string; title: string; count: number };
 const fileUrl = (path: string) => `/api/library/file?path=${enc(path)}`;
 
 function Preview({ kind, src }: { kind: string; src: string }) {
@@ -23,10 +24,25 @@ export function Library() {
   const [project, setProject] = useState("");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
-  useEffect(() => { api<ProjectListItem[]>("/projects").then((p) => { setProjects(p); setProject(p[0]?.name ?? ""); }); void search(); }, []);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [folder, setFolder] = useState("");
+  const [over, setOver] = useState("");
+  const loadFolders = () => api<{ folders: Folder[] }>("/library/folders").then((f) => setFolders(f.folders)).catch(() => undefined);
+  useEffect(() => { api<ProjectListItem[]>("/projects").then((p) => { setProjects(p); setProject(p[0]?.name ?? ""); }); void loadFolders(); }, []);
+  useEffect(() => { void search(); }, [folder]);
+  // A file dropped on a folder lands in that folder of the Inspiration folder.
+  const drop = async (id: string, files: FileList) => {
+    setOver("");
+    for (const f of Array.from(files)) {
+      try { await fetch(`/api/library/upload?name=${enc(f.name)}&category=${enc(id)}`, { method: "POST", body: f }).then(async (r) => { if (!r.ok) throw new Error((await r.json()).error ?? r.statusText); }); }
+      catch (e) { setMsg(`${f.name}: ${(e as Error).message}`); return; }
+    }
+    setMsg(`${files.length} file${files.length > 1 ? "s" : ""} added to ${folders.find((x) => x.id === id)?.title ?? id}.`);
+    await loadFolders(); if (folder === id) await search(); else setFolder(id);
+  };
   async function search() {
     setBusy(true);
-    try { setResult(await api(`/library/search?q=${enc(q)}&kind=${kind}&online=${online && kind ? 1 : 0}`)); setMsg(""); }
+    try { setResult(await api(`/library/search?q=${enc(q)}&kind=${kind}&category=${enc(folder)}&online=${online && kind ? 1 : 0}`)); setMsg(""); }
     catch (e) { setMsg((e as Error).message); }
     setBusy(false);
   }
@@ -44,6 +60,19 @@ export function Library() {
   return (
     <>
       <h1>Library</h1>
+      <section className="folders" aria-label="Reference folders">
+        {folders.map((f) => (
+          <button key={f.id} type="button" className={`folder${folder === f.id ? " on" : ""}${over === f.id ? " over" : ""}${f.id === "interdits" ? " donts" : ""}`}
+            onClick={() => setFolder(folder === f.id ? "" : f.id)}
+            onDragOver={(e) => { e.preventDefault(); setOver(f.id); }} onDragLeave={() => setOver("")}
+            onDrop={(e) => { e.preventDefault(); void drop(f.id, e.dataTransfer.files); }}>
+            <span className="tab" aria-hidden="true" />
+            <span className="name">{f.title}</span>
+            <span className="count">{f.count} file{f.count === 1 ? "" : "s"}</span>
+          </button>
+        ))}
+      </section>
+      {folders.length > 0 && <p className="muted">Drop files on a folder to file them there. Don'ts are what you never want: Claude follows them as rules.</p>}
       <section className="row">
         <input placeholder="Search (e.g. glitch, whoosh, neon)" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void search(); }} style={{ flex: 1, minWidth: 200 }} />
         <select value={kind} onChange={(e) => setKind(e.target.value)}>{KINDS.map((k) => <option key={k} value={k}>{k || "any kind"}</option>)}</select>

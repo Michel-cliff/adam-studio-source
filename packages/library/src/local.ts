@@ -4,8 +4,29 @@ import { homedir } from "node:os";
 import { basename, dirname, extname, join, relative } from "node:path";
 
 export type LibraryKind = "video" | "image" | "audio" | "font" | "lottie";
+/**
+ * The creator's references, one folder each under Inspiration/references: typography, shots, caption styles,
+ * images with textures and palettes, sounds, and don'ts. Anything elsewhere (Uploads, looks, older folders) is "other".
+ */
+export const REFERENCE_FOLDERS = [
+  { id: "typo", title: "Typography" },
+  { id: "plans", title: "Shots" },
+  { id: "sous-titres", title: "Captions" },
+  { id: "images-textures-palettes", title: "Images, textures & palettes" },
+  { id: "sons", title: "Sounds" },
+  // Counter-examples: what the creator never wants to see or hear. Claude reads them as rules, never as material.
+  { id: "interdits", title: "Don'ts" },
+] as const;
+export type ReferenceFolder = (typeof REFERENCE_FOLDERS)[number]["id"] | "other";
+
+export function categoryOf(rel: string): ReferenceFolder {
+  const [top, sub] = rel.split(/[\\/]/);
+  const hit = top === "references" ? REFERENCE_FOLDERS.find((f) => f.id === sub) : undefined;
+  return hit ? hit.id : "other";
+}
+
 export type LocalItem = {
-  source: "inspiration"; path: string; rel: string; kind: LibraryKind; title: string; tags: string[]; notes: string;
+  source: "inspiration"; path: string; rel: string; kind: LibraryKind; title: string; tags: string[]; notes: string; category: ReferenceFolder;
   size: number; mtime: number; durationMs?: number; thumb?: string;
 };
 
@@ -47,6 +68,7 @@ function isLottie(file: string): boolean {
  */
 export function scanInspiration(root = inspirationRoot()): LocalItem[] {
   if (!existsSync(root)) return [];
+  for (const f of REFERENCE_FOLDERS) mkdirSync(join(root, "references", f.id), { recursive: true });
   const cacheDir = join(root, ".adam");
   const cacheFile = join(cacheDir, "index.json");
   let cached = new Map<string, LocalItem>();
@@ -68,11 +90,11 @@ export function scanInspiration(root = inspirationRoot()): LocalItem[] {
       const old = cached.get(path);
       const sidecar = [`${path}.txt`, join(dir, "notes.txt")].find((f) => existsSync(f));
       const notes = sidecar ? readFileSync(sidecar, "utf8").trim().slice(0, 2000) : "";
-      if (old && old.size === st.size && old.mtime === st.mtimeMs) { items.push({ ...old, notes }); continue; }
       const rel = relative(root, path);
+      if (old && old.size === st.size && old.mtime === st.mtimeMs) { items.push({ ...old, notes, category: categoryOf(rel) }); continue; }
       const item: LocalItem = {
         source: "inspiration", path, rel, kind, title: basename(e.name, extname(e.name)),
-        tags: [...new Set(words(rel))], notes, size: st.size, mtime: st.mtimeMs,
+        tags: [...new Set(words(rel))], notes, category: categoryOf(rel), size: st.size, mtime: st.mtimeMs,
       };
       if (kind === "video" || kind === "audio") item.durationMs = probeMs(path);
       if (kind === "video") {
@@ -94,10 +116,10 @@ export function scanInspiration(root = inspirationRoot()): LocalItem[] {
 }
 
 /** Inspiration items matching every word of the query (in title, folders or notes), best matches first. */
-export function searchLocal(query: string, kind?: LibraryKind, root = inspirationRoot()): LocalItem[] {
+export function searchLocal(query: string, kind?: LibraryKind, root = inspirationRoot(), category?: ReferenceFolder): LocalItem[] {
   const q = words(query);
   return scanInspiration(root)
-    .filter((i) => !kind || i.kind === kind)
+    .filter((i) => (!kind || i.kind === kind) && (!category || i.category === category))
     .map((i) => {
       const hay = new Set([...i.tags, ...words(i.notes)]);
       const hits = q.filter((w) => hay.has(w) || [...hay].some((h) => h.startsWith(w)));

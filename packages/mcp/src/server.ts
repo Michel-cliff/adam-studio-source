@@ -100,10 +100,10 @@ tool("save_series", "Starts a series from a project: its style, the images and s
 
 const kind = z.enum(["video", "image", "audio", "font", "lottie"]);
 
-tool("search_assets", "Searches the creator's Inspiration folder first (their own references: videos, images, sounds, fonts, Lottie, notes), then, with online, Pixabay (images, videos) and Freesound (CC0 sounds).",
-  { query: z.string(), kind: kind.optional(), online: z.boolean().optional() },
-  async ({ query, kind: k, online }) => {
-    const local = searchLocal(query, k as LibraryKind | undefined).slice(0, 30).map(({ path, kind: kk, title, notes, durationMs, rel }) => ({ path, kind: kk, title, rel, notes: notes.slice(0, 300), durationMs }));
+tool("search_assets", "Searches the creator's Inspiration folder first (their own references: videos, images, sounds, fonts, Lottie, notes), then, with online, Pixabay (images, videos) and Freesound (CC0 sounds). category narrows to one reference folder: typo, plans (shots), sous-titres (caption styles), images-textures-palettes, sons (sounds), interdits (don'ts: what the creator never wants, never use them as material).",
+  { query: z.string(), kind: kind.optional(), online: z.boolean().optional(), category: z.enum(["typo", "plans", "sous-titres", "images-textures-palettes", "sons", "interdits", "other"]).optional() },
+  async ({ query, kind: k, online, category }) => {
+    const local = searchLocal(query, k as LibraryKind | undefined, inspirationRoot(), category).slice(0, 30).map(({ path, kind: kk, title, notes, durationMs, rel, category: c }) => ({ path, kind: kk, title, rel, category: c, notes: notes.slice(0, 300), durationMs }));
     const web = online && k ? await searchOnline(query, k as LibraryKind) : { items: [], notes: online ? ["give a kind to search online"] : [] };
     return text(JSON.stringify({ inspiration: inspirationRoot(), local, online: web.items, notes: web.notes }, null, 1));
   });
