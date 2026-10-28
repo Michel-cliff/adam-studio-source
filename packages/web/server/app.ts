@@ -19,6 +19,7 @@ import { libraryRoute } from "./library-routes";
 import { aiRunner, type AskAI } from "./ai";
 import { learnedFor } from "./stats";
 import { statsRoute } from "./stats-routes";
+import { draftScript, readScript, saveScript } from "./script";
 import { mediaFile, previewData } from "./preview";
 import { listProjects, projectView } from "./projects";
 import { moveIn } from "./store";
@@ -240,6 +241,15 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const file = thumbnail(dir);
       if (!file) throw new HttpError(404, "no picture yet");
       return serveFile(req, res, file);
+    }
+    // The video's script: read, edited by the creator, or drafted by the AI from the transcript.
+    if ((m = path.match(/^\/api\/projects\/([^/]+)\/script$/)) && (method === "GET" || method === "PUT")) {
+      const { dir } = existing(m[1]!);
+      if (method === "GET") return send(res, 200, readScript(dir));
+      return send(res, 200, saveScript(dir, String((await body(req)).text ?? ""), "you"));
+    }
+    if ((m = path.match(/^\/api\/projects\/([^/]+)\/script\/draft$/)) && method === "POST") {
+      return send(res, 200, await draftScript(existing(m[1]!).dir, ai));
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/raw$/)) && method === "GET") {
       return send(res, 200, loadRaw(existing(m[1]!).dir));

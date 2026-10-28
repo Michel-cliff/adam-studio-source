@@ -1,5 +1,6 @@
 import { exportSchemas, mergeStyle, resolve, type Project } from "@adam-studio/model";
 import { searchLocal } from "@adam-studio/library/src/local";
+import { readScript } from "./script";
 import { lintLines, load } from "./store";
 
 /** Element kinds each step works with: their schemas travel with the ask, and the step sees its elements. */
@@ -62,6 +63,7 @@ export function stepContext(dir: string, step: string): string {
   });
   const pending = project.proposals.filter((p) => p.status === "pending").map((p) => `${p.id} (${p.step}, ${p.variants.length} variants)`);
   const schemas = exportSchemas() as Record<string, unknown>;
+  const script = readScript(dir).text;
   const parts = [
     "## Project (transcript words and past patches left out)",
     json({
@@ -74,6 +76,7 @@ export function stepContext(dir: string, step: string): string {
     }),
     `## Elements of this step (${step === "hook" ? `starting before ${HOOK_MS / 1000} s` : kinds.join(", ") || "none"}; edit by id)`,
     json(elements.map((e) => ({ ...e, startMs: startMs.get(e.id) }))),
+    ...(script ? ["## The creator's script", script] : []),
     "## Transcript",
     transcript(project),
     "## Patch shape (variant patch, apply_patch)",

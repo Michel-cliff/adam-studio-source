@@ -10,6 +10,11 @@ export function keyFrame(variant: Timeline, base: Timeline | null): number {
     const before = new Map(base.elements.map((e) => [e.id, JSON.stringify(e)]));
     added.push(...variant.elements.filter((e) => before.has(e.id) && before.get(e.id) !== JSON.stringify(e)).map((e) => e.fromFrame));
   }
+  // Sounds live in the audio track, not among the elements.
+  if (base && !added.length) {
+    const heard = new Set((base.audio ?? []).map((a) => a.id));
+    added.push(...(variant.audio ?? []).filter((a) => !heard.has(a.id)).map((a) => a.fromFrame));
+  }
   const caps = base && variant.captions.length !== base.captions.length ? [variant.captions[0]?.fromFrame ?? 0] : [];
   const first = [...added, ...caps].sort((a, b) => a - b)[0];
   // A little into it: titles and words reveal over their first frames.

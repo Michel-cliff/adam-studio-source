@@ -4,7 +4,8 @@ import type { RenderProps } from "@adam-studio/render/src/props";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, enc, go } from "./api";
 import { t as tr, useLang } from "./i18n";
-import { pack, peaks, stripSlots } from "./lanes";
+import { pack, stripSlots } from "./lanes";
+import { Wave } from "./wave";
 
 type Raw = Record<string, any>;
 type Selected = { kind: "clip" | "element" | "caption"; id: string } | null;
@@ -73,32 +74,6 @@ function Filmstrip({ props }: { props: RenderProps }) {
     return () => { alive = false; };
   }, [slots]);
   return <div className="film" aria-hidden="true">{slots.map((_, i) => pics[i] ? <img key={i} src={pics[i]} alt="" /> : <span key={i} />)}</div>;
-}
-
-// Waveforms of the sounds, decoded once per file.
-const waves = new Map<string, Promise<number[]>>();
-function useWave(url: string | undefined): number[] {
-  const [w, setW] = useState<number[]>([]);
-  useEffect(() => {
-    if (!url) return;
-    if (!waves.has(url)) waves.set(url, fetch(url).then((r) => r.arrayBuffer()).then((b) => new AudioContext().decodeAudioData(b)).then((a) => peaks(a.getChannelData(0), 60)).catch(() => []));
-    let alive = true;
-    void waves.get(url)!.then((p) => { if (alive) setW(p); });
-    return () => { alive = false; };
-  }, [url]);
-  return w;
-}
-
-function Wave({ url, label }: { url?: string; label: string }) {
-  const w = useWave(url);
-  const pts = w.map((v, i) => `${((i / Math.max(1, w.length - 1)) * 200).toFixed(1)},${(15 - v * 13).toFixed(1)} `).join("")
-    + w.map((v, i) => `${(((w.length - 1 - i) / Math.max(1, w.length - 1)) * 200).toFixed(1)},${(15 + w[w.length - 1 - i]! * 13).toFixed(1)} `).join("");
-  return (
-    <>
-      <svg viewBox="0 0 200 30" preserveAspectRatio="none" aria-hidden="true">{w.length > 0 && <polygon points={pts} />}</svg>
-      <span className="lbl">{label}</span>
-    </>
-  );
 }
 
 /** The caption's place in project.json, from its timeline id (cap3, or cap3.1 when a cut splits it). */

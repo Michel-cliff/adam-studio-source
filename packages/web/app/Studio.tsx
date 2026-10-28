@@ -12,6 +12,7 @@ import { t, useLang } from "./i18n";
 import { JobLog } from "./JobLog";
 import { askStep, GROUPS, groupOf, groupState, openGroup, type GroupId } from "./steps";
 import { keyFrame } from "./frames";
+import { PRESETS, ScriptPanel, SoundTracks } from "./StepViews";
 import { VariantShot } from "./VariantShot";
 
 const NAMES: Record<GroupId, string> = { story: "Story", captions: "Captions", hook: "Hook", visuals: "Visuals", sound: "Sound", wrap: "Wrap" };
@@ -280,7 +281,28 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
             </div>
             {error && <p className="error" onClick={() => setError("")}>{error}</p>}
             {otherJob && <JobLog key={otherJob.id} id={otherJob.id} onEnd={() => load()} />}
-            {!wf && g === "story" ? <Rushes name={name} view={view} run={run} firstPass={firstPass} /> : pending ? (
+            {!wf && g === "story" ? <Rushes name={name} view={view} run={run} firstPass={firstPass} /> : g === "story" ? (
+              // Story: the edit on the left (or the picked shape), the script on the right.
+              <div className="story-view">
+                <div className="story-video">
+                  {pending && (
+                    <div className="vchips" role="group" aria-label="Story shapes">
+                      {pending.variants.map((v) => <button key={v.key} type="button" className={`vchip${v.key === chosenKey ? " on" : ""}`} aria-pressed={v.key === chosenKey}
+                        title={v.label} onClick={() => setPick({ proposal: pending.id, key: v.key })}><b>{v.key}</b> {v.label}</button>)}
+                    </div>
+                  )}
+                  <Screen name={name} view={view} proposal={pending ? pending.id : null} variant={pending ? chosenKey : null} className="frame lit" />
+                  {!pending && <button type="button" className="act" disabled={busy || locked} onClick={() => void ask(PRESETS.story!.prompt)}>{PRESETS.story!.button}</button>}
+                </div>
+                <ScriptPanel name={name} aiName={ai.toUpperCase()} />
+              </div>
+            ) : g === "sound" && pending ? (
+              // Sound: the three soundtracks on the left, the edit with the picked one on the right to hear it in place.
+              <div className="sound-view">
+                <SoundTracks name={name} p={pending} chosen={chosenKey} stamp={cardStamp} onPick={(key) => setPick({ proposal: pending.id, key })} />
+                <div className="sound-video"><Screen name={name} view={view} proposal={pending.id} variant={chosenKey} className="frame lit" /></div>
+              </div>
+            ) : pending ? (
               <>
                 <div className="variants" style={{ "--ar": view.format === "16:9" ? 16 / 9 : 9 / 16 } as React.CSSProperties}>
                   {pending.variants.map((v) => {
@@ -302,7 +324,9 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
             ) : (
               <div className="stage">
                 <Screen name={name} view={view} proposal={null} variant={null} className="frame lit" />
-                <p className="mono note">{lockedWhy ?? (claudeJob?.state === "running" ? "" : t("Nothing proposed yet for this step."))}</p>
+                {PRESETS[g] && !lockedWhy && claudeJob?.state !== "running"
+                  ? <button type="button" className="act fill big" disabled={busy} onClick={() => void ask(PRESETS[g]!.prompt)}>{PRESETS[g]!.button}</button>
+                  : <p className="mono note">{lockedWhy ?? ""}</p>}
               </div>
             )}
           </section>

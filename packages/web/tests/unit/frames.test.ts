@@ -23,4 +23,9 @@ describe("the frame a variant card shows", () => {
     const v = tl([{ id: "title", fromFrame: 0, props: { text: "IA OU STYLO ?" } }, { id: "z1", fromFrame: 400, props: {} }] as never);
     expect(keyFrame(v, base)).toBe(21);
   });
+  it("goes to the first sound a variant adds (sounds are not elements)", () => {
+    const base = { ...tl([]), audio: [{ id: "clip:a", fromFrame: 0 }] } as never;
+    const v = { ...tl([]), audio: [{ id: "clip:a", fromFrame: 0 }, { id: "t_zin", fromFrame: 150 }] } as never;
+    expect(keyFrame(v, base)).toBe(171);
+  });
 });
