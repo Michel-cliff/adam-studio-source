@@ -16,6 +16,9 @@ import { askCommand, claudeBin } from "./claude";
 import { codexAskCommand, codexBin, installed, parseCodexUsage } from "./codex";
 import { stepContext } from "./context";
 import { libraryRoute } from "./library-routes";
+import { aiRunner, type AskAI } from "./ai";
+import { learnedFor } from "./stats";
+import { statsRoute } from "./stats-routes";
 import { mediaFile, previewData } from "./preview";
 import { listProjects, projectView } from "./projects";
 import { applySeriesIn, closeCurrentStep, removeAssetIn, cutWordsIn, decideProposal, firstPassIn, listSeries, loadRaw, patchProject, setValue, ToolError, tightenIn, undo, updateItem } from "./store";
@@ -58,12 +61,14 @@ function sse(res: ServerResponse): (data: unknown) => void {
   return (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 }
 
-export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capcutPython?: () => string | null; dist?: string; home?: string } = {}): Server {
+export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capcutPython?: () => string | null; dist?: string; home?: string; ai?: AskAI } = {}): Server {
   const home = opts.home ?? homedir();
   const settingsFile = opts.settingsFile ?? SETTINGS_FILE;
   const jobs = opts.jobs ?? new JobManager();
   const capcutPython = opts.capcutPython ?? (() => venvPython("capcut", "ADAM_CAPCUT_PYTHON"));
   const dist = opts.dist ?? join(WEB, "dist");
+  // The AI for questions outside the edit (statistics): the one the creator picked, with its model.
+  const ai = opts.ai ?? aiRunner(() => engine(settingsFile), () => (engine(settingsFile) === "codex" ? codexModel(settingsFile) : claudeModel(settingsFile)));
   const clients = new Set<(d: unknown) => void>();
   const notify = (project: string) => { for (const c of clients) c({ type: "change", project }); };
   let unwatch = watchProjects(projectsRoot(settingsFile), notify);
@@ -87,6 +92,10 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     let m: RegExpMatchArray | null;
 
     if (path === "/api/ping") return send(res, 200, { app: "adam-studio" });
+    if (path.startsWith("/api/stats")) {
+      const handled = await statsRoute({ req, res, url, method, dir: dirname(settingsFile), root: projectsRoot(settingsFile), ai, send: (s, b) => send(res, s, b), body: () => body(req) });
+      if (handled) return;
+    }
     if (path.startsWith("/api/library/")) {
       const handled = await libraryRoute({ req, res, url, method, port, root: projectsRoot(settingsFile), send: (s, b) => send(res, s, b), body: () => body(req) });
       if (handled) return;
@@ -218,7 +227,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const mode = b.mode === "do" ? "do" as const : "propose" as const;
       let context: string | undefined;
       try { context = stepContext(dir, step); } catch { /* an unreadable project: Claude reads it with its tools */ }
-      const extras = { ...askServers(home, connectorsFile), skills, mode, context };
+      const extras = { ...askServers(home, connectorsFile), skills, mode, context, learned: learnedFor(dirname(settingsFile), step) };
       const brief = look ? lookBrief(look) : null;
       const command = ai === "codex"
         ? codexAskCommand(name, step, String(b.prompt ?? ""), codexModel(settingsFile), brief, extras)

@@ -33,7 +33,7 @@ export const STEP_BRIEFS: Record<string, string> = {
  * `mode`: "propose" writes A/B/C variants for the creator to choose from; "do" applies an explicit request directly.
  * `context`: the step's context (stepContext), sent up front so Claude does not explore the project tool by tool.
  */
-export type AskExtras = { servers?: Record<string, unknown>; tools?: string[]; skills?: string[]; mode?: "do" | "propose"; context?: string };
+export type AskExtras = { servers?: Record<string, unknown>; tools?: string[]; skills?: string[]; mode?: "do" | "propose"; context?: string; learned?: string };
 
 // Turn caps: most of an ask's time and tokens went into exploring (26 to 80 turns, the context re-read each turn).
 const MAX_TURNS = { do: 10, propose: 22 };
@@ -66,6 +66,7 @@ export function askBrief(project: string, step: string, prompt: string, look: st
     ...(extras.context ? ["# Context of the step", extras.context, ""] : []),
     rulesFor(step),
     "",
+    ...(extras.learned ? [extras.learned, ""] : []),
     ...(look ? ["The video's look (it wins over generic defaults; say plainly what the renderer cannot do yet):", look, ""] : []),
     ...(extras.skills?.length ? [`The creator asked for these skills: invoke each with the Skill tool: ${extras.skills.join(", ")}.`,
       "Apply their rules through the adam-studio tools (the proposal is still written with propose); read their files when they point to them.", ""] : []),
