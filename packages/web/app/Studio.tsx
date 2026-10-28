@@ -394,7 +394,8 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
             <p className="nextline mono"><Help text={HELP[g]} />
               {state === "done" ? (accepted ? "DONE · PICK ANOTHER VARIANT BELOW TO CHANGE IT" : "DONE") : auto?.state === "running" ? "AUTO MODE IS ON IT" : `NEXT · ${nextAction.toUpperCase()}`}</p>
             {error && <p className="error" onClick={() => setError("")}>{error}</p>}
-            {otherJob && <JobLog key={otherJob.id} id={otherJob.id} onEnd={() => load()} />}
+            {/* During an auto run, its progress is in the top bar: the render log stays out of the step. */}
+            {otherJob && auto?.state !== "running" && <JobLog key={otherJob.id} id={otherJob.id} onEnd={() => load()} />}
             {!wf && g === "story" ? <Rushes name={name} view={view} run={run} firstPass={firstPass} /> : g === "story" ? (
               // Story: the edit on the left (or the picked shape), the script on the right.
               <div className="story-view">

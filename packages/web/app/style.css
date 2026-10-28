@@ -655,3 +655,6 @@ kbd { font: 600 11px var(--mono); padding: 2px 6px; border: 1px solid var(--crea
 /* A step already done: the pick, switchable */
 .switchrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .switchrow .vchip.on:disabled { opacity: 1; cursor: default; }
+/* Story: the pick sits under the video, as wide as the video, never wider (the column sizes to the video) */
+.story-video .switchrow { flex-direction: column; align-items: stretch; gap: 4px; align-self: stretch; width: 0; min-width: 100%; }
+.story-video .switchrow .vchip { max-width: 100%; }
