@@ -46,7 +46,7 @@ h2 { font-size: 22px; margin: 22px 0 10px; }
 h3 { font-size: 16px; }
 
 /* ---------- The page ---------- */
-.page { height: 100vh; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding: 26px 40px 18px; }
+.page { min-height: 100vh; display: flex; flex-direction: column; gap: 14px; padding: 26px 40px 18px; }
 .topnav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: 12px; font: 600 15px var(--display); letter-spacing: .04em; }
 .topnav a { padding: 7px 10px; text-decoration: none; }
 .topnav a.on { color: var(--glow); box-shadow: inset 0 -3px 0 var(--mustard); }
@@ -496,3 +496,21 @@ kbd { font: 600 11px var(--mono); padding: 2px 6px; border: 1px solid var(--crea
 .shot.failed { aspect-ratio: 9 / 16; display: flex; flex-direction: column; gap: 8px; justify-content: center; padding: 14px; background: var(--field); color: #FF8A80; font-size: 13px; text-align: left; overflow: auto; }
 .shot { position: relative; }
 .shotnote { position: absolute; left: 6px; right: 6px; bottom: 6px; padding: 3px 6px; background: rgba(20,20,18,.85); color: var(--glow); font-size: 10px; text-align: center; }
+
+/* Ordinary screens first: the page grows and scrolls rather than letting content slide under the ask bar. */
+.cols { flex: 1 0 auto; min-height: 0; }
+.chosen-info .why { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+@media (max-height: 820px) {
+  .page { gap: 10px; padding: 16px 28px 12px; }
+  .step { font-size: 18px; padding: 7px 10px; }
+  .subnav a, .subnav button { font-size: 21px; }
+  .variant .shot-btn, .variant.on .shot { height: min(max(280px, calc(100vh - 380px)), calc(100cqw / var(--ar, 0.5625))); }
+  .talk { min-height: 180px; }
+}
+/* Big monitors: more room, not just more empty space. */
+@media (min-width: 1800px) {
+  .page { padding: 32px 64px 22px; }
+  .studio-cols { grid-template-columns: 290px minmax(0, 1fr) 320px; }
+  .stats-cols { grid-template-columns: 320px minmax(0, 1fr) 360px; }
+  body { font-size: 15px; }
+}
