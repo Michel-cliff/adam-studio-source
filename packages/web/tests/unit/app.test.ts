@@ -150,15 +150,15 @@ describe("studio tools", () => {
     expect(r.json.saved).toMatch(/inspiration.Uploads.logo final[.]png$/);
     expect(r.json.imported).toMatchObject({ id: "logo_final", kind: "image", path: "assets/logo_final.png" });
     expect((await call("GET", P)).json.assets).toEqual([{ id: "logo_final", kind: "image", path: "assets/logo_final.png" }]);
-    // A second drop of the same name does not overwrite the first.
-    const again = await upload(`/api/library/upload?name=${encodeURIComponent("logo final.png")}`, png);
+    // A second drop of the same name (other bytes) does not overwrite the first.
+    const again = await upload(`/api/library/upload?name=${encodeURIComponent("logo final.png")}`, Buffer.concat([png, Buffer.from("v2")]));
     expect(again.json.saved).toMatch(/logo final [(]2[)][.]png$/);
     expect((await upload("/api/library/upload?name=virus.exe", png)).status).toBe(400);
   });
 
   it("deletes an Inspiration file into the folder's trash, and nothing outside the folder", async () => {
     process.env.ADAM_INSPIRATION = join(root, "inspiration");
-    const r = await upload(`/api/library/upload?name=${encodeURIComponent("to drop.png")}`, Buffer.from("89504e470d0a1a0a", "hex"));
+    const r = await upload(`/api/library/upload?name=${encodeURIComponent("to drop.png")}`, Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), Buffer.from("to drop")]));
     writeFileSync(`${r.json.saved}.txt`, "notes");
     const del = await call("DELETE", `/api/library/file?path=${encodeURIComponent(r.json.saved)}`);
     expect(del.status).toBe(200);
