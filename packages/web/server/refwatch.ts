@@ -10,10 +10,14 @@ import { readStats, topicOf, TOPICS, trends, updateRef, type Beat, type Ref, typ
 const run = promisify(execFile);
 const FRAMES = 8;
 
+// Separate video and audio merged into one MP4 first: YouTube's single-file format 18 often stops after a few
+// hundred KB while yt-dlp reports success. H.264 when there is one, any codec next, the single file last.
+export const videoFormat = "bv*[height<=720][vcodec^=avc1]+ba[ext=m4a]/bv*[height<=720]+ba/b[height<=720]/b";
+
 async function download(url: string, folder: string): Promise<{ video: string; title: string; subs: string }> {
   mkdirSync(folder, { recursive: true });
   // The video first: without it there is nothing to watch.
-  const { stdout } = await run("yt-dlp", ["--no-playlist", "--no-progress", "-f", "mp4[height<=720]/best[height<=720]/best", "--max-filesize", "300M",
+  const { stdout } = await run("yt-dlp", ["--no-playlist", "--no-progress", "-f", videoFormat, "--merge-output-format", "mp4", "--max-filesize", "300M",
     "-o", join(folder, "video.%(ext)s"), "--print", "after_move:title", url], { timeout: 300_000, windowsHide: true, maxBuffer: 1 << 24 });
   const video = readdirSync(folder).find((f) => /^video\.(mp4|webm|mkv|mov)$/.test(f));
   if (!video) throw new Error("the video could not be downloaded from this link");
