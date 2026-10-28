@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { closeSync, createWriteStream, existsSync, mkdirSync, openSync, readSync, renameSync, rmSync, statSync } from "node:fs";
 import { pipeline } from "node:stream/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
@@ -116,6 +117,11 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     if (path === "/api/connect/claude-desktop" && method === "GET") return send(res, 200, claudeDesktopStatus());
     if (path === "/api/connect/claude-desktop" && method === "POST") {
       try { connectClaudeDesktop(claudeDesktopConfig(), adamServer()); } catch (e) { throw new HttpError(400, (e as Error).message); }
+      // Claude Desktop's Code tab is Claude Code, with its own config: add the server there too (user scope), if it has Claude Code.
+      try {
+        const srv = adamServer();
+        execFileSync(claudeBin(), ["mcp", "add", "--scope", "user", "adam-studio", "--", srv.command, ...srv.args], { stdio: "ignore", windowsHide: true, timeout: 30_000 });
+      } catch { /* no Claude Code, or already added */ }
       return send(res, 200, claudeDesktopStatus());
     }
     if (path === "/api/connect/codex" && method === "GET") return send(res, 200, codexStatus());
