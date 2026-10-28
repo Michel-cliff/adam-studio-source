@@ -1,4 +1,5 @@
-import { createWriteStream, existsSync, mkdirSync, renameSync, rmSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
 import { pipeline } from "node:stream/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { basename, dirname, extname, join, relative, isAbsolute } from "node:path";
@@ -26,6 +27,19 @@ type Ctx = {
 function insideInspiration(path: string): boolean {
   const r = relative(inspirationRoot(), path);
   return Boolean(r) && !r.startsWith("..") && !isAbsolute(r);
+}
+
+const digest = (file: string) => createHash("sha1").update(readFileSync(file)).digest("hex");
+/** Another file of the Inspiration folder with exactly the same bytes, whatever its name or folder. */
+function sameFile(file: string): string | null {
+  const size = statSync(file).size;
+  let mine: string | null = null;
+  for (const item of scanInspiration()) {
+    if (item.path === file || !existsSync(item.path) || statSync(item.path).size !== size) continue;
+    mine ??= digest(file);
+    if (digest(item.path) === mine) return item.path;
+  }
+  return null;
 }
 
 /** Library routes; returns false when the path is not one of them. */
@@ -68,6 +82,24 @@ export async function libraryRoute(c: Ctx): Promise<boolean> {
     send(200, { trashed });
     return true;
   }
+  // A file dragged onto another folder: moved there with its .txt notes, renamed rather than overwriting.
+  if (path === "/api/library/move" && method === "POST") {
+    const b = await c.body();
+    const file = String(b.path ?? "");
+    const rel = relative(inspirationRoot(), file);
+    if (!insideInspiration(file) || !existsSync(file) || rel.split(/[\\/]/)[0]!.startsWith(".")) { send(404, { error: "not in the Inspiration folder" }); return true; }
+    const category = folderParam(String(b.category ?? "")) ?? "other";
+    const folder = category !== "other" ? join(inspirationRoot(), "references", category) : join(inspirationRoot(), "Uploads");
+    mkdirSync(folder, { recursive: true });
+    const name = basename(file), ext = extname(name), stem = basename(name, ext);
+    if (dirname(file) === folder) { send(200, { moved: file }); return true; }
+    let moved = join(folder, name);
+    for (let i = 2; existsSync(moved); i++) moved = join(folder, `${stem} (${i})${ext}`);
+    renameSync(file, moved);
+    if (existsSync(`${file}.txt`)) renameSync(`${file}.txt`, `${moved}.txt`);
+    send(200, { moved });
+    return true;
+  }
   // A dropped file: saved in its reference folder, or Inspiration/Uploads (never over an existing one), and imported
   // into a project if one is named.
   if (path === "/api/library/upload" && method === "POST") {
@@ -84,6 +116,8 @@ export async function libraryRoute(c: Ctx): Promise<boolean> {
     for (let i = 2; existsSync(saved); i++) saved = join(folder, `${stem} (${i})${ext}`);
     try { await pipeline(c.req, createWriteStream(saved, { flags: "wx" })); }
     catch (e) { rmSync(saved, { force: true }); throw new ToolError(`upload failed: ${(e as Error).message}`); }
+    const twin = sameFile(saved);
+    if (twin) { rmSync(saved, { force: true }); send(409, { error: `already in your library: ${relative(inspirationRoot(), twin)}`, existing: twin }); return true; }
     if (!project) { send(200, { saved, kind }); return true; }
     const dir = join(c.root, project);
     let imported;

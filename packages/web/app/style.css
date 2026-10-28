@@ -378,3 +378,8 @@ textarea.json { width: 100%; min-height: 200px; font: 12px/1.5 var(--mono); marg
 .snd polygon { fill: rgba(237,229,200,.55); }
 .snd .lbl { position: relative; padding: 0 4px; font: 10px var(--mono); background: var(--field); }
 .playhead { position: absolute; top: 24px; bottom: 0; width: 2px; background: var(--cream-hi); pointer-events: none; }
+.ftab.target { background: var(--glow); }
+.ftab.target .in { background: #3A3326; color: var(--glow); }
+.item[draggable="true"] { cursor: grab; }
+.item[draggable="true"]:active { cursor: grabbing; }
+.item .pic img { pointer-events: none; }
