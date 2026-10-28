@@ -4,6 +4,7 @@ import type { RenderProps } from "@adam-studio/render/src/props";
 import { useEffect, useState } from "react";
 import { api, enc } from "./api";
 import { keyFrame } from "./frames";
+import { Halftone } from "./halftone";
 
 // Preview props per URL, shared by the cards of a step: the base edit is fetched once, each variant once.
 const cache = new Map<string, Promise<RenderProps>>();
@@ -40,7 +41,7 @@ export function VariantShot({ name, proposal, variant, stamp }: { name: string; 
       {t && v ? (
         <Thumbnail component={Edit} inputProps={v} compositionWidth={t.width} compositionHeight={t.height}
           frameToDisplay={frame} durationInFrames={Math.max(1, t.durationFrames)} fps={t.fps} style={{ width: "100%", height: "100%" }} />
-      ) : <div className="loading" />}
+      ) : <Halftone fx="ripple" step={7} className="loading" />}
       {(v as (RenderProps & { note?: string }) | null)?.note && <span className="shotnote mono" title={(v as RenderProps & { note: string }).note}>SHOWN IN FRONT · CUT-OUT NOT MADE</span>}
     </div>
   );

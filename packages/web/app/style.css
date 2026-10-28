@@ -525,3 +525,35 @@ kbd { font: 600 11px var(--mono); padding: 2px 6px; border: 1px solid var(--crea
 .library-cols { flex: none; }
 .drawer { flex: none; height: max(320px, calc(100vh - 420px)); }
 .library-cols .status .dropzone { flex: none; min-height: 120px; }
+
+/* Motion and HUD, on the same layout */
+.halftone { display: block; width: 100%; height: 100%; background: #121210; }
+.feedwave { width: 96px; height: 26px; flex: none; border-radius: 4px; }
+.variant .shot .loading { min-height: 240px; }
+.stage-row { display: flex; align-items: center; justify-content: center; gap: 28px; }
+.feature { width: 230px; display: flex; flex-direction: column; gap: 10px; }
+.feature .halftone { height: 150px; border: 1px solid rgba(217,177,59,.35); }
+.feature p { margin: 0; font-size: 14px; line-height: 1.45; }
+.working-big { display: flex; flex-direction: column; align-items: center; gap: 12px; width: min(560px, 100%); }
+.working-big .halftone { height: min(360px, 44vh); border: 1px solid rgba(217,177,59,.35); }
+.working-big .mono { color: var(--glow); letter-spacing: .1em; animation: blink 1.4s steps(1) infinite; }
+.sname { display: inline-flex; align-items: center; gap: 10px; }
+.sicon { flex: none; opacity: .8; }
+.step.on .sicon { opacity: 1; filter: drop-shadow(0 0 4px rgba(242,193,78,.6)); }
+.newbadge { color: var(--page); background: var(--glow); padding: 2px 6px; animation: badge 2.2s ease-in-out infinite; }
+@keyframes badge { 0%, 100% { box-shadow: 0 0 0 0 rgba(242,193,78,.45); } 50% { box-shadow: 0 0 0 6px rgba(242,193,78,0); } }
+/* HUD corners on the stage frames */
+.frame.lit { position: relative; }
+.frame.lit::before, .frame.lit::after { content: ""; position: absolute; width: 16px; height: 16px; border: 2px solid var(--glow); pointer-events: none; z-index: 2; }
+.frame.lit::before { top: 4px; left: 4px; border-right: 0; border-bottom: 0; }
+.frame.lit::after { bottom: 4px; right: 4px; border-left: 0; border-top: 0; }
+.synced { animation: synced 3s ease-in-out infinite; }
+@keyframes synced { 50% { opacity: .55; } }
+.marks { animation: tape 8s linear infinite; }
+@keyframes tape { to { background-position: 60px 0, 60px 3px; } }
+.variant { animation: rise .5s cubic-bezier(.2,.8,.2,1) both; }
+.variant:nth-child(2) { animation-delay: .07s; } .variant:nth-child(3) { animation-delay: .14s; }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+.variant .shot-btn { transition: transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s; }
+.variant .shot-btn:hover { transform: translateY(-4px); box-shadow: 0 0 0 1px var(--glow), 0 10px 24px rgba(0,0,0,.4); }
+@media (prefers-reduced-motion: reduce) { .variant, .marks, .synced, .newbadge, .working-big .mono { animation: none !important; } }

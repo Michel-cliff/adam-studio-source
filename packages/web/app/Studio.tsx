@@ -14,7 +14,19 @@ import { askStep, GROUPS, groupOf, groupState, openGroup, type GroupId } from ".
 import { keyFrame } from "./frames";
 import { PRESETS, ScriptPanel, SoundTracks } from "./StepViews";
 import { VariantShot } from "./VariantShot";
+import { Halftone } from "./halftone";
 
+// What each step does, as an animated picture and one line, while nothing is proposed.
+const FEATURES: Partial<Record<GroupId, { fx: "timeline" | "code" | "target" | "ripple" | "wave"; text: string }>> = {
+  captions: { fx: "code", text: "Three caption styles: font, colors, the word that pops." },
+  hook: { fx: "target", text: "Three openings that grab in the first three seconds." },
+  visuals: { fx: "ripple", text: "Icons, images and effects on the words you say." },
+  sound: { fx: "wave", text: "Three soundtracks to hear in place, effects on the key moments." },
+};
+const ICONS: Record<GroupId, string> = {
+  story: "M4 6h16M4 12h10M4 18h13", captions: "M4 7h16v10H4zM8 12h3M13 12h3", hook: "M12 3v8a4 4 0 1 1-4-4",
+  visuals: "M4 5h16v14H4zM4 15l5-5 4 4 3-3 4 4", sound: "M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2", wrap: "M5 12l5 5 9-10",
+};
 const NAMES: Record<GroupId, string> = { story: "Story", captions: "Captions", hook: "Hook", visuals: "Visuals", sound: "Sound", wrap: "Wrap" };
 
 const ACTIVITY: Record<string, string> = {
@@ -57,7 +69,7 @@ function ClaudeFeed({ job, onEnd }: { job: JobView; onEnd: () => void }) {
   }, [job.id]);
   return (
     <div className="feed" aria-live="polite">
-      <span className="who">{state === "running" ? <i className="pulse" /> : null}YOUR AI{state === "running" ? " · WORKING" : state === "done" ? "" : ` · ${state.toUpperCase()}`}</span>
+      {state === "running" && <Halftone fx="wave" step={5} className="feedwave" />}<span className="who">{state === "running" ? <i className="pulse" /> : null}YOUR AI{state === "running" ? " · WORKING" : state === "done" ? "" : ` · ${state.toUpperCase()}`}</span>
       <span className="what">{say || lines[lines.length - 1] || "Getting ready"}</span>
       {state === "running" && <button type="button" className="link" onClick={() => api(`/jobs/${job.id}/stop`, { method: "POST" })}>Stop</button>}
     </div>
@@ -260,7 +272,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
             return (
               <button key={x.id} type="button" className={`step ${st}${g === x.id ? " on" : ""}`} style={{ borderLeftColor: x.color }} aria-current={g === x.id ? "step" : undefined}
                 onClick={() => { setGroup(x.id); setPick(null); }}>
-                <span>{t(NAMES[x.id])}</span><span className="mono">{n ? `${n} NEW` : st === "done" ? "✓" : ""}</span>
+                <span className="sname"><svg className="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={ICONS[x.id]} /></svg>{t(NAMES[x.id])}</span><span className={`mono${n ? " newbadge" : ""}`}>{n ? `${n} NEW` : st === "done" ? "✓" : ""}</span>
               </button>
             );
           })}
@@ -323,7 +335,12 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
               </>
             ) : (
               <div className="stage">
-                <Screen name={name} view={view} proposal={null} variant={null} className="frame lit" />
+                {claudeJob?.state === "running"
+                  ? <div className="working-big"><Halftone fx="code" step={9} /><span className="mono">YOUR AI IS PREPARING THREE OPTIONS…</span></div>
+                  : <div className="stage-row">
+                    <Screen name={name} view={view} proposal={null} variant={null} className="frame lit" />
+                    {FEATURES[g] && <div className="feature"><Halftone fx={FEATURES[g]!.fx} step={7} /><p>{FEATURES[g]!.text}</p></div>}
+                  </div>}
                 {PRESETS[g] && !lockedWhy && claudeJob?.state !== "running"
                   ? <button type="button" className="act fill big" disabled={busy} onClick={() => void ask(PRESETS[g]!.prompt)}>{PRESETS[g]!.button}</button>
                   : <p className="mono note">{lockedWhy ?? ""}</p>}
