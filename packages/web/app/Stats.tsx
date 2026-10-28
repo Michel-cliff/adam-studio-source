@@ -119,7 +119,7 @@ function MyVideos({ s }: { s: ReturnType<typeof useAll> }) {
                   onBlur={(e) => { if (e.target.value !== (v.stats.metrics[m.k] ?? "")) void put({ metrics: { [m.k]: e.target.value } }); }}
                   onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} /></label>
             ))}
-            <p className="note">TYPE THEM IN, OR DROP A SCREENSHOT OF THE STATS PAGE: {ai.split(" ")[0]} READS IT.</p>
+            <p className="note">TYPE THEM IN, OR DROP A SCREENSHOT OF THE STATS PAGE: {"YOUR AI"} READS IT.</p>
           </div>
         </div>
         <div className="talk">
@@ -128,11 +128,11 @@ function MyVideos({ s }: { s: ReturnType<typeof useAll> }) {
             <textarea id="worked" key={v.name} defaultValue={v.stats.note} onBlur={(e) => { if (e.target.value !== v.stats.note) void put({ note: e.target.value }); }} />
           </div>
           <div className="chatbox">
-            <div className="chathead"><span>{ai.split(" ")[0]} ON {v.name.toUpperCase()}</span><span className="mono">{ai.split(" · ")[1] ?? ""}</span></div>
+            <div className="chathead"><span>{"YOUR AI"} ON {v.name.toUpperCase()}</span><span className="mono">{ai.split(" · ")[1] ?? ""}</span></div>
             <div className="msgs" ref={box}>
               {v.stats.chat.length === 0 && <p className="note">ASK ABOUT THIS VIDEO: WHY PEOPLE LEFT, WHAT TO KEEP, WHAT TO TRY NEXT.</p>}
-              {v.stats.chat.map((m, i) => <div key={i} className={`msg ${m.who}`}><b>{m.who === "you" ? "YOU" : ai.split(" ")[0]}</b>{m.text}</div>)}
-              {busy === "chat" && <div className="msg ai"><b>{ai.split(" ")[0]}</b><i className="pulse" /></div>}
+              {v.stats.chat.map((m, i) => <div key={i} className={`msg ${m.who}`}><b>{m.who === "you" ? "YOU" : "YOUR AI"}</b>{m.text}</div>)}
+              {busy === "chat" && <div className="msg ai"><b>{"YOUR AI"}</b><i className="pulse" /></div>}
             </div>
             <div className="chatin">
               <input aria-label="Ask about this video" placeholder="Why did people leave at 0:05?" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void send(); }} />
@@ -142,8 +142,8 @@ function MyVideos({ s }: { s: ReturnType<typeof useAll> }) {
         </div>
       </section>
 
-      <aside aria-label="What Claude applies" className="status">
-        <div className="h">WHAT {ai.split(" ")[0]} APPLIES</div>
+      <aside aria-label="What your AI applies" className="status">
+        <div className="h">WHAT {"YOUR AI"} APPLIES</div>
         {applied.length === 0 && <p className="note">NOTHING YET: RULES COME FROM YOUR FEEDBACK, YOUR REFERENCES AND YOUR NUMBERS.</p>}
         <div className="scroll">
           {applied.map((r) => (
@@ -152,7 +152,7 @@ function MyVideos({ s }: { s: ReturnType<typeof useAll> }) {
           ))}
         </div>
         <p className="note sepline">FILLED SQUARE: FROM YOUR NUMBERS · EMPTY: FROM YOUR FEEDBACK OR A REFERENCE</p>
-        <button type="button" className="act fill" disabled={Boolean(busy)} onClick={() => void strategy()}>{busy === "strategy" ? "THINKING…" : `ASK ${ai.split(" ")[0]} FOR THE NEXT STRATEGY`}</button>
+        <button type="button" className="act fill" disabled={Boolean(busy)} onClick={() => void strategy()}>{busy === "strategy" ? "THINKING…" : `ASK ${"YOUR AI"} FOR THE NEXT STRATEGY`}</button>
       </aside>
     </div>
   );
@@ -236,7 +236,7 @@ function Learned({ s }: { s: ReturnType<typeof useAll> }) {
   const [adding, setAdding] = useState(false);
   const [say, setSay] = useState("");
   const [busy, setBusy] = useState(false);
-  const ai = useAiName().split(" ")[0] ?? "CLAUDE";
+  const ai = "YOUR AI";
   const rules = all.rules.filter((r) => r.topic === topic);
   const kind = (src: string) => (src === "YOU" ? "From you" : src === "YOUR NUMBERS" ? "From your numbers" : src.startsWith("REFERENCE") ? "From references" : `From ${ai.toLowerCase()}`);
   const sources = Object.entries(all.rules.reduce<Record<string, number>>((a, r) => ({ ...a, [kind(r.source)]: (a[kind(r.source)] ?? 0) + 1 }), {}));
@@ -269,7 +269,7 @@ function Learned({ s }: { s: ReturnType<typeof useAll> }) {
         <div className="h">WHERE IT COMES FROM</div>
         {sources.length === 0 && <p className="note">NO RULE YET.</p>}
         {sources.map(([k, n]) => <div key={k} className="kv"><span>{k}</span><b>{n}</b></div>)}
-        <p className="readme">Every rule that is on travels with each ask to {ai === "CODEX" ? "Codex" : "Claude"}, in the steps it belongs to. Turn one off to stop it without losing it.</p>
+        <p className="readme">Every rule that is on travels with each ask to your AI, in the steps it belongs to. Turn one off to stop it without losing it.</p>
         {adding ? (
           <div className="addrule">
             <textarea aria-label={`New ${TOPIC_NAMES[topic]} rule`} placeholder={`A ${TOPIC_NAMES[topic]!.toLowerCase()} rule, in a sentence`} value={text} onChange={(e) => setText(e.target.value)} autoFocus />
@@ -291,7 +291,7 @@ export function Stats({ view = "videos" }: { view?: string }) {
   useLang();
   const s = useAll();
   const v: View = view === "refs" ? "refs" : view === "learned" ? "learned" : "videos";
-  const views: [View, string, string][] = [["videos", "My videos", "#/stats"], ["refs", "References & trends", "#/stats/refs"], ["learned", "What Claude learned", "#/stats/learned"]];
+  const views: [View, string, string][] = [["videos", "My videos", "#/stats"], ["refs", "References & trends", "#/stats/refs"], ["learned", "What your AI learned", "#/stats/learned"]];
   const foot = v === "videos" ? "Your numbers stay on this computer. The AI reads them when you ask." : v === "refs" ? "The AI watches each reference once and keeps what it saw." : "Rules learned from your feedback, your references and your numbers.";
   return (
     <>

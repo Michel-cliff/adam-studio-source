@@ -57,7 +57,7 @@ function ClaudeFeed({ job, onEnd }: { job: JobView; onEnd: () => void }) {
   }, [job.id]);
   return (
     <div className="feed" aria-live="polite">
-      <span className="who">{state === "running" ? <i className="pulse" /> : null}{(aiOf(job.label)?.ai ?? "Claude").toUpperCase()}{state === "running" ? " · WORKING" : state === "done" ? "" : ` · ${state.toUpperCase()}`}</span>
+      <span className="who">{state === "running" ? <i className="pulse" /> : null}YOUR AI{state === "running" ? " · WORKING" : state === "done" ? "" : ` · ${state.toUpperCase()}`}</span>
       <span className="what">{say || lines[lines.length - 1] || "Getting ready"}</span>
       {state === "running" && <button type="button" className="link" onClick={() => api(`/jobs/${job.id}/stop`, { method: "POST" })}>Stop</button>}
     </div>
@@ -241,7 +241,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
     const key = p.status.replace(/^accepted\s*/, "");
     return { k: p.status.startsWith("accepted") ? key : "×", label: p.variants.find((v) => v.key === key)?.label ?? p.reason ?? (p.id.startsWith("auto.") ? "First pass" : "Proposal") };
   };
-  const hint = g === "wrap" ? "Pick a format, then export." : !wf ? "Run the first pass to start." : pending ? t("Select a variant.") : canClose ? "Ask Claude, or move on." : lockedWhy ?? "";
+  const hint = g === "wrap" ? "Pick a format, then export." : !wf ? "Run the first pass to start." : pending ? t("Select a variant.") : canClose ? "Ask your AI, or move on." : lockedWhy ?? "";
 
   return (
     <>
@@ -373,7 +373,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
               if (r.errors.length) setError(r.errors.join("\n"));
               if (r.added.length) { setToast(`Added ${r.added.map((a) => a.id).join(", ")} to this video`); await load(); }
             }}>
-            <label htmlFor="ask">{t("ASK CLAUDE").replace("CLAUDE", ai.toUpperCase())}</label>
+            <label htmlFor="ask">{t("ASK YOUR AI")}</label>
             <input id="ask" value={prompt} placeholder={`${t(NAMES[g])}: what do you want?`} onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && prompt.trim() && !busy) void ask(prompt, e.ctrlKey || e.metaKey ? "propose" : "do"); }} />
             <button type="button" className="act" disabled={!prompt.trim() || busy} title="Applies your request directly (Undo puts it back)" onClick={() => ask(prompt, "do")}>{t("DO IT")}</button>
