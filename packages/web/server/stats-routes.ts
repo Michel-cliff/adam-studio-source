@@ -8,7 +8,7 @@ import { safeName } from "./guards";
 import { listProjects } from "./projects";
 import { watchRef } from "./refwatch";
 import {
-  addChat, addRef, addRule, emptyVideo, METRICS, platformOf, readStats, removeRef, removeRule, saveVideo, setRule, topicOf, TOPICS, trends,
+  addChat, addRef, addRule, updateRef, emptyVideo, METRICS, platformOf, readStats, removeRef, removeRule, saveVideo, setRule, topicOf, TOPICS, trends,
   type Metric, type Stats,
 } from "./stats";
 import { loadRaw } from "./store";
@@ -155,7 +155,7 @@ export async function statsRoute(c: Ctx): Promise<boolean> {
     if ((m = path.match(/^\/api\/stats\/refs\/([\w]+)\/retry$/)) && method === "POST") {
       const ref = readStats(dir).refs.find((r) => r.id === m![1]);
       if (!ref) throw new StatsError("no such reference");
-      void watchRef(dir, { ...ref, status: "watching" }, ai);
+      void watchRef(dir, updateRef(dir, ref.id, { status: "watching", error: undefined }), ai);
       send(202, all()); return true;
     }
     // What Claude saw in a reference, kept as rules: to follow ("use") or never to do ("donts").

@@ -79,7 +79,9 @@ export function addRef(dir: string, from: { url?: string; file?: string; name?: 
   if (!from.url && !from.file) throw new Error("paste a link or drop a video");
   const s = readStats(dir);
   if (from.url && s.refs.some((r) => r.url === from.url)) throw new Error("this reference is already in your list");
-  const ref: Ref = { id: id("r"), name: from.name || from.url || "video", source: from.url ? platformOf(from.url) : "FILE", url: from.url, file: from.file,
+  // Until it is watched, a link shows as host and path, without its tracking query (?si=…).
+  const short = from.url ? (() => { try { const u = new URL(from.url!); return `${u.hostname.replace(/^www\./, "")}${u.pathname}`.replace(/\/$/, ""); } catch { return from.url!; } })() : "";
+  const ref: Ref = { id: id("r"), name: from.name || short || "video", source: from.url ? platformOf(from.url) : "FILE", url: from.url, file: from.file,
     status: "watching", saw: [], beats: [], traits: [], at: Date.now() };
   s.refs = [ref, ...s.refs];
   write(dir, s);

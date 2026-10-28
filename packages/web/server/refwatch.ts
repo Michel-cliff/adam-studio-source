@@ -12,13 +12,17 @@ const FRAMES = 8;
 
 async function download(url: string, folder: string): Promise<{ video: string; title: string; subs: string }> {
   mkdirSync(folder, { recursive: true });
+  // The video first: without it there is nothing to watch.
   const { stdout } = await run("yt-dlp", ["--no-playlist", "--no-progress", "-f", "mp4[height<=720]/best[height<=720]/best", "--max-filesize", "300M",
-    "--write-auto-subs", "--write-subs", "--sub-langs", "fr.*,en.*", "--convert-subs", "srt", "-o", join(folder, "video.%(ext)s"),
-    "--print", "after_move:title", url], { timeout: 300_000, windowsHide: true, maxBuffer: 1 << 24 });
-  const files = readdirSync(folder);
-  const video = files.find((f) => /^video\.(mp4|webm|mkv|mov)$/.test(f));
+    "-o", join(folder, "video.%(ext)s"), "--print", "after_move:title", url], { timeout: 300_000, windowsHide: true, maxBuffer: 1 << 24 });
+  const video = readdirSync(folder).find((f) => /^video\.(mp4|webm|mkv|mov)$/.test(f));
   if (!video) throw new Error("the video could not be downloaded from this link");
-  const srt = files.find((f) => f.endsWith(".srt"));
+  // The captions are a bonus: platforms often refuse them (HTTP 429), the frames are enough then.
+  try {
+    await run("yt-dlp", ["--no-playlist", "--no-progress", "--skip-download", "--write-auto-subs", "--write-subs", "--sub-langs", "fr.*,en.*",
+      "--convert-subs", "srt", "-o", join(folder, "video.%(ext)s"), url], { timeout: 120_000, windowsHide: true, maxBuffer: 1 << 24 });
+  } catch { /* no captions: watched from the frames only */ }
+  const srt = readdirSync(folder).find((f) => f.endsWith(".srt"));
   const subs = srt ? readFileSync(join(folder, srt), "utf8").split("\n").filter((l) => l && !/^\d+$/.test(l) && !/-->/.test(l)).join(" ") : "";
   return { video: join(folder, video), title: stdout.trim().split("\n").pop() ?? "", subs };
 }

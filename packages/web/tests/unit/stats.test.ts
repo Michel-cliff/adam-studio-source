@@ -103,6 +103,7 @@ describe("references", () => {
   it("refuses a link that is not one, or twice the same", async () => {
     expect((await json("/api/stats/refs", "POST", { url: "not a link" })).status).toBe(400);
     const d = mkdtempSync(join(tmpdir(), "adam refs-"));
+    expect(addRef(d, { url: "https://www.youtube.com/shorts/abc?si=track" }).name).toBe("youtube.com/shorts/abc");
     addRef(d, { url: "https://youtu.be/x" });
     expect(() => addRef(d, { url: "https://youtu.be/x" })).toThrow(/already/);
   });
