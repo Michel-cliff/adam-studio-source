@@ -38,7 +38,8 @@ export type AskExtras = { servers?: Record<string, unknown>; tools?: string[]; s
 // Turn caps: most of an ask's time and tokens went into exploring (26 to 80 turns, the context re-read each turn).
 const MAX_TURNS = { do: 10, propose: 22 };
 
-export function askCommand(project: string, step: string, prompt: string, model: ClaudeModel = "default", look: string | null = null, extras: AskExtras = {}): Command {
+/** What any AI gets for an ask: the brief of the step (its rules, the look, the context) and how to answer. */
+export function askBrief(project: string, step: string, prompt: string, look: string | null = null, extras: AskExtras = {}): { system: string; mode: "do" | "propose" } {
   if (!STEP_BRIEFS[step]) throw new ActionError(`unknown step "${step}"`);
   if (!prompt.trim()) throw new ActionError("write what you want first");
   const mode = extras.mode ?? "propose";
@@ -71,7 +72,15 @@ export function askCommand(project: string, step: string, prompt: string, model:
     ...(extras.tools?.length ? [`Connected tools you may also use: ${extras.tools.join(", ")}.`, ""] : []),
     "End with ONE short plain sentence (under 30 words) for the creator, in the language of the transcript: no markdown, no ids, no list.",
   ].join("\n");
-  const mcp = JSON.stringify({ mcpServers: { "adam-studio": { command: process.execPath, args: [TSX, join(REPO, "packages", "mcp", "src", "server.ts")] }, ...(extras.servers ?? {}) } });
+  return { system, mode };
+}
+
+/** The adam-studio MCP server, as a command any AI can start. */
+export const adamServer = () => ({ command: process.execPath, args: [TSX, join(REPO, "packages", "mcp", "src", "server.ts")] });
+
+export function askCommand(project: string, step: string, prompt: string, model: ClaudeModel = "default", look: string | null = null, extras: AskExtras = {}): Command {
+  const { system, mode } = askBrief(project, step, prompt, look, extras);
+  const mcp = JSON.stringify({ mcpServers: { "adam-studio": adamServer(), ...(extras.servers ?? {}) } });
   // A skill is read with Skill, then its files with Read, Glob and Grep: no shell, no writes outside the tools.
   const allowed = ["mcp__adam-studio", ...(extras.tools ?? []), ...(extras.skills?.length ? ["Skill", "Read", "Glob", "Grep"] : [])];
   return {

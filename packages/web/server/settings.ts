@@ -45,3 +45,28 @@ export function setClaudeModel(model: string, file = SETTINGS_FILE): void {
   if (!CLAUDE_MODELS.includes(model as ClaudeModel)) throw new Error(`model must be one of ${CLAUDE_MODELS.join(", ")}`);
   write(file, { claudeModel: model });
 }
+
+/** The AI the studio asks: Claude Code or Codex CLI, whichever the creator has. */
+export const ENGINES = ["claude", "codex"] as const;
+export type Engine = (typeof ENGINES)[number];
+
+export function engine(file = SETTINGS_FILE): Engine {
+  const e = read(file).engine;
+  return ENGINES.includes(e as Engine) ? (e as Engine) : "claude";
+}
+
+export function setEngine(e: string, file = SETTINGS_FILE): void {
+  if (!ENGINES.includes(e as Engine)) throw new Error(`the AI must be one of ${ENGINES.join(", ")}`);
+  write(file, { engine: e });
+}
+
+/** Codex's model: "default" leaves Codex's own choice; otherwise a model name as Codex knows it. */
+export function codexModel(file = SETTINGS_FILE): string {
+  const m = read(file).codexModel;
+  return typeof m === "string" && /^[\w.:-]+$/.test(m) ? m : "default";
+}
+
+export function setCodexModel(model: string, file = SETTINGS_FILE): void {
+  if (!/^[\w.:-]+$/.test(model)) throw new Error(`not a model name: "${model}"`);
+  write(file, { codexModel: model });
+}
