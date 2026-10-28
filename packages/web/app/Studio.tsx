@@ -15,6 +15,7 @@ import { keyFrame } from "./frames";
 import { PRESETS, ScriptPanel, SoundTracks } from "./StepViews";
 import { VariantShot } from "./VariantShot";
 import { Halftone } from "./halftone";
+import { Mascot } from "./Mascot";
 
 const ICONS: Record<GroupId, string> = {
   story: "M4 6h16M4 12h10M4 18h13", captions: "M4 7h16v10H4zM8 12h3M13 12h3", hook: "M12 3v8a4 4 0 1 1-4-4",
@@ -328,7 +329,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
               </>
             ) : (
               <div className="stage">
-                <Screen name={name} view={view} proposal={null} variant={null} className="frame lit" />
+                {claudeJob?.state === "running" ? <Mascot /> : <Screen name={name} view={view} proposal={null} variant={null} className="frame lit" />}
                 {PRESETS[g] && !lockedWhy && claudeJob?.state !== "running"
                   ? <button type="button" className="act fill big" disabled={busy} onClick={() => void ask(PRESETS[g]!.prompt)}>{PRESETS[g]!.button}</button>
                   : <p className="mono note">{lockedWhy ?? ""}</p>}

@@ -7,7 +7,7 @@ import {
 import { applySeries } from "@adam-studio/model";
 import { listSeries, loadSeries } from "@adam-studio/render/src/series";
 import { cutWords, tightenPauses } from "./cuts";
-import { moveCaption, moveElement, moveStory } from "./moves";
+import { moveCaption, moveElement, moveStory, resizeElement } from "./moves";
 import { firstPass, type FirstPassSummary } from "./firstpass";
 import { safeName } from "./guards";
 
@@ -241,6 +241,7 @@ export function moveIn(dir: string, what: string, id: string | number, to: numbe
     if (what === "element") return moveElement(p, style, String(id), to);
     if (what === "caption") return moveCaption(p, style, Number(id), to);
     if (what === "story") return moveStory(p, String(id), to);
+    if (what === "element-start" || what === "element-end") return resizeElement(p, style, String(id), what === "element-start" ? "start" : "end", to);
     throw new ToolError(`cannot move "${what}"`);
   });
 }

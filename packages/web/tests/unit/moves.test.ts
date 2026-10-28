@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseProject, parseStyle, type Project, type Style } from "@adam-studio/model";
 import { projectInput, styleInput } from "../../../render/tests/unit/helpers";
-import { moveCaption, moveElement, moveStory } from "../../server/moves";
+import { moveCaption, moveElement, moveStory, resizeElement } from "../../server/moves";
 
 // Words of the synthetic take, in the edit: s.w0 at 200 ms, s.w1 at 1000, s.w2 at 2200, s.w3 at 3000.
 const project = (over = {}): Project => { const p = parseProject(projectInput(over)); if (!p.ok) throw new Error(JSON.stringify(p.errors)); return p.value; };
@@ -39,6 +39,17 @@ describe("dragging on the timeline", () => {
   it("reorders the story: the clip goes where it is dropped", () => {
     expect(moveStory(project(), "c2", 0).story.map((c) => c.id)).toEqual(["c2", "c1"]);
     expect(moveStory(project(), "c1", 5).story.map((c) => c.id)).toEqual(["c2", "c1"]);
+  });
+  it("stretches or shortens an element from either edge, the other edge staying put", () => {
+    // beep: on s.w1 (1000 ms), 300 ms long.
+    const end = resizeElement(project(), style, "beep", "end", 1800).elements.find((e) => e.id === "beep")!;
+    expect(end.anchor).toEqual({ word: "s.w1", offsetMs: 0 });
+    expect(end.durationMs).toBe(800);
+    const start = resizeElement(project(), style, "beep", "start", 900).elements.find((e) => e.id === "beep")!;
+    expect(start.anchor).toEqual({ word: "s.w0", offsetMs: 700 });
+    expect(start.durationMs).toBe(400);
+    // Never shorter than a tenth of a second.
+    expect(resizeElement(project(), style, "beep", "end", 500).elements.find((e) => e.id === "beep")!.durationMs).toBe(100);
   });
   it("says what it cannot move", () => {
     expect(() => moveElement(project(), style, "nope", 0)).toThrow(/no element "nope"/);

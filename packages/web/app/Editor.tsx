@@ -81,8 +81,9 @@ const capIndex = (id: string) => Number(id.match(/^cap(\d+)/)?.[1] ?? -1);
 
 type Drag = { key: string; x0: number; width: number; dx: number; moved: boolean; from: number };
 
-function Lanes({ props, raw, frame, selected, select, seek, move }: { props: RenderProps; raw: Raw; frame: number; selected: Selected; select: (s: Selected) => void; seek: (f: number) => void;
-  move: (what: "element" | "caption" | "story", id: string | number, to: number) => void }) {
+function Lanes({ props, raw, frame, selected, select, seek, move, trim }: { props: RenderProps; raw: Raw; frame: number; selected: Selected; select: (s: Selected) => void; seek: (f: number) => void;
+  move: (what: "element" | "caption" | "story" | "element-start" | "element-end", id: string | number, to: number) => void;
+  trim: (clip: string, edge: "in" | "out", deltaMs: number) => void }) {
   const [drag, setDrag] = useState<Drag | null>(null);
   const { timeline, media } = props;
   const total = Math.max(1, timeline.durationFrames);
@@ -117,6 +118,11 @@ function Lanes({ props, raw, frame, selected, select, seek, move }: { props: Ren
     },
     onClick: (e: React.MouseEvent) => e.stopPropagation(),
   });
+  // The arrows on a block's edges stretch or shorten it (on a story clip: trim it, a cut); moving keeps its length.
+  const handles = (key: string, from: number, dur: number, onEdge: (edge: "start" | "end", frames: number) => void) => (["start", "end"] as const).map((edge) => (
+    <span key={edge} className={`handle ${edge}`} title={edge === "start" ? "Drag to change the start" : "Drag to change the end"}
+      {...draggable(`${key}:${edge}`, (f) => onEdge(edge, f), () => {}, edge === "start" ? from : from + dur)}>{edge === "start" ? "‹" : "›"}</span>
+  ));
   const lift = (key: string) => (drag?.key === key && drag.moved ? { transform: `translateX(${drag.dx}px)`, zIndex: 5, opacity: 0.85, cursor: "grabbing" } : {});
   const ms = (f: number) => Math.round((f * 1000) / timeline.fps);
   const inProject = (id: string) => (raw.elements ?? []).some((x: Raw) => x.id === id);
@@ -138,7 +144,9 @@ function Lanes({ props, raw, frame, selected, select, seek, move }: { props: Ren
         <Filmstrip props={props} />
         {timeline.clips.map((c) => <button key={c.id} type="button" className={`cliprect${isSel("clip", c.id) ? " sel" : ""}`} title={`${c.id} · ${c.asset} · drag to reorder`}
           {...draggable(`clip:${c.id}`, (f) => move("story", c.id, storyIndex(c.id, f)), () => pick("clip", c.id, c.fromFrame), c.fromFrame)}
-          style={{ left: pct(c.fromFrame), width: pct(c.durationFrames), ...lift(`clip:${c.id}`) }} />)}
+          style={{ left: pct(c.fromFrame), width: pct(c.durationFrames), ...lift(`clip:${c.id}`) }}>
+          {isSel("clip", c.id) && handles(`clip:${c.id}`, c.fromFrame, c.durationFrames, (edge, f) => trim(c.id, edge === "start" ? "in" : "out", ms(f)))}
+        </button>)}
       </>)}
       {lane("ELEMENTS", "", lanesOf(els) * 23 + 2, els.map((e) => {
         const img = typeof e.props.asset === "string" ? media[e.props.asset]?.file : undefined;
@@ -147,6 +155,7 @@ function Lanes({ props, raw, frame, selected, select, seek, move }: { props: Ren
           <button key={e.id} type="button" className={`blk${isSel("element", e.id) ? " sel" : ""}`} title={`${e.kind} ${e.id}`}
             {...draggable(`el:${e.id}`, (f) => move("element", e.id, ms(Math.max(0, e.fromFrame + f))), () => pick("element", e.id, e.fromFrame), e.fromFrame)}
             style={{ left: pct(e.fromFrame), width: pct(e.durationFrames), top: e.lane * 23 + 1, ...lift(`el:${e.id}`) }}>
+            {isSel("element", e.id) && handles(`el:${e.id}`, e.fromFrame, e.durationFrames, (edge, f) => move(edge === "start" ? "element-start" : "element-end", e.id, ms(Math.max(0, (edge === "start" ? e.fromFrame : e.fromFrame + e.durationFrames) + f))))}
             {pic && <img src={pic} alt="" />}{e.id}
           </button>
         );
@@ -392,6 +401,7 @@ export function Editor({ name }: { name: string }) {
             <Inspector raw={raw} props={props} selected={selected} edit={edit} />
           </div>
           <Lanes props={props} raw={raw} frame={frame} selected={selected} select={setSelected} seek={seek}
+            trim={(clip, edge, d) => { const c = (raw.story ?? []).find((x: Raw) => x.id === clip); if (c) void edit({ op: "update_item", collection: "story", id: clip, changes: edge === "in" ? { inMs: Math.max(0, c.inMs + d) } : { outMs: Math.max(c.inMs + 100, c.outMs + d) } }).then((ok) => ok && setNote("Clip trimmed. Ctrl+Z puts it back.")); }}
             move={(what, id, to) => void edit({ op: "move", what, ...(what === "caption" ? { index: id } : { id }), to }).then((ok) => ok && setNote(what === "story" ? "Clip moved. Ctrl+Z puts it back." : "Moved. Ctrl+Z puts it back."))} />
         </>
       )}
