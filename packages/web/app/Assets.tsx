@@ -117,7 +117,7 @@ export function AssetsPanel({ name, view, onClose, onMention, onChanged }: {
               <div className="aitem" key={a.id}>
                 <Thumb kind={a.kind} src={fileUrl(name, a.path)} title={a.id} />
                 <b>{a.id}</b><span className="muted">{a.kind}</span>
-                <button className="quiet" onClick={() => onMention(mention(a))}>Name it to Claude</button>
+                <button className="quiet" title="Adds it to your next ask to Claude" onClick={() => onMention(mention(a))}>Choose</button>
                 <button className="ghost" onClick={() => removeAsset(a.id)}>Remove from this video</button>
               </div>
             ))}
