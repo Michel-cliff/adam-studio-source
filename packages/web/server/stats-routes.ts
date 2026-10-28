@@ -1,4 +1,4 @@
-import { createWriteStream, existsSync, mkdirSync, rmSync } from "node:fs";
+import { createWriteStream, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { basename, extname, isAbsolute, join, relative } from "node:path";
 import { pipeline } from "node:stream/promises";
@@ -11,6 +11,7 @@ import {
   addChat, addRef, addRule, updateRef, emptyVideo, METRICS, platformOf, readStats, removeRef, removeRule, saveVideo, setRule, topicOf, TOPICS, trends,
   type Metric, type Stats,
 } from "./stats";
+import { applyImport, IMPORT_FILES, importPrompt, isImage, type ImportAnswer } from "./stats-import";
 import { loadRaw } from "./store";
 
 type Ctx = {
@@ -126,6 +127,15 @@ export async function statsRoute(c: Ctx): Promise<boolean> {
       if (!Object.keys(metrics).length) throw new StatsError("no number could be read on this screenshot");
       saveVideo(dir, name, { metrics });
       send(200, { ...all(), read: Object.keys(metrics) }); return true;
+    }
+    // The stats of other videos (a screenshot or an export): the AI reads every video, advises, updates the rules.
+    if (path === "/api/stats/import" && method === "POST") {
+      const file = await saveBody(c.req, join(dir, "stats-imports"), url.searchParams.get("name") ?? "", IMPORT_FILES);
+      const image = isImage(file);
+      const answer = jsonIn<ImportAnswer>(await ai({ prompt: importPrompt(readStats(dir), image ? null : readFileSync(file, "utf8")), images: image ? [file] : [] }));
+      const done = answer ? applyImport(dir, answer) : null;
+      if (!done?.videos.length) throw new StatsError("no video's numbers could be read in this file");
+      send(200, { ...all(), imported: done }); return true;
     }
     if ((path === "/api/stats/strategy" || path === "/api/stats/review") && method === "POST") {
       const review = path.endsWith("review");

@@ -3,7 +3,7 @@ import { api, enc } from "./api";
 import { t, useLang } from "./i18n";
 
 type Msg = { who: "you" | "ai"; text: string };
-type VideoStats = { metrics: Record<string, string>; note: string; links: string[]; chat: Msg[] };
+type VideoStats = { metrics: Record<string, string>; note: string; links: string[]; chat: Msg[]; source?: string };
 type Video = { name: string; exported: boolean; where: string; stats: VideoStats };
 type Ref = { id: string; name: string; source: string; status: "watching" | "watched" | "failed"; error?: string; title?: string;
   saw: { k: string; v: string }[]; beats: { label: string; weight: number; kind: string }[]; shot?: string };
@@ -53,13 +53,53 @@ async function upload(path: string, file: File) {
   return j;
 }
 
-function Drop({ label, accept, onFile }: { label: React.ReactNode; accept: RegExp; onFile: (f: File) => void }) {
+/** A drop zone: one file to onFile, or every matching file to onFiles. */
+function Drop({ label, accept, onFile, onFiles }: { label: React.ReactNode; accept: RegExp; onFile?: (f: File) => void; onFiles?: (fs: File[]) => void }) {
   const [over, setOver] = useState(false);
+  const take = (list: FileList | null | undefined) => {
+    const fs = [...(list ?? [])].filter((x) => accept.test(x.name));
+    if (onFiles) { if (fs.length) onFiles(fs); } else if (fs[0]) onFile?.(fs[0]);
+  };
   return (
     <div className={`statdrop mono${over ? " over" : ""}`} onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); setOver(true); } }}
-      onDragLeave={() => setOver(false)} onDrop={(e) => { e.preventDefault(); setOver(false); const f = [...e.dataTransfer.files].find((x) => accept.test(x.name)); if (f) onFile(f); }}>
+      onDragLeave={() => setOver(false)} onDrop={(e) => { e.preventDefault(); setOver(false); take(e.dataTransfer.files); }}>
       <span>{label}</span>
-      <label className="link">browse<input type="file" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f && accept.test(f.name)) onFile(f); e.target.value = ""; }} /></label>
+      <label className="link">browse<input type="file" hidden multiple={!!onFiles} onChange={(e) => { take(e.target.files); e.target.value = ""; }} /></label>
+    </div>
+  );
+}
+
+type Imported = { say: string; videos: string[]; added: string[]; off: string[] };
+
+/** The stats of other videos, dropped as screenshots or exports: the AI reads them, advises each video, updates the rules. */
+function ImportStats({ s, onPick }: { s: ReturnType<typeof useAll>; onPick: (name: string) => void }) {
+  const [busy, setBusy] = useState("");
+  const [done, setDone] = useState<Imported | null>(null);
+  const run = async (files: File[]) => {
+    const sum: Imported = { say: "", videos: [], added: [], off: [] };
+    for (const [i, f] of files.entries()) {
+      setBusy(files.length > 1 ? `READING ${i + 1} OF ${files.length}…` : "READING THE NUMBERS…");
+      try {
+        const j = await upload("/stats/import", f) as All & { imported: Imported };
+        s.setAll(j); s.setError("");
+        sum.say = j.imported.say || sum.say;
+        sum.videos.push(...j.imported.videos); sum.added.push(...j.imported.added); sum.off.push(...j.imported.off);
+      } catch (e) { s.setError(`${f.name}: ${(e as Error).message}`); }
+    }
+    setBusy("");
+    if (sum.videos.length) { setDone(sum); onPick(sum.videos[0]!); }
+  };
+  const n = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many}`;
+  return (
+    <div className="importbox">
+      <div className="h small">STATS OF OTHER VIDEOS</div>
+      <Drop accept={/\.(png|jpe?g|webp|csv|tsv|txt|json)$/i} onFiles={(fs) => void run(fs)}
+        label={busy || <>DROP SCREENSHOTS OR EXPORTS<br />(CSV) OF ANY VIDEO</>} />
+      {done && <div className="importdone">
+        <span className="mono ok">{[n(done.videos.length, "VIDEO", "VIDEOS"), n(done.added.length, "NEW RULE", "NEW RULES"), done.off.length ? n(done.off.length, "RULE OFF", "RULES OFF") : ""].filter(Boolean).join(" · ")}</span>
+        {done.say && <p>{done.say}</p>}
+      </div>}
+      {!done && !busy && <p className="note">YOUR AI ADVISES EACH VIDEO AND UPDATES YOUR DOS AND DON'TS.</p>}
     </div>
   );
 }
@@ -76,7 +116,7 @@ function MyVideos({ s }: { s: ReturnType<typeof useAll> }) {
   useEffect(() => { box.current?.scrollTo(0, box.current.scrollHeight); }, [v?.stats.chat.length, busy]);
   if (!v) return (
     <div className="cols stats-cols">
-      <section className="list"><div className="row-item dummyrow"><span>Your exported video</span><span className="mono">TT · IG</span></div></section>
+      <section className="list"><div className="row-item dummyrow"><span>Your exported video</span><span className="mono">TT · IG</span></div><ImportStats s={s} onPick={setPick} /></section>
       <section className="center">
         <div className="head"><h1>YOUR VIDEO, ONCE EXPORTED</h1></div>
         <div className="perf"><div className="frame dummyframe" /><div className="metrics">{all.metrics.map((m) => <div key={m.k} className="kv"><span>{m.label}</span><b className="dim">—</b></div>)}</div></div>
@@ -105,7 +145,7 @@ function MyVideos({ s }: { s: ReturnType<typeof useAll> }) {
       <section aria-label="My published videos" className="list">
         {all.videos.map((x) => (
           <button key={x.name} type="button" className={`row-item${x.name === v.name ? " on" : ""}`} onClick={() => setPick(x.name)}>
-            <span>{x.name}</span><span className="mono">{x.where || (x.exported ? "EXPORTED" : "")}</span>
+            <span>{x.name}</span><span className="mono">{x.where || (x.exported ? "EXPORTED" : x.stats.source ?? "")}</span>
           </button>
         ))}
         <Drop accept={/\.(png|jpe?g|webp)$/i} onFile={shot} label={busy === "shot" ? "READING THE NUMBERS…" : <>DROP A SCREENSHOT<br />OF ITS STATS</>} />
@@ -116,12 +156,14 @@ function MyVideos({ s }: { s: ReturnType<typeof useAll> }) {
           <div key={l} className="kv"><a href={l} target="_blank" rel="noreferrer" className="mono ellipsis">{l.replace(/^https?:\/\/(www\.)?/, "")}</a>
             <button type="button" className="link" aria-label={`Remove ${l}`} onClick={() => void put({ links: v.stats.links.filter((x) => x !== l) })}>×</button></div>
         ))}
+        <ImportStats s={s} onPick={setPick} />
       </section>
 
       <section aria-label={`${v.name} performance`} className="center">
-        <div className="head"><h1>{v.name.toUpperCase()}</h1><span className="mono">{v.where || "NOT PUBLISHED YET"}</span></div>
+        <div className="head"><h1>{v.name.toUpperCase()}</h1><span className="mono">{v.where || (v.stats.source === "IMPORTED" ? "IMPORTED STATS" : "NOT PUBLISHED YET")}</span></div>
         <div className="perf">
-          <div className="frame"><img src={`/api/projects/${enc(v.name)}/thumb`} alt="" onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} /></div>
+          {v.exported ? <div className="frame"><img src={`/api/projects/${enc(v.name)}/thumb`} alt="" onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} /></div>
+            : <div className="frame dummyframe" />}
           <div className="metrics">
             {all.metrics.map((m) => (
               <label key={`${v.name}-${m.k}`} className="kv"><span>{m.label}</span>

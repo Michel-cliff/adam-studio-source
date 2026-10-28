@@ -10,7 +10,7 @@ export const TOPICS = ["hook", "captions", "visuals", "sound", "look", "donts"] 
 export type Topic = (typeof TOPICS)[number];
 
 export type Msg = { who: "you" | "ai"; text: string; at: number };
-export type VideoStats = { metrics: Partial<Record<Metric, string>>; note: string; links: string[]; chat: Msg[] };
+export type VideoStats = { metrics: Partial<Record<Metric, string>>; note: string; links: string[]; chat: Msg[]; source?: string };
 export type Saw = { k: string; v: string };
 export type Beat = { label: string; weight: number; kind: string };
 export type Ref = {
@@ -39,7 +39,7 @@ function write(dir: string, s: Stats): Stats {
 export const emptyVideo = (): VideoStats => ({ metrics: {}, note: "", links: [], chat: [] });
 
 /** Changes the numbers, the note or the links of a video; numbers and links are checked, the rest left alone. */
-export function saveVideo(dir: string, name: string, patch: { metrics?: Record<string, unknown>; note?: unknown; links?: unknown }): VideoStats {
+export function saveVideo(dir: string, name: string, patch: { metrics?: Record<string, unknown>; note?: unknown; links?: unknown; source?: string }): VideoStats {
   const s = readStats(dir);
   const v = { ...emptyVideo(), ...s.videos[name] };
   if (patch.metrics) {
@@ -50,6 +50,7 @@ export function saveVideo(dir: string, name: string, patch: { metrics?: Record<s
     }
   }
   if (patch.note !== undefined) v.note = String(patch.note).slice(0, 2000);
+  if (patch.source) v.source = patch.source;
   if (patch.links !== undefined) {
     if (!Array.isArray(patch.links) || patch.links.some((l) => !/^https?:\/\/\S+$/.test(String(l)))) throw new Error("links must be http(s) addresses");
     v.links = [...new Set(patch.links.map(String))].slice(0, 10);
