@@ -125,7 +125,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px
 .stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 14px 0; min-height: 0; }
 .frame { display: block; height: min(440px, 44vh); aspect-ratio: 9 / 16; border: 2px solid var(--cream); background: var(--cream); overflow: hidden; }
 .frame.wide { aspect-ratio: 16 / 9; height: auto; width: min(100%, 640px); }
-.frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.frame > img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .frame.lit { box-shadow: 0 0 0 4px var(--page), 0 0 0 5px rgba(106,164,110,.7), 0 0 28px rgba(106,164,110,.25); }
 video.frame { background: #000; object-fit: contain; }
 .quote { margin: 0; border-top: 1px solid var(--cream); border-bottom: 1px solid var(--cream); padding: 8px 0; font-size: 14px; }
@@ -269,7 +269,7 @@ table { width: 100%; border-collapse: collapse; }
 td, th { text-align: left; padding: 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
 pre.log { background: var(--deep); color: var(--cream); padding: 12px; max-height: 300px; overflow: auto; white-space: pre-wrap; font: 12px/1.5 var(--mono); margin: 10px 0 0; border-left: 3px solid var(--green); }
 pre.note { white-space: pre-wrap; }
-section video, img.sheet { display: block; max-width: 100%; max-height: 70vh; margin: 0 auto; background: #000; }
+.page > section video, img.sheet { display: block; max-width: 100%; max-height: 70vh; margin: 0 auto; background: #000; }
 .picker ul { padding: 0; margin: 10px 0; max-height: 360px; overflow: auto; }
 .picker li { list-style: none; padding: 5px 0; border-bottom: 1px solid var(--rule); }
 .picker a { text-decoration: none; display: flex; gap: 8px; align-items: center; }
