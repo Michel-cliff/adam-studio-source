@@ -37,10 +37,10 @@ export function jsonIn<T>(text: string): T | null {
   try { return JSON.parse(text.slice(start, end + 1)) as T; } catch { return null; }
 }
 
-export function aiRunner(engine: () => Engine, model: () => string, timeoutMs = 240_000): AskAI {
+export function aiRunner(engine: () => Engine, model: () => string, timeoutMs = 240_000, env: () => Record<string, string> = () => ({})): AskAI {
   return ({ prompt, images = [] }) => new Promise((done, fail) => {
     const { cmd, args } = aiCommand(engine(), model(), prompt, images);
-    const p = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
+    const p = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"], windowsHide: true, env: { ...process.env, ...env() } });
     let out = "", err = "";
     const kill = setTimeout(() => { p.kill(); fail(new Error("the AI took too long to answer")); }, timeoutMs);
     p.stdout.on("data", (d) => (out += d));

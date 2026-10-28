@@ -18,6 +18,7 @@ import { stepContext } from "./context";
 import { libraryRoute } from "./library-routes";
 import { aiRunner, type AskAI } from "./ai";
 import { learnedFor } from "./stats";
+import { aiEnv, keyStatus, setKey } from "./keys";
 import { statsRoute } from "./stats-routes";
 import { draftScript, readScript, saveScript } from "./script";
 import { mediaFile, previewData } from "./preview";
@@ -70,7 +71,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
   const capcutPython = opts.capcutPython ?? (() => venvPython("capcut", "ADAM_CAPCUT_PYTHON"));
   const dist = opts.dist ?? join(WEB, "dist");
   // The AI for questions outside the edit (statistics): the one the creator picked, with its model.
-  const ai = opts.ai ?? aiRunner(() => engine(settingsFile), () => (engine(settingsFile) === "codex" ? codexModel(settingsFile) : claudeModel(settingsFile)));
+  const ai = opts.ai ?? aiRunner(() => engine(settingsFile), () => (engine(settingsFile) === "codex" ? codexModel(settingsFile) : claudeModel(settingsFile)), 240_000, () => aiEnv(dirname(settingsFile)));
   const clients = new Set<(d: unknown) => void>();
   const notify = (project: string) => { for (const c of clients) c({ type: "change", project }); };
   let unwatch = watchProjects(projectsRoot(settingsFile), notify);
@@ -108,6 +109,14 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       engines: { claude: { installed: installed(claudeBin()), model: claudeModel(settingsFile) }, codex: { installed: installed(codexBin()), model: codexModel(settingsFile) } },
       look: lookName(settingsFile), looks: listLooks() });
     if (path === "/api/settings" && method === "GET") return send(res, 200, settings());
+    // The creator's API keys: only whether they are set (last four characters) ever leaves the server.
+    if (path === "/api/keys" && method === "GET") return send(res, 200, keyStatus(dirname(settingsFile)));
+    if (path === "/api/keys" && method === "PUT") {
+      const b = await body(req);
+      try { for (const p of ["anthropic", "openai"] as const) if (typeof b[p] === "string") setKey(dirname(settingsFile), p, b[p]); }
+      catch (e) { throw new HttpError(400, (e as Error).message); }
+      return send(res, 200, keyStatus(dirname(settingsFile)));
+    }
     if (path === "/api/settings" && method === "PUT") {
       const b = await body(req);
       if ([b.projectsRoot, b.claudeModel, b.look, b.engine, b.codexModel].every((v) => v === undefined)) throw new HttpError(400, "give projectsRoot, claudeModel, engine, codexModel or look");
@@ -234,7 +243,8 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const command = ai === "codex"
         ? codexAskCommand(name, step, String(b.prompt ?? ""), codexModel(settingsFile), brief, extras)
         : askCommand(name, step, String(b.prompt ?? ""), claudeModel(settingsFile), brief, extras);
-      return started(res, jobs.start(name, command, record));
+      // The creator's own API key, when set, goes with the command (used before any subscription sign-in).
+      return started(res, jobs.start(name, { ...command, env: aiEnv(dirname(settingsFile)) }, record));
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/thumb$/)) && method === "GET") {
       const { dir } = existing(m[1]!);

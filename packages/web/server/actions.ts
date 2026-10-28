@@ -3,7 +3,7 @@ import { isAbsolute } from "node:path";
 import { CLI, TSX } from "./paths";
 
 export class ActionError extends Error {}
-export type Command = { cmd: string; args: string[]; label: string };
+export type Command = { cmd: string; args: string[]; label: string; env?: Record<string, string> };
 type Opts = Record<string, unknown>;
 
 export const VIDEO_EXT = /\.(mp4|mov|mkv|m4v|avi|webm)$/i;

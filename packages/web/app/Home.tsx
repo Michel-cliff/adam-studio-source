@@ -5,6 +5,39 @@ import { t, useLang } from "./i18n";
 import { IconEdit, IconTrash } from "./icons";
 import { GROUPS, openGroup } from "./steps";
 
+/** The creator's own API keys for the AI: set once, stored on this computer, used before any subscription. */
+function Keys() {
+  const [k, setK] = useState<{ anthropic: string | null; openai: string | null } | null>(null);
+  const [edit, setEdit] = useState<"" | "anthropic" | "openai">("");
+  const [val, setVal] = useState("");
+  const [err, setErr] = useState("");
+  useEffect(() => { api<typeof k>("/keys").then(setK, () => {}); }, []);
+  const save = async (p: "anthropic" | "openai", v: string) => {
+    try { setK(await api<typeof k>("/keys", { method: "PUT", body: { [p]: v } })); setEdit(""); setVal(""); setErr(""); } catch (e) { setErr((e as Error).message); }
+  };
+  if (!k) return null;
+  return (
+    <div className="keysbox">
+      <div className="kv sep"><span>API KEYS</span><b className="dim">FOR YOUR AI</b></div>
+      {(["anthropic", "openai"] as const).map((p) => (
+        <div key={p} className="kv">
+          <span>{p === "anthropic" ? "Anthropic (Claude)" : "OpenAI (Codex)"}</span>
+          {edit === p ? (
+            <input type="password" autoFocus aria-label={`${p} API key`} placeholder={p === "anthropic" ? "sk-ant-…" : "sk-…"} value={val} onChange={(e) => setVal(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") void save(p, val); if (e.key === "Escape") setEdit(""); }} />
+          ) : (
+            <span className="row tight">
+              <button type="button" className="link" onClick={() => { setEdit(p); setVal(""); }}>{k[p] ? `${k[p]} · change` : "add"}</button>
+              {k[p] && <button type="button" className="link" aria-label={`Remove the ${p} key`} onClick={() => void save(p, "")}>×</button>}
+            </span>
+          )}
+        </div>
+      ))}
+      {err && <p className="error">{err}</p>}
+    </div>
+  );
+}
+
 type Filter = "All" | "In progress" | "Exported";
 const stepLabel = (v: ProjectView) => {
   if (v.renders.length) return "EXPORTED";
@@ -97,6 +130,7 @@ export function Home() {
               </select>
             </label>
           )}
+          <Keys />
           <div className="synced">● SYNCED</div>
         </aside>
       </div>

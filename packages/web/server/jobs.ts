@@ -48,7 +48,7 @@ export class JobManager {
       this.prune(project);
       onEnd?.(job);
     };
-    const child = spawn(c.cmd, c.args, { windowsHide: true, detached: process.platform !== "win32", env: { ...process.env, FORCE_COLOR: "0" } });
+    const child = spawn(c.cmd, c.args, { windowsHide: true, detached: process.platform !== "win32", env: { ...process.env, ...c.env, FORCE_COLOR: "0" } });
     this.procs.set(job.id, child);
     child.stdout?.on("data", add);
     child.stderr?.on("data", add);
