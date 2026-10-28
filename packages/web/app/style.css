@@ -493,3 +493,6 @@ kbd { font: 600 11px var(--mono); padding: 2px 6px; border: 1px solid var(--crea
 .stage .act.big { min-width: 320px; }
 .dropline { position: absolute; top: 18px; bottom: 0; width: 1px; background: var(--glow); pointer-events: none; z-index: 6; }
 .dropline b { position: absolute; top: -2px; left: 4px; font: 600 11px var(--mono); color: var(--page); background: var(--glow); padding: 1px 4px; white-space: nowrap; }
+.shot.failed { aspect-ratio: 9 / 16; display: flex; flex-direction: column; gap: 8px; justify-content: center; padding: 14px; background: var(--field); color: #FF8A80; font-size: 13px; text-align: left; overflow: auto; }
+.shot { position: relative; }
+.shotnote { position: absolute; left: 6px; right: 6px; bottom: 6px; padding: 3px 6px; background: rgba(20,20,18,.85); color: var(--glow); font-size: 10px; text-align: center; }

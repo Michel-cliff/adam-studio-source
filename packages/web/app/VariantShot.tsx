@@ -9,7 +9,8 @@ import { keyFrame } from "./frames";
 const cache = new Map<string, Promise<RenderProps>>();
 function props(url: string, stamp: string): Promise<RenderProps> {
   const key = `${url}#${stamp}`;
-  if (!cache.has(key)) cache.set(key, api<RenderProps>(url));
+  // A failed fetch is not kept: the next try asks again.
+  if (!cache.has(key)) cache.set(key, api<RenderProps>(url).catch((e) => { cache.delete(key); throw e; }));
   return cache.get(key)!;
 }
 
@@ -17,16 +18,22 @@ function props(url: string, stamp: string): Promise<RenderProps> {
 export function VariantShot({ name, proposal, variant, stamp }: { name: string; proposal: string; variant: string; stamp: string }) {
   const [v, setV] = useState<RenderProps | null>(null);
   const [frame, setFrame] = useState(0);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState("");
+  const [tries, setTries] = useState(0);
   useEffect(() => {
     let alive = true;
     const base = `/projects/${enc(name)}/preview`;
     Promise.all([props(`${base}?proposal=${enc(proposal)}&variant=${variant}`, stamp), props(base, stamp)])
       .then(([p, b]) => { if (alive) { setV(p); setFrame(keyFrame(p.timeline, b.timeline)); } })
-      .catch(() => { if (alive) setFailed(true); });
+      .catch((e) => { console.error(`variant ${variant} preview`, e); if (alive) setFailed((e as Error).message || "the preview could not load"); });
     return () => { alive = false; };
-  }, [name, proposal, variant, stamp]);
-  if (failed) return null;
+  }, [name, proposal, variant, stamp, tries]);
+  // Never an empty card: say why, and let the creator try again.
+  if (failed) return (
+    <div className="shot failed" role="alert" onClick={(e) => { e.stopPropagation(); setFailed(""); setTries((n) => n + 1); }}>
+      <span className="mono">PREVIEW FAILED</span><span>{failed}</span><span className="link">Try again</span>
+    </div>
+  );
   const t = v?.timeline;
   return (
     <div className="shot" aria-hidden="true" style={t ? { aspectRatio: `${t.width} / ${t.height}` } : undefined}>
@@ -34,6 +41,7 @@ export function VariantShot({ name, proposal, variant, stamp }: { name: string; 
         <Thumbnail component={Edit} inputProps={v} compositionWidth={t.width} compositionHeight={t.height}
           frameToDisplay={frame} durationInFrames={Math.max(1, t.durationFrames)} fps={t.fps} style={{ width: "100%", height: "100%" }} />
       ) : <div className="loading" />}
+      {(v as (RenderProps & { note?: string }) | null)?.note && <span className="shotnote mono" title={(v as RenderProps & { note: string }).note}>SHOWN IN FRONT · CUT-OUT NOT MADE</span>}
     </div>
   );
 }

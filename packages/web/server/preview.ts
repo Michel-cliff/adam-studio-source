@@ -19,8 +19,22 @@ export function previewData(dir: string, name: string, apply?: { proposal: strin
   let timeline;
   try { timeline = resolve(loaded.project, style, apply ? { apply } : {}); } catch (e) { throw new ToolError((e as Error).message); }
   let plan;
-  try { plan = planMedia(dir, project, timeline, { preview: true }); } catch (e) { throw new ToolError(`${(e as Error).message}
-Run Analyze first.`); }
+  let note: string | undefined;
+  try { plan = planMedia(dir, project, timeline, { preview: true }); } catch (e) {
+    const msg = (e as Error).message;
+    // Only cut-outs missing: the preview shows what goes behind the creator in front of them instead of failing.
+    // The export stays strict and asks for the matting analysis.
+    const lines = msg.split("\n").filter((l) => l.startsWith("- "));
+    if (!lines.length || !lines.every((l) => l.includes("subject.webm"))) throw new ToolError(`${msg}\nRun Analyze first.`);
+    timeline = {
+      ...timeline,
+      elements: timeline.elements.map((el) => (el.layer === "behind-subject" ? { ...el, layer: "front" as const } : el)),
+      // A slide of the creator over the next shot needs the cut-out too: a plain cut meanwhile.
+      clips: timeline.clips.map((c) => (c.transitionOut.kind === "subjectSlide" ? { ...c, transitionOut: { kind: "cut" as const } } : c)),
+    };
+    try { plan = planMedia(dir, project, timeline, { preview: true }); } catch (e2) { throw new ToolError(`${(e2 as Error).message}\nRun Analyze first.`); }
+    note = "Shown in front: the cut-out of you is not made yet for these takes (run Analyze), so it cannot go behind you.";
+  }
   const known = plans.get(dir) ?? new Map<string, string>();
   for (const f of plan.files) known.set(f.to, f.from);
   plans.set(dir, known);
@@ -30,7 +44,7 @@ Run Analyze first.`); }
     media[id] = { ...m };
     for (const k of ["video", "subject", "plate", "file"] as const) if (m[k]) media[id]![k] = url(m[k]!);
   }
-  return { timeline, media, fonts: { caption: url(plan.fonts.caption), title: url(plan.fonts.title) } };
+  return { timeline, media, fonts: { caption: url(plan.fonts.caption), title: url(plan.fonts.title) }, ...(note ? { note } : {}) };
 }
 
 /** The file behind a preview media path (planned by the last previewData call for this project). */
