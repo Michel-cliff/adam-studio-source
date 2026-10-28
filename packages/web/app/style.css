@@ -438,7 +438,7 @@ textarea.json { width: 100%; min-height: 200px; font: 12px/1.5 var(--mono); marg
 .sawline .mono { font-size: 11px; letter-spacing: .06em; }
 .beats { display: flex; gap: 4px; margin-top: 8px; }
 .beats span { min-width: 0; padding: 6px 8px; color: var(--page); font: 600 12px var(--display); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.refacts { margin-top: auto; padding-top: 14px; }
+.refacts { padding-top: 16px; }
 .refacts .act { min-height: 42px; }
 .trend { display: grid; grid-template-columns: 7px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 8px 0; border-top: 1px solid rgba(237,229,200,.3); line-height: 1.4; }
 .trend .bar { width: 7px; align-self: stretch; }
