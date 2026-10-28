@@ -74,7 +74,17 @@ function MyVideos({ s }: { s: ReturnType<typeof useAll> }) {
   const box = useRef<HTMLDivElement>(null);
   const v = all.videos.find((x) => x.name === pick) ?? all.videos[0];
   useEffect(() => { box.current?.scrollTo(0, box.current.scrollHeight); }, [v?.stats.chat.length, busy]);
-  if (!v) return <p className="mono note">NO EXPORTED VIDEO YET. EXPORT ONE FROM THE STUDIO (WRAP), THEN COME BACK WITH ITS NUMBERS.</p>;
+  if (!v) return (
+    <div className="cols stats-cols">
+      <section className="list"><div className="row-item dummyrow"><span>Your exported video</span><span className="mono">TT · IG</span></div></section>
+      <section className="center">
+        <div className="head"><h1>YOUR VIDEO, ONCE EXPORTED</h1></div>
+        <div className="perf"><div className="frame dummyframe" /><div className="metrics">{all.metrics.map((m) => <div key={m.k} className="kv"><span>{m.label}</span><b className="dim">—</b></div>)}</div></div>
+        <p className="note">EXPORT A VIDEO FROM THE STUDIO (WRAP), PUBLISH IT, THEN COME BACK WITH ITS NUMBERS: YOUR AI TELLS YOU WHAT WORKED.</p>
+      </section>
+      <aside className="status"><div className="h">WHAT YOUR AI APPLIES</div><p className="note">RULES APPEAR HERE AS YOUR AI LEARNS FROM YOUR VIDEOS.</p></aside>
+    </div>
+  );
   const put = (body: Record<string, unknown>) => s.call(`/stats/videos/${enc(v.name)}`, "PUT", body);
   const send = async () => {
     if (!q.trim() || busy) return;

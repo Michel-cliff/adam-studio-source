@@ -85,7 +85,7 @@ export function projectView(root: string, name: string): Omit<ProjectView, "jobs
   const { raw, error } = readProject(dir);
   const assets: Raw[] = Array.isArray(raw?.assets) ? raw.assets.filter((a: Raw) => a.kind === "video") : [];
   return {
-    name, ok: !error, ...(error ? { error } : {}), format: raw?.canvas?.format,
+    name, ok: !error, ...(error ? { error } : {}), format: raw?.canvas?.format, modified: statSync(join(dir, "project.json")).mtimeMs,
     takes: raw ? assets.map((a) => take(dir, raw, a)) : [],
     renders: renders(dir),
     proposals: Array.isArray(raw?.proposals) ? raw.proposals.map((p: Raw) => proposal(dir, p)) : [],

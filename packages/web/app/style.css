@@ -597,3 +597,18 @@ kbd { font: 600 11px var(--mono); padding: 2px 6px; border: 1px solid var(--crea
 .creating { width: min(900px, 100%); margin: 24px auto; display: flex; flex-direction: column; gap: 12px; }
 .creating .creatingwave { height: 60px; }
 .creating .mono { color: var(--glow); letter-spacing: .08em; }
+
+/* Projects: the three latest in the centre, the others in a side list that scrolls on its own */
+.side-list { overflow: visible; }
+.side-list .list-scroll { max-height: calc(100vh - 330px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--cream) transparent; }
+.recent { flex: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; align-items: start; padding: 16px 0; }
+.rcard { border: 0; padding: 0; background: none; color: var(--cream); display: flex; flex-direction: column; gap: 8px; cursor: pointer; text-decoration: none; text-align: left; container-type: inline-size; }
+.rcard .frame { width: 100%; height: min(calc(100vh - 380px), calc(100cqw * 16 / 9)); aspect-ratio: auto; background: var(--field); border-color: rgba(237,229,200,.5); }
+.rcard:hover .frame { border-color: var(--glow); }
+.rcard.on .rname b { color: var(--glow); }
+.rname { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.rcard.dummy .frame { border: 2px dashed rgba(237,229,200,.45); background: transparent; display: grid; place-items: center; }
+.dummy-in { display: flex; flex-direction: column; align-items: center; gap: 8px; color: rgba(237,229,200,.6); text-align: center; padding: 10px; }
+.rcard.dummy:hover .dummy-in { color: var(--glow); }
+.item.dummy { opacity: .55; } .item.dummy .pic { border-style: dashed; }
+.dummyrow { opacity: .5; border-style: dashed; } .dummyframe { border: 2px dashed rgba(237,229,200,.45) !important; background: transparent !important; aspect-ratio: 9 / 16; }

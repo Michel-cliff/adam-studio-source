@@ -11,6 +11,17 @@ const fileUrl = (path: string) => `/api/library/file?path=${enc(path)}`;
 // How Claude uses each folder.
 const READS: Record<string, string> = { typo: "as fonts", interdits: "as rules", sons: "as material", "images-textures-palettes": "as material" };
 
+// What each reference folder holds, shown as placeholders while it is empty.
+const DUMMIES: Record<string, [string, string][]> = {
+  typo: [["Aa", "Your title font"], ["Aa", "Your caption font"], ["Aa", "An accent font"]],
+  plans: [["▭", "A close-up you like"], ["▭", "A wide shot"], ["▶", "A camera move"]],
+  "sous-titres": [["Ab", "A caption style"], ["▶", "Animated words"], ["Ab", "A highlight colour"]],
+  "images-textures-palettes": [["▦", "A texture"], ["●●●", "Your palette"], ["▭", "An image to reuse"]],
+  sons: [["♪", "A music bed"], ["▮▯▮", "A click or whoosh"], ["▮▮▯", "A zoom sound"]],
+  interdits: [["✕", "A look you never want"], ["✕", "An effect to avoid"]],
+  other: [["▭", "Anything to sort later"]],
+};
+
 function Thumb({ kind, src, title }: { kind: string; src: string; title: string }) {
   if (kind === "audio") return <audio controls preload="none" src={src} />;
   if (kind === "image" || kind === "video") return <img src={src} alt="" loading="lazy" />;
@@ -102,6 +113,14 @@ export function Library() {
             onDragOver={(e) => { if (fromOutside(e)) { e.preventDefault(); setOver(true); } }} onDragLeave={() => setOver(false)}
             onDrop={(e) => { e.preventDefault(); void drop(e.dataTransfer.files); }}>
             {result && result.local.length === 0 && <p className="mono note">EMPTY. DROP FILES HERE: A .TXT NEXT TO A FILE ADDS NOTES.</p>}
+            {/* An empty folder shows what belongs in it, where it will sit. */}
+            {result && result.local.length === 0 && (
+              <div className="items">
+                {(DUMMIES[folder] ?? DUMMIES.other!).map(([kind, label]) => (
+                  <figure key={label} className="item dummy"><div className="pic"><span className="glyph">{kind}</span></div><figcaption>{label}<br /><span className="dim">example</span></figcaption></figure>
+                ))}
+              </div>
+            )}
             {result && result.local.length > 0 && <p className="mono note">DRAG A FILE ONTO ANOTHER FOLDER TO MOVE IT.</p>}
             <div className="items">
               {result?.local.map((i) => (

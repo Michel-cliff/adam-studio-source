@@ -109,7 +109,10 @@ export function Home() {
     try { await api(`/projects/${enc(name)}`, { method: "DELETE" }); setPicked(""); await load(); } catch (e) { setError((e as Error).message); }
   };
   const saveRoot = () => api("/settings", { method: "PUT", body: { projectsRoot: root } }).then(() => { setEditRoot(false); void load(); }, (e) => setError(e.message));
-  const shown = (projects ?? []).filter((p) => filter === "All" || (filter === "Exported" ? p.renders.length > 0 : p.renders.length === 0));
+  // Most recent first: the three latest take the centre, the others stay in the side list.
+  const shown = (projects ?? []).filter((p) => filter === "All" || (filter === "Exported" ? p.renders.length > 0 : p.renders.length === 0))
+    .sort((a, b) => (b.modified ?? 0) - (a.modified ?? 0));
+  const recent = shown.slice(0, 3), older = shown.slice(3);
   const p = projects?.find((x) => x.name === picked);
   const g = p ? openGroup(p.workflow) : "story";
   const words = p?.takes[0]?.firstWords;
@@ -120,21 +123,37 @@ export function Home() {
       </nav>
       {error && <p className="error">{error}</p>}
       <div className="cols projects-cols">
-        <section aria-label="Projects" className="list">
-          {shown.map((x) => (
+        <section aria-label="Projects" className="list side-list">
+          <div className="list-scroll">
+          {older.length === 0 && projects && <p className="note">{shown.length > 3 ? "" : "OLDER PROJECTS LAND HERE, THE THREE LATEST STAY IN THE CENTRE."}</p>}
+          {older.map((x) => (
             <button key={x.name} type="button" className={`row-item${x.name === picked ? " on" : ""}`} onClick={() => setPicked(x.name)} onDoubleClick={() => { location.hash = `#/p/${enc(x.name)}`; }}>
               <span>{x.name}</span><span className="mono">{x.ok ? stepLabel(x) : "INVALID"}</span>
             </button>
           ))}
-          {projects && shown.length === 0 && <p className="muted">Nothing here.</p>}
+          </div>
           <a className="line-btn" href="#/new"><span>{t("NEW PROJECT")}</span><span>+</span></a>
           {p && <button type="button" className="act danger" onClick={() => void remove(p.name)}><span>{t("MOVE TO TRASH")} · {p.name}</span><IconTrash /></button>}
         </section>
 
         <section aria-label="Selected project" className="center">
-          <div className="head"><h1>{p?.name ?? ""}</h1>{p && <span className="mono">{p.renders.length ? "EXPORTED" : `STEP ${stepLabel(p)}`}</span>}</div>
-          <div className="stage">
-            {p && <div className={`frame lit${p.format === "16:9" ? " wide" : ""}`}><img src={`/api/projects/${enc(p.name)}/thumb`} alt={`First frame of ${p.name}`} onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} /></div>}
+          <div className="head"><h1>{p?.name ?? "YOUR VIDEOS"}</h1>{p && <span className="mono">{p.renders.length ? "EXPORTED" : `STEP ${stepLabel(p)}`}</span>}</div>
+          <div className="recent">
+            {recent.map((x) => (
+              <button key={x.name} type="button" className={`rcard${x.name === picked ? " on" : ""}`} onClick={() => setPicked(x.name)} onDoubleClick={() => { location.hash = `#/p/${enc(x.name)}`; }}
+                aria-pressed={x.name === picked} aria-label={`${x.name}, ${x.ok ? stepLabel(x) : "invalid"}`}>
+                <span className={`frame${x.name === picked ? " lit" : ""}`}><img src={`/api/projects/${enc(x.name)}/thumb`} alt="" onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} /></span>
+                <span className="rname"><b>{x.name}</b><span className="mono">{x.ok ? stepLabel(x) : "INVALID"}</span></span>
+              </button>
+            ))}
+            {/* Empty places show what will land there: a video card, and where to start. */}
+            {projects && Array.from({ length: Math.max(0, 3 - recent.length) }, (_, i) => (
+              <a key={`dummy${i}`} className="rcard dummy" href="#/new" aria-label="New project">
+                <span className="frame"><span className="dummy-in"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M4 6h11v12H4zM15 10l5-3v10l-5-3" /></svg>
+                  <span className="mono">{i === 0 && recent.length === 0 ? "YOUR FIRST VIDEO" : "YOUR NEXT VIDEO"}</span><span className="mono dim">9:16 · DROP YOUR TAKES</span></span></span>
+                <span className="rname"><b>New project</b><span className="mono">+</span></span>
+              </a>
+            ))}
           </div>
           {words && <p className="quote">“{words}”</p>}
         </section>
