@@ -5,6 +5,8 @@ import { dirname, join } from "node:path";
 import { createApp } from "./app";
 import { JobManager } from "./jobs";
 import { WEB } from "./paths";
+import { projectsRoot, SETTINGS_FILE } from "./settings";
+import { welcome } from "./welcome";
 
 const port = Number(process.env.ADAM_UI_PORT ?? 4317);
 const url = `http://127.0.0.1:${port}`;
@@ -40,5 +42,10 @@ server.on("error", async (e: NodeJS.ErrnoException) => {
   console.error(`Port ${port} is taken by another program. Set ADAM_UI_PORT to a free port.`);
   process.exit(1);
 });
-server.listen(port, "127.0.0.1", () => { console.log(`Adam Studio: ${url} (Ctrl+C to stop)`); openBrowser(); });
+server.listen(port, "127.0.0.1", () => {
+  console.log(`Adam Studio: ${url} (Ctrl+C to stop)`);
+  // First launch: the welcome project, made from the tutorial video (once, on an empty projects folder).
+  try { welcome(projectsRoot(), join(dirname(SETTINGS_FILE), "welcomed"), jobs); } catch (e) { console.error(`welcome project: ${(e as Error).message}`); }
+  openBrowser();
+});
 for (const sig of ["SIGINT", "SIGTERM"] as const) process.on(sig, () => { jobs.stopAll(); process.exit(0); });

@@ -13,3 +13,5 @@ packages/web/dist/
 
 # The Studio art direction images: third-party, kept local (the interface falls back to flat colours)
 packages/web/app/public/da/
+# The tutorial video waits for its final voice (the synthetic one comes from an AGPL dataset)
+packages/web/demo/welcome.mp4
