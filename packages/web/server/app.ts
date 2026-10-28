@@ -19,6 +19,8 @@ import { stepContext } from "./context";
 import { libraryRoute } from "./library-routes";
 import { aiRunner, type AskAI } from "./ai";
 import { learnedFor } from "./stats";
+import { Autopilot } from "./autopilot";
+import type { JobView } from "./types";
 import { Doctor } from "./doctor-routes";
 import { keyStatus, PROVIDERS, setKey } from "./keys";
 import { claudeDesktopConfig, claudeDesktopStatus, codexConfig, codexStatus, connectClaudeDesktop, connectCodex } from "./desktop";
@@ -28,9 +30,9 @@ import { draftScript, readScript, saveScript } from "./script";
 import { mediaFile, previewData } from "./preview";
 import { listProjects, projectView } from "./projects";
 import { moveIn } from "./store";
-import { applySeriesIn, closeCurrentStep, removeAssetIn, cutWordsIn, decideProposal, firstPassIn, listSeries, loadRaw, patchProject, setValue, ToolError, tightenIn, undo, updateItem } from "./store";
+import { applySeriesIn, closeCurrentStep, switchVariantIn, removeAssetIn, cutWordsIn, decideProposal, firstPassIn, listSeries, loadRaw, patchProject, setValue, ToolError, tightenIn, undo, updateItem } from "./store";
 import { listLooks, lookBrief } from "@adam-studio/library/src/looks";
-import { CLAUDE_MODELS, claudeModel, codexModel, engine, lookName, projectsRoot, setClaudeModel, setCodexModel, setEngine, setLookName, SETTINGS_FILE, setProjectsRoot } from "./settings";
+import { CLAUDE_MODELS, claudeModel, codexModel, engine, lookName, projectsRoot, setClaudeModel, setCodexModel, setEngine, setLookName, SETTINGS_FILE, setProjectsRoot, setStudioMode, studioMode } from "./settings";
 import { parseUsage, recordUsage, usageSummary } from "./usage";
 import { thumbnail } from "./thumb";
 import { watchProjects } from "./watch";
@@ -81,6 +83,40 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
   const notify = (project: string) => { for (const c of clients) c({ type: "change", project }); };
   let unwatch = watchProjects(projectsRoot(settingsFile), notify);
 
+  /** Starts the AI on a step of a project: the step's brief, the look, the skills and connectors, what it learned. */
+  const connectorsFile = join(dirname(settingsFile), "connectors.json");
+  const askJob = (name: string, dir: string, step: string, prompt: string, mode: "do" | "propose", wanted: string[], onEnd?: (j: JobView) => void) => {
+    const engineNow = engine(settingsFile);
+    if (engineNow === "codex" && !installed(codexBin())) throw new HttpError(400, "Codex is not installed on this computer: install Codex CLI (npm i -g @openai/codex), sign in with codex login, or pick Claude.");
+    const record = (job: JobView) => {
+      const u = engineNow === "codex" ? parseCodexUsage(job.output) : parseUsage(job.output);
+      if (u) { try { recordUsage(dirname(settingsFile), { project: name, step, ...u }); } catch { /* a full disk must not break the job */ } }
+      onEnd?.(job);
+    };
+    const look = lookName(settingsFile);
+    // Only skills Claude Code really has; the connectors the creator turned on.
+    const known = new Set(listSkills(home).map((x) => x.name));
+    const skills = wanted.filter((x) => known.has(x));
+    let context: string | undefined;
+    try { context = stepContext(dir, step); } catch { /* an unreadable project: the AI reads it with its tools */ }
+    const extras = { ...askServers(home, connectorsFile), skills, mode, context, learned: learnedFor(dirname(settingsFile), step) };
+    const brief = look ? lookBrief(look) : null;
+    const command = engineNow === "codex"
+      ? codexAskCommand(name, step, prompt, codexModel(settingsFile), brief, extras)
+      : askCommand(name, step, prompt, claudeModel(settingsFile), brief, extras);
+    return jobs.start(name, command, record);
+  };
+  const ended = (start: (done: (j: JobView) => void) => void) => new Promise<JobView>((done) => start(done));
+  const autopilot = new Autopilot({
+    load: (dir) => loadRaw(dir) as never,
+    firstPass: (dir) => { firstPassIn(dir); },
+    decide: (dir, id, d) => { decideProposal(dir, id, d as "A"); },
+    close: (dir) => { closeCurrentStep(dir); },
+    ask: async (name, dir, step, prompt) => { await ended((done) => askJob(name, dir, step, prompt, "propose", [], done)); },
+    render: async (name, dir) => (await ended((done) => jobs.start(name, buildCommand("render", dir, {}, capcutPython()), done))).state === "done",
+    script: async (dir) => { if (!readScript(dir).text.trim()) await draftScript(dir, ai); },
+  });
+
   const projectDir = (raw: string): { name: string; dir: string } => {
     const name = decodeURIComponent(raw);
     if (!safeName(name)) throw new HttpError(404, "no such project");
@@ -112,7 +148,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     const settings = () => ({ projectsRoot: projectsRoot(settingsFile), claudeModel: claudeModel(settingsFile), models: CLAUDE_MODELS,
       engine: engine(settingsFile),
       engines: { claude: { installed: installed(claudeBin()), model: claudeModel(settingsFile) }, codex: { installed: installed(codexBin()), model: codexModel(settingsFile) } },
-      look: lookName(settingsFile), looks: listLooks() });
+      look: lookName(settingsFile), looks: listLooks(), mode: studioMode(settingsFile) });
     if (path === "/api/settings" && method === "GET") return send(res, 200, settings());
     // The creator's API keys: only whether they are set (last four characters) ever leaves the server.
     // Adam Studio as a connector of the creator's own Claude Desktop (their subscription, Anthropic's app).
@@ -147,7 +183,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     }
     if (path === "/api/settings" && method === "PUT") {
       const b = await body(req);
-      if ([b.projectsRoot, b.claudeModel, b.look, b.engine, b.codexModel].every((v) => v === undefined)) throw new HttpError(400, "give projectsRoot, claudeModel, engine, codexModel or look");
+      if ([b.projectsRoot, b.claudeModel, b.look, b.engine, b.codexModel, b.mode].every((v) => v === undefined)) throw new HttpError(400, "give projectsRoot, claudeModel, engine, codexModel, mode or look");
       if (b.projectsRoot !== undefined && typeof b.projectsRoot !== "string") throw new HttpError(400, "projectsRoot must be text");
       if (b.look !== undefined && b.look !== "" && !listLooks().some((l) => l.name === b.look)) throw new HttpError(400, `no look "${b.look}" in the Inspiration folder's looks/`);
       try {
@@ -155,6 +191,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
         if (b.claudeModel !== undefined) setClaudeModel(String(b.claudeModel), settingsFile);
         if (b.engine !== undefined) setEngine(String(b.engine), settingsFile);
         if (b.codexModel !== undefined) setCodexModel(String(b.codexModel), settingsFile);
+        if (b.mode !== undefined) setStudioMode(String(b.mode), settingsFile);
         if (typeof b.projectsRoot === "string") {
           setProjectsRoot(b.projectsRoot, settingsFile);
           unwatch();
@@ -166,7 +203,6 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     // What Claude used: today's asks and the subscription windows Claude Code last reported.
     if (path === "/api/usage" && method === "GET") return send(res, 200, usageSummary(dirname(settingsFile)));
     // Skills Claude Code has, and the connectors (MCP servers) Claude may use from the studio.
-    const connectorsFile = join(dirname(settingsFile), "connectors.json");
     if (path === "/api/skills" && method === "GET") return send(res, 200, listSkills(home));
     if (path === "/api/connectors" && method === "GET") return send(res, 200, listConnectors(home, connectorsFile));
     if (path === "/api/connectors" && method === "PUT") {
@@ -252,26 +288,15 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/ask$/)) && method === "POST") {
       const { name, dir } = existing(m[1]!);
       const b = await body(req);
-      const step = String(b.step ?? "");
-      const ai = engine(settingsFile);
-      if (ai === "codex" && !installed(codexBin())) throw new HttpError(400, "Codex is not installed on this computer: install Codex CLI (npm i -g @openai/codex), sign in with codex login, or pick Claude.");
-      const record = (job: { output: string }) => {
-        const u = ai === "codex" ? parseCodexUsage(job.output) : parseUsage(job.output);
-        if (u) { try { recordUsage(dirname(settingsFile), { project: name, step, ...u }); } catch { /* a full disk must not break the job */ } }
-      };
-      const look = lookName(settingsFile);
-      // Only skills Claude Code really has; the connectors the creator turned on.
-      const known = new Set(listSkills(home).map((s) => s.name));
-      const skills = Array.isArray(b.skills) ? b.skills.map(String).filter((s: string) => known.has(s)) : [];
-      const mode = b.mode === "do" ? "do" as const : "propose" as const;
-      let context: string | undefined;
-      try { context = stepContext(dir, step); } catch { /* an unreadable project: Claude reads it with its tools */ }
-      const extras = { ...askServers(home, connectorsFile), skills, mode, context, learned: learnedFor(dirname(settingsFile), step) };
-      const brief = look ? lookBrief(look) : null;
-      const command = ai === "codex"
-        ? codexAskCommand(name, step, String(b.prompt ?? ""), codexModel(settingsFile), brief, extras)
-        : askCommand(name, step, String(b.prompt ?? ""), claudeModel(settingsFile), brief, extras);
-      return started(res, jobs.start(name, command, record));
+      return started(res, askJob(name, dir, String(b.step ?? ""), String(b.prompt ?? ""), b.mode === "do" ? "do" : "propose", Array.isArray(b.skills) ? b.skills.map(String) : []));
+    }
+    // Auto mode: every remaining step runs by itself, then the render.
+    if ((m = path.match(/^\/api\/projects\/([^/]+)\/auto$/)) && method === "GET") return send(res, 200, autopilot.status(existing(m[1]!).name));
+    if ((m = path.match(/^\/api\/projects\/([^/]+)\/auto$/)) && method === "POST") {
+      const { name, dir } = existing(m[1]!);
+      if ((await body(req)).action === "stop") { autopilot.stop(name); return send(res, 200, autopilot.status(name)); }
+      try { void autopilot.start(name, dir).then(() => notify(name)); } catch (e) { throw new HttpError(409, (e as Error).message); }
+      return send(res, 202, autopilot.status(name));
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/thumb$/)) && method === "GET") {
       const { dir } = existing(m[1]!);
@@ -308,6 +333,17 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
           const d = String(b.decision);
           if (!["A", "B", "C", "reject", "more"].includes(d)) throw new HttpError(400, "decision must be A, B, C, reject or more");
           return send(res, 200, decideProposal(dir, String(b.proposal), d as "A", b.note ? String(b.note) : undefined));
+        }
+        case "switch": {
+          const k = String(b.variant);
+          if (!["A", "B", "C"].includes(k)) throw new HttpError(400, "variant must be A, B or C");
+          const out = switchVariantIn(dir, String(b.proposal), k as "A");
+          // Auto mode: the finished video follows the creator's new pick.
+          const { name } = existing(m[1]!);
+          if (studioMode(settingsFile) === "auto" && !autopilot.status(name)?.state.startsWith("running")) {
+            try { jobs.start(name, buildCommand("render", dir, {}, capcutPython())); } catch { /* a job is running: the creator renders from Wrap */ }
+          }
+          return send(res, 200, out);
         }
         case "close_step": return send(res, 200, closeCurrentStep(dir));
         case "apply_series": return send(res, 200, applySeriesIn(dir, String(b.series)));

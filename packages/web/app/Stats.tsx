@@ -93,8 +93,8 @@ function ImportStats({ s, onPick }: { s: ReturnType<typeof useAll>; onPick: (nam
   return (
     <div className="importbox">
       <div className="h small">STATS OF OTHER VIDEOS</div>
-      <Drop accept={/\.(png|jpe?g|webp|csv|tsv|txt|json)$/i} onFiles={(fs) => void run(fs)}
-        label={busy || <>DROP SCREENSHOTS OR EXPORTS<br />(CSV) OF ANY VIDEO</>} />
+      <Drop accept={/\.(png|jpe?g|webp|pdf|csv|tsv|txt|json)$/i} onFiles={(fs) => void run(fs)}
+        label={busy || <>DROP THE STATS OF ANY VIDEO<br />PNG · JPG · PDF · CSV</>} />
       {done && <div className="importdone">
         <span className="mono ok">{[n(done.videos.length, "VIDEO", "VIDEOS"), n(done.added.length, "NEW RULE", "NEW RULES"), done.off.length ? n(done.off.length, "RULE OFF", "RULES OFF") : ""].filter(Boolean).join(" · ")}</span>
         {done.say && <p>{done.say}</p>}

@@ -10,7 +10,7 @@ const FR: Record<string, string> = {
   "FINE-TUNE IN THE TIMELINE": "AFFINER DANS LA TIMELINE", CONNECTORS: "CONNECTEURS", SKILLS: "SKILLS",
   "Select a variant.": "Choisis une variante.", "NEW PROJECT": "NOUVEAU PROJET", "MOVE TO TRASH": "METTRE À LA CORBEILLE",
   "OPEN IN STUDIO": "OUVRIR DANS LE STUDIO", "Select a project.": "Choisis un projet.", All: "Tous", "In progress": "En cours",
-  Exported: "Exportés", "STEP DONE, NEXT": "ÉTAPE FINIE, SUIVANTE", "SKIP THIS STEP": "PASSER CETTE ÉTAPE", "RUN THE FIRST PASS": "LANCER LE PREMIER JET",
+  Exported: "Exportés", "STEP DONE, NEXT": "ÉTAPE FINIE, SUIVANTE", "SCRIPT READY, NEXT": "SCRIPT PRÊT, SUIVANTE", "SKIP THIS STEP": "PASSER CETTE ÉTAPE", "RUN THE FIRST PASS": "LANCER LE PREMIER JET",
   "ADD RUSHES": "AJOUTER DES RUSHES", "Click a folder to open it.": "Clique sur un dossier pour l'ouvrir.", "SEARCH THIS FOLDER": "CHERCHER DANS CE DOSSIER",
   "DROP FILES HERE": "DÉPOSE DES FICHIERS ICI", "My videos": "Mes vidéos", "References & trends": "Références et tendances",
   "What your AI learned": "Ce que ton IA a appris", EXPORT: "EXPORTER", "Nothing proposed yet for this step.": "Rien de proposé pour cette étape.",

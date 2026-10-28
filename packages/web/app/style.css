@@ -631,3 +631,27 @@ kbd { font: 600 11px var(--mono); padding: 2px 6px; border: 1px solid var(--crea
 .importbox { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; padding-top: 12px; border-top: 1px solid rgba(237,229,200,.25); }
 .importdone { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
 .importdone p { margin: 0; }
+
+/* Modes: step by step or auto, in the sub bar */
+.modebar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.toggle.small { margin-left: 0; font-size: 11px; }
+.toggle button { border: 0; background: none; color: var(--cream); font: inherit; letter-spacing: inherit; padding: 6px 12px; cursor: pointer; }
+.toggle button.on { background: var(--cream); color: var(--field); }
+.act.small { min-height: 30px; font-size: 12px; padding: 0 12px; }
+.autostate { display: inline-flex; align-items: center; gap: 8px; color: var(--glow); }
+/* What to do next, under the step title, with its help */
+.nextline { display: flex; align-items: center; gap: 10px; margin: 2px 0 10px; font-size: 11px; color: var(--glow); letter-spacing: .06em; }
+/* Help: a round "?" and a cream card on hover or click (as on cliffiscurious.com) */
+.help { position: relative; display: inline-flex; }
+.help .q { position: relative; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--glow); background: transparent; color: var(--glow); font: 700 12px var(--mono); display: grid; place-items: center; padding: 0; cursor: pointer; transition: background .2s, color .2s; }
+.help .q::before { content: ""; position: absolute; inset: -8px; }
+.help .q:hover, .help .q[aria-expanded="true"] { background: var(--glow); color: var(--field); }
+.help .tip { position: absolute; left: 0; top: calc(100% + 10px); z-index: 30; width: min(340px, calc(100vw - 32px)); padding: 14px 16px; background: var(--cream); color: var(--field);
+  font: 400 13px/1.5 var(--body, inherit); letter-spacing: 0; text-transform: none; box-shadow: 0 18px 40px rgba(0,0,0,.45); opacity: 0; visibility: hidden; transform: translateY(-6px); transition: opacity .2s, transform .2s, visibility .2s; }
+.help:hover .tip, .help .q:focus-visible + .tip, .help .tip.open { opacity: 1; visibility: visible; transform: none; }
+/* The action needed now pulses after a click on a locked step */
+@keyframes nudge { 0%, 100% { box-shadow: 0 0 0 0 rgba(242,193,78,0); } 50% { box-shadow: 0 0 0 6px rgba(242,193,78,.55); } }
+.nudge { animation: nudge .65s ease-in-out 4; outline: 2px solid var(--glow); outline-offset: 2px; }
+/* A step already done: the pick, switchable */
+.switchrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.switchrow .vchip.on:disabled { opacity: 1; cursor: default; }

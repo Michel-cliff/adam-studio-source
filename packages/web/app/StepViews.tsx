@@ -5,13 +5,7 @@ import { api, enc } from "./api";
 import { Wave } from "./wave";
 
 /** What a step's button asks when nothing is proposed yet: three genuinely different options, like the hook. */
-export const PRESETS: Record<string, { button: string; prompt: string }> = {
-  story: { button: "PROPOSE 3 STORY SHAPES", prompt: "Propose three different shapes for the story (order and framework), anchored on what I say: for example result first, problem then fixes, open loop." },
-  captions: { button: "PROPOSE 3 CAPTION STYLES", prompt: "Propose three caption styles that are genuinely different: the font, the size, the colors, how the key word is highlighted and where the captions sit. Keep my words." },
-  hook: { button: "PROPOSE 3 HOOKS", prompt: "Propose three hooks for the first three seconds that pull different levers, anchored on what I say." },
-  visuals: { button: "PROPOSE 3 VISUAL DIRECTIONS", prompt: "Propose three visual directions that are genuinely different: the images or icons, the effects and a color treatment, each anchored on what I say." },
-  sound: { button: "PROPOSE 3 SOUNDTRACKS", prompt: "Propose three sound designs that are genuinely different: a music bed or none, effects on the key moments, the levels. Use audio files from my Inspiration folder or the free libraries." },
-};
+export { PRESETS } from "../server/presets";
 
 /** The script panel of the story: written by the creator, or drafted by the AI from the transcript, always editable. */
 export function ScriptPanel({ name, aiName }: { name: string; aiName: string }) {

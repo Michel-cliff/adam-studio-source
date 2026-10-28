@@ -9,13 +9,14 @@ export type ImportAnswer = {
   off?: string[];
 };
 
-export const IMPORT_FILES = /\.(png|jpe?g|webp|csv|tsv|txt|json)$/i;
-export const isImage = (name: string) => /\.(png|jpe?g|webp)$/i.test(name);
+export const IMPORT_FILES = /\.(png|jpe?g|webp|pdf|csv|tsv|txt|json)$/i;
+/** Files the AI opens itself (pictures, PDF); the others go in the prompt as text. */
+export const isImage = (name: string) => /\.(png|jpe?g|webp|pdf)$/i.test(name);
 
 export function importPrompt(s: Stats, text: string | null): string {
   return [
     "You are the creator's growth coach inside Adam Studio (short talking-head videos).",
-    text ? `The creator dropped this export of their videos' statistics:\n${text.slice(0, 12_000)}` : "The image is a screenshot of the statistics of one or more of the creator's videos (TikTok, Instagram, YouTube...).",
+    text ? `The creator dropped this export of their videos' statistics:\n${text.slice(0, 12_000)}` : "The file (a screenshot or a PDF) shows the statistics of one or more of the creator's videos (TikTok, Instagram, YouTube...).",
     `Read each video's numbers into these keys: ${METRICS.join(", ")} (keep units like s, %, K as shown; leave out what is not there).`,
     "For each video, say in at most 50 words what to change to improve it, from its numbers (a weak 3 s hold means the hook, a low finish rate means the middle or the length, and so on).",
     `Rules the creator keeps now (id, topic, text):\n${s.rules.filter((r) => r.on).map((r) => `${r.id} [${r.topic}] ${r.text}`).join("\n") || "none yet"}`,

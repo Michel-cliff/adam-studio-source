@@ -148,10 +148,10 @@ describe("what Claude learned", () => {
 });
 
 describe("the AI for questions outside the edit", () => {
-  it("asks Claude without tools, or with Read for pictures; Codex with -i", () => {
+  it("asks Claude without tools, or with Read for pictures and PDFs; Codex with -i", () => {
     expect(aiCommand("claude", "default", "hi").args).toEqual(expect.arrayContaining(["--tools", ""]));
     const pic = aiCommand("claude", "sonnet", "read it", ["C:/s.png"]);
-    expect(pic.args[1]).toMatch(/Read these pictures[\s\S]*C:\/s\.png/);
+    expect(pic.args[1]).toMatch(/Read these files[\s\S]*C:\/s\.png/);
     expect(pic.args).toEqual(expect.arrayContaining(["--tools", "Read", "--allowedTools", "Read", "--model", "sonnet"]));
     const codex = aiCommand("codex", "default", "read it", ["C:/s.png"]);
     expect(codex.args.slice(-3)).toEqual(["-i", "C:/s.png", "read it"]);

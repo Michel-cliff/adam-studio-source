@@ -22,6 +22,32 @@ const ICONS: Record<GroupId, string> = {
 };
 const NAMES: Record<GroupId, string> = { story: "Story", captions: "Captions", hook: "Hook", visuals: "Visuals", sound: "Sound", wrap: "Wrap" };
 
+const HELP: Record<GroupId, string> = {
+  story: "Your AI cut the silences and failed takes. Pick the cut you like (A tight, B light), then paste your script or let your AI write it from what you say. Press SCRIPT READY, NEXT to move on. Story shapes are optional.",
+  captions: "How your words show on screen. Press PROPOSE 3 CAPTION STYLES, pick one with CHOOSE, or skip the step to keep plain captions.",
+  hook: "The first three seconds decide if people stay. Ask for three hooks, pick one with CHOOSE. You can skip it.",
+  visuals: "Images, icons, effects and the color treatment, anchored on what you say. Ask for three directions, pick one, or skip.",
+  sound: "Music bed and sound effects. Ask for three soundtracks, listen to them in place, pick one, or skip.",
+  wrap: "Every step is done: pick a format and export the MP4, or send the edit to CapCut to finish by hand.",
+};
+const AUTO_HELP = "Auto mode runs every step for you and picks the first variant, then renders the video. Open any step afterwards and pick another variant: the video is rendered again.";
+
+function Help({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: Event) => { if (e instanceof KeyboardEvent ? e.key === "Escape" : !(e.target as Element).closest(".help")) setOpen(false); };
+    addEventListener("click", close); addEventListener("keydown", close);
+    return () => { removeEventListener("click", close); removeEventListener("keydown", close); };
+  }, [open]);
+  return (
+    <span className="help">
+      <button type="button" className="q" aria-expanded={open} aria-label="Help on this step" onClick={() => setOpen(!open)}>?</button>
+      <span className={`tip${open ? " open" : ""}`} role="tooltip">{text}</span>
+    </span>
+  );
+}
+
 const ACTIVITY: Record<string, string> = {
   get_project: "Reading the project", get_transcript: "Reading what you say", get_reference: "Checking the formats",
   search_assets: "Searching your Inspiration and free libraries", look_at: "Looking at a reference", import_asset: "Importing a file",
@@ -173,8 +199,32 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
   }, []);
   const toggleSkill = (s: string) => setSkills((l) => (l.includes(s) ? l.filter((x) => x !== s) : [...l, s]));
   const [dropping, setDropping] = useState(false);
+  // Step by step (each step waits for the creator) or auto (every step runs, then the render).
+  const [mode, setMode] = useState<"steps" | "auto">("steps");
+  const [auto, setAuto] = useState<{ state: string; label: string; error?: string } | null>(null);
+  // A click on a locked step: the action that is needed now pulses for a moment.
+  const [nudge, setNudge] = useState(false);
+  useEffect(() => { api<{ mode: "steps" | "auto" }>("/settings").then((x) => setMode(x.mode ?? "steps"), () => {}); }, []);
+  useEffect(() => { if (!nudge) return; const id = setTimeout(() => setNudge(false), 2600); return () => clearTimeout(id); }, [nudge]);
   const addMention = (text: string) => setPrompt((p) => (p.includes(text) ? p : `${p.trimEnd()}${p.trim() ? " " : ""}${text}`));
-  const load = useCallback(() => api<ProjectView>(`/projects/${enc(name)}`).then((v) => { setView(v); setError(""); }, (e) => setError(e.message)), [name]);
+  const load = useCallback(() => {
+    void api<{ state: string; label: string; error?: string } | null>(`/projects/${enc(name)}/auto`).then(setAuto, () => {});
+    return api<ProjectView>(`/projects/${enc(name)}`).then((v) => { setView(v); setError(""); return v; }, (e) => { setError(e.message); return null; });
+  }, [name]);
+  // While auto mode runs, look again every two seconds.
+  useEffect(() => {
+    if (auto?.state !== "running") return;
+    const id = setInterval(() => void load(), 2000);
+    return () => clearInterval(id);
+  }, [auto?.state, load]);
+  const startAuto = async () => {
+    try { setAuto(await api(`/projects/${enc(name)}/auto`, { method: "POST", body: { action: "start" } })); } catch (e) { setError((e as Error).message); }
+  };
+  const pickMode = async (m: "steps" | "auto") => {
+    setMode(m);
+    try { await api("/settings", { method: "PUT", body: { mode: m } }); } catch (e) { setError((e as Error).message); }
+    if (m === "auto" && view?.workflow && !Object.values(view.workflow.steps).every((x) => x === "done")) void startAuto();
+  };
   useEffect(() => {
     void load();
     api<{ enabled: boolean }[]>("/connectors").then((l) => setConnCount(l.filter((c) => c.enabled).length), () => {});
@@ -196,8 +246,14 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
   }, [name]);
 
   const edit = async (body: Record<string, unknown>, done?: string) => {
-    try { await api(`/projects/${enc(name)}/edit`, { method: "POST", body }); if (done) setToast(done); await load(); return true; }
-    catch (e) { setError((e as Error).message); return false; }
+    try {
+      await api(`/projects/${enc(name)}/edit`, { method: "POST", body });
+      if (done) setToast(done);
+      const v = await load();
+      // A choice or a close that finishes the step: straight to the next one.
+      if (v && (body.op === "decide" || body.op === "close_step") && group && groupState(group, v.workflow) === "done") { setGroup(openGroup(v.workflow)); setPick(null); }
+      return true;
+    } catch (e) { setError((e as Error).message); return false; }
   };
   const run = async (action: string, options: Record<string, unknown> = {}) => {
     try { const { job } = await api<{ job: JobView }>(`/projects/${enc(name)}/jobs`, { method: "POST", body: { action, options } }); go(`#/p/${enc(name)}/job/${job.id}`); await load(); }
@@ -248,18 +304,59 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
   const canAsk = Boolean(wf) && g !== "wrap";
   const busy = Boolean(claudeJob && claudeJob.state === "running") || Boolean(running && aiOf(running.label));
   const canClose = wf && members.includes(wf.current) && !pending;
-  const nextGroup = () => setGroup(openGroup(view.workflow));
   const decide = async (d: string) => { if (pending && await edit({ op: "decide", proposal: pending.id, decision: d }, d === "reject" ? "Proposal set aside" : `Variant ${d} applied`)) setPick(null); };
+  const accepted = [...decided].reverse().find((p) => p.status.startsWith("accepted") && p.variants.length > 1);
+  const acceptedKey = accepted?.status.replace(/^accepted\s*/, "");
+  const switchTo = (key: string) => accepted && edit({ op: "switch", proposal: accepted.id, variant: key }, mode === "auto" ? `Variant ${key} applied, the video is rendered again` : `Variant ${key} applied`);
+  const pickRow = accepted && (
+                  <div className="switchrow" role="group" aria-label="Your pick">
+                    <span className="mono">YOUR PICK</span>
+                    {accepted.variants.map((v) => (
+                      <button key={v.key} type="button" className={`vchip${v.key === acceptedKey ? " on" : ""}`} aria-pressed={v.key === acceptedKey} title={v.label}
+                        disabled={v.key === acceptedKey || busy || auto?.state === "running"} onClick={() => void switchTo(v.key)}><b>{v.key}</b> {v.label}</button>
+                    ))}
+                  </div>
+  );
   const historyLabel = (p: ProposalView) => {
     const key = p.status.replace(/^accepted\s*/, "");
     return { k: p.status.startsWith("accepted") ? key : "×", label: p.variants.find((v) => v.key === key)?.label ?? p.reason ?? (p.id.startsWith("auto.") ? "First pass" : "Proposal") };
   };
-  const hint = g === "wrap" ? "Pick a format, then export." : !wf ? "Run the first pass to start." : pending ? t("Select a variant.") : canClose ? "Ask your AI, or move on." : lockedWhy ?? "";
+  const current = wf ? openGroup(wf) : "story";
+  const nextAction = !wf ? "Run the first pass on your takes."
+    : current === "wrap" ? "Every step is done: export your video."
+    : g !== current ? (groupState(g, wf) === "done" ? `Next step: ${t(NAMES[current])}.` : `Finish ${t(NAMES[current])} first.`)
+    : pending ? `Pick a variant, then press CHOOSE ${chosenKey}.`
+    : g === "story" ? "Paste your script or let your AI write it, then press SCRIPT READY, NEXT."
+    : PRESETS[g] && !decided.length ? `Press ${PRESETS[g]!.button}, or skip the step.`
+    : "Press STEP DONE, NEXT.";
+  const need = nudge ? " nudge" : "";
+  const openStep = (id: GroupId) => {
+    setPick(null);
+    // Step by step: a locked step sends the creator back to the open one, with the action to do highlighted.
+    if (mode === "steps" && wf && groupState(id, wf) === "locked") {
+      setGroup(current); setNudge(true); setToast(`${t(NAMES[current])} first: ${nextAction}`);
+      return;
+    }
+    setGroup(id);
+  };
+  const hint = g === "wrap" ? "Pick a format, then export." : nextAction;
 
   return (
     <>
       <div className="subbar">
         <span className="mono">{view.name} · {view.format} · {ms(view.durationMs).toUpperCase()}</span>
+        <div className="modebar">
+          <div role="group" aria-label="Mode" className="toggle small">
+            <button type="button" aria-pressed={mode === "steps"} className={mode === "steps" ? "on" : ""} onClick={() => void pickMode("steps")}>STEP BY STEP</button>
+            <button type="button" aria-pressed={mode === "auto"} className={mode === "auto" ? "on" : ""} onClick={() => void pickMode("auto")}>AUTO</button>
+          </div>
+          {mode === "auto" && <Help text={AUTO_HELP} />}
+          {auto?.state === "running" ? <>
+            <span className="mono autostate"><i className="pulse" /> AUTO · {auto.label.toUpperCase()}…</span>
+            <button type="button" className="link" onClick={() => void api<{ state: string; label: string; error?: string }>(`/projects/${enc(name)}/auto`, { method: "POST", body: { action: "stop" } }).then(setAuto)}>stop</button>
+          </> : mode === "auto" && wf && current !== "wrap" ? <button type="button" className="act small" onClick={() => void startAuto()}>RUN THE REMAINING STEPS ▶</button>
+            : auto?.state === "failed" ? <span className="mono error">AUTO STOPPED: {auto.error}</span> : null}
+        </div>
         <div role="group" aria-label="View" className="toggle">
           <a href={`#/p/${enc(name)}`} aria-current="page" className="on">{t("STEPS")}</a>
           <a href={`#/p/${enc(name)}/edit`}>{t("TIMELINE")} · T</a>
@@ -272,7 +369,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
             const n = (view.proposals ?? []).filter((p) => x.members.includes(p.step) && p.status === "pending" && p.variants.length).reduce((a, p) => a + p.variants.length, 0);
             return (
               <button key={x.id} type="button" className={`step ${st}${g === x.id ? " on" : ""}`} style={{ borderLeftColor: x.color }} aria-current={g === x.id ? "step" : undefined}
-                onClick={() => { setGroup(x.id); setPick(null); }}>
+                onClick={() => openStep(x.id)}>
                 <span className="sname"><svg className="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={ICONS[x.id]} /></svg>{t(NAMES[x.id])}</span><span className={`mono${n ? " newbadge" : ""}`}>{n ? `${n} NEW` : st === "done" ? "✓" : ""}</span>
               </button>
             );
@@ -294,6 +391,8 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
               {claudeJob?.state === "running" && <Halftone fx="wave" step={5} className="headwave" label="Your AI is working" />}
               <span className="mono">{t(NAMES[g]).toUpperCase()} · STEP {String(stepNo).padStart(2, "0")} / {String(GROUPS.length).padStart(2, "0")}</span>
             </div>
+            <p className="nextline mono"><Help text={HELP[g]} />
+              {state === "done" ? (accepted ? "DONE · PICK ANOTHER VARIANT BELOW TO CHANGE IT" : "DONE") : auto?.state === "running" ? "AUTO MODE IS ON IT" : `NEXT · ${nextAction.toUpperCase()}`}</p>
             {error && <p className="error" onClick={() => setError("")}>{error}</p>}
             {otherJob && <JobLog key={otherJob.id} id={otherJob.id} onEnd={() => load()} />}
             {!wf && g === "story" ? <Rushes name={name} view={view} run={run} firstPass={firstPass} /> : g === "story" ? (
@@ -307,7 +406,9 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
                     </div>
                   )}
                   <Screen name={name} view={view} proposal={pending ? pending.id : null} variant={pending ? chosenKey : null} className="frame lit" />
-                  {!pending && <button type="button" className="act" disabled={busy || locked} onClick={() => void ask(PRESETS.story!.prompt)}>{PRESETS.story!.button}</button>}
+                  {!pending && pickRow}
+                  {!pending && canClose && <button type="button" className={`act fill${need}`} onClick={() => void edit({ op: "close_step" }, "Story done")}>{t("SCRIPT READY, NEXT")} →</button>}
+                  {!pending && <button type="button" className="act" disabled={busy || locked} onClick={() => void ask(PRESETS.story!.prompt)}>{PRESETS.story!.button} · OPTIONAL</button>}
                 </div>
                 <ScriptPanel name={name} aiName={ai.toUpperCase()} />
               </div>
@@ -339,8 +440,9 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
             ) : (
               <div className="stage">
                 <Screen name={name} view={view} proposal={null} variant={null} className="frame lit" />
-                {PRESETS[g] && !lockedWhy && claudeJob?.state !== "running"
-                  ? <button type="button" className="act fill big" disabled={busy} onClick={() => void ask(PRESETS[g]!.prompt)}>{PRESETS[g]!.button}</button>
+                {pickRow}
+                {PRESETS[g] && !lockedWhy && !decided.length && claudeJob?.state !== "running"
+                  ? <button type="button" className={`act fill big${need}`} disabled={busy} onClick={() => void ask(PRESETS[g]!.prompt)}>{PRESETS[g]!.button}</button>
                   : <p className="mono note">{lockedWhy ?? ""}</p>}
               </div>
             )}
@@ -357,12 +459,12 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
             <div className="kv"><span>Assets</span><button type="button" className="link" onClick={() => setAssetsOpen(true)}>{view.assets.length} · OPEN</button></div>
             <div className="kv claude"><ClaudeBar stamp={`${claudeJob?.id ?? ""}:${claudeJob?.state ?? ""}`} /></div>
             {pending && chosen && <>
-              <button type="button" className="act fill" disabled={locked} title={lockedWhy ?? ""} onClick={() => void decide(chosen.key)}>{t("CHOOSE")} {chosen.key}</button>
+              <button type="button" className={`act fill${need}`} disabled={locked} title={lockedWhy ?? ""} onClick={() => void decide(chosen.key)}>{t("CHOOSE")} {chosen.key}</button>
               <a className="line-btn" href={`#/p/${enc(name)}/edit`}><span>{t("FINE-TUNE IN THE TIMELINE")}</span><span>→</span></a>
               <button type="button" className="line-link" onClick={() => { setRefill(pending); setPrompt(""); }}><span>{t("More options")}</span><span>+</span></button>
               <button type="button" className="line-link" onClick={() => void decide("reject")}><span>{t("None of these")}</span><span>×</span></button>
             </>}
-            {canClose && <button type="button" className="act" onClick={() => edit({ op: "close_step" }, "Step done").then((ok) => ok && nextGroup())}>{decided.length ? t("STEP DONE, NEXT") : t("SKIP THIS STEP")} →</button>}
+            {canClose && <button type="button" className={`act${g !== "story" && decided.length ? need : ""}`} onClick={() => void edit({ op: "close_step" }, "Step done")}>{decided.length || g === "story" ? t("STEP DONE, NEXT") : t("SKIP THIS STEP")} →</button>}
             {decided.slice(-2).map((p) => { const h = historyLabel(p); return <div key={p.id} className="line-link dim" title={h.label}><span>History: {h.label}</span><span>{h.k}</span></div>; })}
             <div className="synced">{running ? `● ${running.label.toUpperCase()}` : "● SYNCED"}</div>
           </aside>

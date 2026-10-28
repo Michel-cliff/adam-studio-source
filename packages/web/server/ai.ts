@@ -14,7 +14,7 @@ export function aiCommand(engine: Engine, model: string, prompt: string, images:
     return { cmd: codexBin(), args: ["exec", "--json", "--skip-git-repo-check", "--ephemeral", "--sandbox", "read-only", "-c", 'approval_policy="never"',
       ...(model === "default" ? [] : ["-m", model]), ...images.flatMap((i) => ["-i", i]), prompt] };
   }
-  const see = images.length ? `\n\nRead these pictures first with the Read tool:\n${images.map((i) => `- ${i}`).join("\n")}` : "";
+  const see = images.length ? `\n\nRead these files first with the Read tool:\n${images.map((i) => `- ${i}`).join("\n")}` : "";
   return { cmd: claudeBin(), args: ["-p", prompt + see, "--output-format", "stream-json", "--verbose", ...(model === "default" ? [] : ["--model", model]),
     "--max-turns", String(images.length ? images.length + 3 : 2), "--disable-slash-commands", "--setting-sources", "",
     ...(images.length ? ["--tools", "Read", "--allowedTools", "Read"] : ["--tools", ""])] };

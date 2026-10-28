@@ -70,3 +70,17 @@ export function setCodexModel(model: string, file = SETTINGS_FILE): void {
   if (!/^[\w.:-]+$/.test(model)) throw new Error(`not a model name: "${model}"`);
   write(file, { codexModel: model });
 }
+
+export const MODES = ["steps", "auto"] as const;
+export type Mode = (typeof MODES)[number];
+
+/** How the studio runs: step by step (the creator decides each step), or auto (every step runs, then the render). */
+export function studioMode(file = SETTINGS_FILE): Mode {
+  const m = read(file).mode;
+  return MODES.includes(m as Mode) ? (m as Mode) : "steps";
+}
+
+export function setStudioMode(m: string, file = SETTINGS_FILE): void {
+  if (!MODES.includes(m as Mode)) throw new Error(`the mode must be one of ${MODES.join(", ")}`);
+  write(file, { mode: m });
+}

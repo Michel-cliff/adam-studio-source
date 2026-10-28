@@ -122,6 +122,16 @@ export const ProposalStatusSchema = z.union([
   z.literal("rejected"),
   z.strictObject({ accepted: VariantKeySchema }),
 ]);
+// What an accepted variant changed, kept so another variant can replace it later: the story and structure before,
+// the elements it removed, the element ids and captions it added, the style values it overwrote (null: not set before).
+export const RevertSchema = z.strictObject({
+  story: z.array(ClipSchema).optional(),
+  structure: StructureSchema.nullable().optional(),
+  removed: z.array(ElementSchema).default([]),
+  added: z.array(z.string()).default([]),
+  captions: z.array(CaptionSchema).default([]),
+  style: z.record(z.string(), z.unknown()).default({}),
+});
 export const ProposalSchema = z.strictObject({
   id: z.string().min(1),
   step: StepIdSchema,
@@ -129,6 +139,7 @@ export const ProposalSchema = z.strictObject({
   reason: z.string().default(""),
   variants: z.array(VariantSchema).max(3),
   status: ProposalStatusSchema.default("pending"),
+  revert: RevertSchema.optional(),
   history: z
     .array(z.strictObject({
         variants: z.array(VariantSchema),

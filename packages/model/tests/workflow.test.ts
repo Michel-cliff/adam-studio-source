@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolve } from "../src/resolve";
-import { WorkflowError, applyPatch, decide, newWorkflow } from "../src/workflow";
+import { WorkflowError, applyPatch, decide, newWorkflow, switchVariant } from "../src/workflow";
 import { makeProject, makeStyle } from "./helpers";
 
 /** A fully defaulted element: valid both as project input and as an already-parsed Element for applyPatch. */
@@ -118,5 +118,40 @@ describe("resolve with a virtual variant", () => {
   it("names a bad proposal or variant", () => {
     const style = makeStyle();
     expect(() => resolve(guided(), style, { apply: { proposal: "p2", variant: "C" } })).toThrow('proposal "p2" has no variant C');
+  });
+});
+
+describe("switchVariant", () => {
+  it("takes back what the chosen variant did and applies another one, keeping what other steps did", () => {
+    let p = decide(guided(), "p1", "A");
+    expect(p.story[0]!.outMs).toBe(5000);
+    p = { ...p, proposals: [...p.proposals, { id: "p3", step: "captions", reason: "", status: "pending", history: [], variants: [
+      { key: "A", label: "big", patch: { setStyle: { captions: { size: 90, font: "Anton" } }, addCaptions: [{ words: ["s.w0", "s.w1"], text: "hi", highlight: [] }] } },
+      { key: "B", label: "small", patch: { setStyle: { captions: { size: 60 } } } },
+    ] }] };
+    p = { ...p, workflow: undefined, styleOverrides: { captions: { color: "white" } } };
+    p = decide(p, "p3", "A");
+    expect(p.styleOverrides).toEqual({ captions: { color: "white", size: 90, font: "Anton" } });
+    expect(p.captions).toHaveLength(1);
+    p = switchVariant(p, "p3", "B");
+    expect(p.styleOverrides).toEqual({ captions: { color: "white", size: 60 } });
+    expect(p.captions).toHaveLength(0);
+    expect(p.proposals.find((x) => x.id === "p3")!.status).toEqual({ accepted: "B" });
+    p = switchVariant(p, "p1", "C");
+    expect(p.story[0]!.outMs).toBe(9500);
+    expect(p.styleOverrides).toEqual({ captions: { color: "white", size: 60 } });
+  });
+  it("removes the elements a variant added and puts back the ones it removed", () => {
+    let p = makeProject({ elements: [text("old")], proposals: [{ id: "v", step: "visuals", reason: "", variants: [
+      { key: "A", label: "swap", patch: { removeElements: ["old"], addElements: [text("new")] } },
+      { key: "B", label: "add", patch: { addElements: [text("other")] } },
+    ] }] });
+    p = decide(p, "v", "A");
+    expect(p.elements.map((e) => e.id)).toEqual(["new"]);
+    p = switchVariant(p, "v", "B");
+    expect(p.elements.map((e) => e.id).sort()).toEqual(["old", "other"]);
+  });
+  it("refuses a proposal that is not accepted", () => {
+    expect(() => switchVariant(guided(), "p1", "B")).toThrow(WorkflowError);
   });
 });

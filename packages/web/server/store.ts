@@ -1,7 +1,7 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join } from "node:path";
 import {
-  applyPatch, closeStep, decide, deepMerge, lint, parseProject, parseStyle, PatchSchema, ProposalSchema, resolve,
+  applyPatch, closeStep, decide, deepMerge, switchVariant, lint, parseProject, parseStyle, PatchSchema, ProposalSchema, resolve,
   type Decision, type Plain, type Project, type Style, type Timeline,
 } from "@adam-studio/model";
 import { applySeries } from "@adam-studio/model";
@@ -161,6 +161,11 @@ function proposeInto(project: Project, proposal: ReturnType<typeof ProposalSchem
 
 export function decideProposal(dir: string, id: string, decision: Decision, note?: string) {
   return edit(dir, (project) => { try { return decide(project, id, decision, note); } catch (e) { throw new ToolError((e as Error).message); } });
+}
+
+/** Another variant for a proposal already decided: what the first one did is taken back. */
+export function switchVariantIn(dir: string, id: string, key: "A" | "B" | "C") {
+  return edit(dir, (project) => { try { return switchVariant(project, id, key); } catch (e) { throw new ToolError((e as Error).message); } });
 }
 
 export function closeCurrentStep(dir: string) {
