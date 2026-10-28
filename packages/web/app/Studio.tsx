@@ -266,6 +266,13 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
               </button>
             );
           })}
+          {/* What the picked variant adds and why, under the steps: the centre stays for the pictures. */}
+          {g !== "wrap" && pending && chosen && (
+            <div className="chosen-info">
+              <div className="adds mono">{chosen.key} · ADDS {(chosen.summary || "").toUpperCase()}</div>
+              {chosen.why && <p className="why">{chosen.why}</p>}
+            </div>
+          )}
         </nav>
 
         {g === "wrap" ? <Wrap name={name} view={view} run={run} /> : (
@@ -294,10 +301,6 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
                     );
                   })}
                 </div>
-                {chosen && <>
-                  <div className="adds mono"><span>ADDS: {(chosen.summary || "").toUpperCase()}</span></div>
-                  {chosen.why && <p className="why">{chosen.why}</p>}
-                </>}
               </>
             ) : (
               <div className="stage">

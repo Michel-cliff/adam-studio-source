@@ -160,8 +160,9 @@ video.frame { background: #000; object-fit: contain; }
 .vlabel b { font: 700 18px var(--display); }
 .vlabel span { font-size: 13px; line-height: 1.3; }
 .vlabel[aria-pressed="true"] { background: var(--sel); color: var(--glow); }
-.adds { border-top: 1px solid var(--cream); padding-top: 6px; display: flex; justify-content: space-between; gap: 12px; }
-.why { margin: 4px 0 0; border-bottom: 1px solid var(--cream); padding-bottom: 8px; font-size: 14px; }
+.chosen-info { margin-top: 18px; border-top: 2px solid var(--cream); padding-top: 8px; }
+.adds { color: var(--glow); line-height: 1.5; }
+.why { margin: 6px 0 0; font-size: 14px; line-height: 1.5; }
 
 /* Rushes, before the first pass */
 .rushes { display: flex; flex-direction: column; gap: 16px; padding-top: 14px; }
