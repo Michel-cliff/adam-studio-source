@@ -13,6 +13,7 @@
   --sel: rgba(223, 160, 42, .16);
   --green: #6AA46E;
   --red: #D3271F;
+  --teal: #4A8890;
   --display: "Oxanium", "Segoe UI", sans-serif;
   --mono: "JetBrains Mono", Consolas, monospace;
   --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
@@ -388,3 +389,70 @@ textarea.json { width: 100%; min-height: 200px; font: 12px/1.5 var(--mono); marg
 .rushdrop { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; min-height: 48px; padding: 8px 14px; margin: 4px 0 14px; border: 2px dashed var(--cream); }
 .rushdrop.over { border-color: var(--glow); color: var(--glow); background: var(--sel); }
 .rushdrop .error { flex-basis: 100%; }
+
+/* ---------- Statistics ---------- */
+.subnav a { font: 700 25px var(--display); color: rgba(237,229,200,.42); text-decoration: none; }
+.subnav a.on, .subnav a:hover { color: var(--cream); }
+.stats-cols { grid-template-columns: 280px minmax(0, 1fr) 320px; }
+.learned-cols { grid-template-columns: 250px minmax(0, 1fr) 300px; }
+.ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.row.tight { gap: 6px; flex-wrap: nowrap; }
+.row.tight input { flex: 1; min-width: 0; min-height: 38px; }
+.list .h.small { margin-top: 14px; }
+.list > input { margin-top: 4px; min-height: 38px; }
+.statdrop { margin-top: 14px; min-height: 120px; border: 2px dashed var(--cream); display: grid; place-items: center; align-content: center; gap: 6px; text-align: center; padding: 14px; font-size: 12px; line-height: 1.6; }
+.statdrop.over { border-color: var(--glow); color: var(--glow); background: var(--sel); }
+.perf { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 24px; padding: 12px 0 10px; }
+.perf .frame { height: auto; width: 120px; }
+.metrics .kv { padding: 3px 0; font-size: 14px; }
+.field { width: 110px; min-height: 30px; padding: 0 8px; text-align: right; font: 600 13px var(--mono); }
+.talk { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 16px; flex: 1; min-height: 200px; }
+.notecol { display: flex; flex-direction: column; min-height: 0; }
+.notecol textarea { flex: 1; min-height: 120px; margin-top: 6px; resize: none; }
+.chatbox { display: flex; flex-direction: column; min-height: 0; border: 1.5px solid var(--cream); background: var(--field); }
+.chathead { display: flex; justify-content: space-between; padding: 6px 10px; background: var(--cream); color: var(--field); font: 700 13px var(--display); letter-spacing: .04em; }
+.chathead .mono { font-weight: 400; font-size: 11px; }
+.msgs { flex: 1; min-height: 0; max-height: 34vh; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; font-size: 14px; line-height: 1.45; scrollbar-width: thin; scrollbar-color: var(--cream) transparent; }
+.msg { max-width: 86%; padding: 8px 10px; border: 1.5px solid var(--cream); white-space: pre-wrap; }
+.msg b { display: block; font: 400 10px var(--mono); letter-spacing: .08em; opacity: .7; margin-bottom: 2px; }
+.msg.ai { align-self: flex-start; background: var(--page); }
+.msg.you { align-self: flex-end; background: var(--cream); color: var(--field); }
+.chatin { display: flex; gap: 8px; padding: 8px; border-top: 1.5px solid var(--cream); }
+.chatin input { flex: 1; min-width: 0; min-height: 36px; background: var(--page); }
+.chatin .act { min-height: 36px; }
+.status .scroll { overflow-y: auto; min-height: 0; max-height: 46vh; scrollbar-width: thin; scrollbar-color: var(--cream) transparent; }
+.applied { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 8px; padding: 7px 0; border-top: 1px solid rgba(237,229,200,.3); line-height: 1.4; }
+.applied .mono { font-size: 11px; }
+.sq { width: 9px; height: 9px; margin-top: 4px; border: 1.5px solid var(--cream); }
+.sq.full { background: var(--cream); }
+.sepline { border-top: 1px solid var(--cream); margin-top: 10px; padding-top: 8px; }
+.status > .act { margin-top: 12px; min-height: 42px; justify-content: center; }
+.status > .act + .act { margin-top: 8px; }
+.refbody { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 24px; padding: 14px 0 10px; }
+.refbody .frame { width: 150px; height: auto; background: var(--field); }
+.saw { min-width: 0; font-size: 14px; }
+.sawline { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 10px; padding: 6px 0; border-top: 1px solid rgba(237,229,200,.3); line-height: 1.4; }
+.sawline .mono { font-size: 11px; letter-spacing: .06em; }
+.beats { display: flex; gap: 4px; margin-top: 8px; }
+.beats span { min-width: 0; padding: 6px 8px; color: var(--page); font: 600 12px var(--display); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.refacts { margin-top: auto; padding-top: 14px; }
+.refacts .act { min-height: 42px; }
+.trend { display: grid; grid-template-columns: 7px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 8px 0; border-top: 1px solid rgba(237,229,200,.3); line-height: 1.4; }
+.trend .bar { width: 7px; align-self: stretch; }
+.trend .mono { font-size: 11px; white-space: nowrap; }
+.row-item.topic { border-left: 7px solid var(--cream); font: 700 20px var(--display); padding: 9px 12px; }
+.rules { margin-top: 10px; flex: 1; min-height: 0; overflow-y: auto; border-top: 1px solid var(--cream); scrollbar-width: thin; scrollbar-color: var(--cream) transparent; }
+.rule { display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 12px 0; border-bottom: 1px solid rgba(237,229,200,.25); }
+.rule.off > div { opacity: .45; }
+.rtext { font-size: 16px; line-height: 1.4; }
+.rule .mono { margin-top: 4px; font-size: 11px; letter-spacing: .06em; }
+.switch { clip-path: var(--chamfer); width: 46px; height: 24px; padding: 2px; border: 1.5px solid var(--cream); background: var(--cream); display: flex; justify-content: flex-end; cursor: pointer; }
+.switch i { width: 17px; height: 17px; background: var(--page); }
+.switch[aria-checked="false"] { background: transparent; justify-content: flex-start; }
+.switch[aria-checked="false"] i { background: var(--cream); }
+.readme { margin: 14px 0 0; line-height: 1.5; }
+.readme.said { border-left: 3px solid var(--green); padding-left: 10px; }
+.addrule { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.addrule textarea { min-height: 70px; resize: vertical; }
+.metrics .kv > span { white-space: nowrap; }
+.metrics .kv input.field { width: 110px; flex: none; margin: 0; }

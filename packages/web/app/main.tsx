@@ -25,7 +25,7 @@ function App() {
   let body;
   if (page === "new") body = <NewProject />;
   else if (page === "library") body = <Library />;
-  else if (page === "stats") body = <Stats />;
+  else if (page === "stats") body = <Stats view={name} />;
   else if (page === "p" && name && sub === "add") body = <NewProject addTo={name} />;
   else if (page === "p" && name && sub === "edit") body = <Editor key={name} name={name} />;
   else if (page === "p" && name) body = <Studio key={name} name={name} jobId={sub === "job" ? id : undefined} />;

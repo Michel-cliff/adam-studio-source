@@ -15,7 +15,7 @@ export type Saw = { k: string; v: string };
 export type Beat = { label: string; weight: number; kind: string };
 export type Ref = {
   id: string; name: string; source: string; url?: string; file?: string; status: "watching" | "watched" | "failed";
-  error?: string; title?: string; saw: Saw[]; beats: Beat[]; traits: string[]; shot?: string; at: number;
+  error?: string; title?: string; saw: Saw[]; beats: Beat[]; traits: string[]; lessons?: { topic: Topic; text: string }[]; shot?: string; at: number;
 };
 export type Rule = { id: string; topic: Topic; text: string; source: string; on: boolean; at: number };
 export type Stats = { videos: Record<string, VideoStats>; refs: Ref[]; rules: Rule[] };

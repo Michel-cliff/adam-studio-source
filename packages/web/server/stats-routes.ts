@@ -164,7 +164,9 @@ export async function statsRoute(c: Ctx): Promise<boolean> {
       if (!ref || ref.status !== "watched") throw new StatsError("this reference is not watched yet");
       const donts = (await c.body()).as === "donts";
       const source = `REFERENCE · ${(ref.title ?? ref.name).slice(0, 40)}`;
-      for (const s of ref.saw) addRule(dir, { topic: donts ? "donts" : topicOf(s.k), text: s.v, source });
+      // To follow: the lessons the AI drew (what to do), else what it saw. Never to do: what it saw.
+      if (!donts && ref.lessons?.length) for (const l of ref.lessons) addRule(dir, { topic: l.topic, text: l.text, source });
+      else for (const s of ref.saw) addRule(dir, { topic: donts ? "donts" : topicOf(s.k), text: s.v, source });
       send(200, all()); return true;
     }
     if ((m = path.match(/^\/api\/stats\/refs\/([\w]+)$/)) && method === "DELETE") { removeRef(dir, m[1]!); send(200, all()); return true; }

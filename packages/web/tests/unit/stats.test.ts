@@ -18,7 +18,8 @@ const fake = async (q: { prompt: string; images?: string[] }) => {
   asked.push(q);
   if (/statistics page/.test(q.prompt)) return 'Here: {"views": "12.4K", "kept3s": "61%", "bogus": "x"}';
   if (/reference video/.test(q.prompt)) return JSON.stringify({ title: "RESULT FIRST", saw: [{ k: "HOOK", v: "The result in the first second." }, { k: "SOUND", v: "A click on each screen." }],
-    beats: [{ label: "Result", weight: 1, kind: "hook" }, { label: "Steps", weight: 3, kind: "steps" }], traits: ["Result shown in the first second"] });
+    beats: [{ label: "Result", weight: 1, kind: "hook" }, { label: "Steps", weight: 3, kind: "steps" }], traits: ["Result shown in the first second"],
+    lessons: [{ topic: "hook", text: "Show the result in the first second." }, { topic: "sound", text: "Put a light click on each new screen." }] });
   if (/Review these rules/.test(q.prompt)) return '{"say": "Two rules repeat each other.", "rules": [{"topic": "hook", "text": "Open on the result."}], "off": ["nope"]}';
   if (/next video/.test(q.prompt)) return '{"say": "Keep the title behind the head.", "rules": [{"topic": "hook", "text": "Title behind the head in the first second."}]}';
   return "The title held them: keep it.";
@@ -92,7 +93,9 @@ describe("references", () => {
     expect(s.trends).toEqual([{ trait: "Result shown in the first second", count: 1, of: 1 }]);
     // Kept as rules, to follow or never to do.
     const use = (await json(`/api/stats/refs/${ref.id}/use`, "POST", {})).json;
-    expect(use.rules.filter((r: { source: string }) => r.source === "REFERENCE · RESULT FIRST").map((r: { topic: string }) => r.topic)).toEqual(["hook", "sound"]);
+    // Kept as what to do (the lessons), not as a description of the reference.
+    expect(use.rules.filter((r: { source: string }) => r.source === "REFERENCE · RESULT FIRST").map((r: { topic: string; text: string }) => [r.topic, r.text]))
+      .toEqual([["hook", "Show the result in the first second."], ["sound", "Put a light click on each new screen."]]);
     const donts = (await json(`/api/stats/refs/${ref.id}/use`, "POST", { as: "donts" })).json;
     expect(donts.rules.filter((r: { topic: string }) => r.topic === "donts")).toHaveLength(2);
   }, 60000);

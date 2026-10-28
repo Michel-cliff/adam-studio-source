@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { jsonIn, type AskAI } from "./ai";
-import { readStats, trends, updateRef, type Beat, type Ref, type Saw } from "./stats";
+import { readStats, topicOf, TOPICS, trends, updateRef, type Beat, type Ref, type Saw, type Topic } from "./stats";
 
 const run = promisify(execFile);
 const FRAMES = 8;
@@ -44,12 +44,13 @@ export function watchPrompt(ref: Ref, subs: string, knownTraits: string[]): stri
     '{"title": "a short title for this reference (max 40 chars, uppercase)",',
     ' "saw": [{"k": "HOOK|PACE|VISUALS|TEXT|SOUND|LOOK", "v": "one sentence: what it does, concretely"}] (4 to 6 lines; SOUND only if captions or frames show it),',
     ' "beats": [{"label": "1 to 3 words", "weight": relative length 1 to 4, "kind": "hook|problem|steps|twist|proof|cta|other"}] (3 to 6 beats, in order),',
-    ' "traits": ["3 to 5 reusable traits, at most 8 words each"]}',
+    ' "traits": ["3 to 5 reusable traits, at most 8 words each"],',
+    ' "lessons": [{"topic": "hook|captions|visuals|sound|look", "text": "what the creator should do in their own videos, an instruction of at most 15 words"}] (3 to 5)}',
     knownTraits.length ? `When a trait matches one of these already counted, reuse its exact wording: ${knownTraits.join(" | ")}.` : "",
   ].filter(Boolean).join("\n");
 }
 
-type Seen = { title?: string; saw?: Saw[]; beats?: Beat[]; traits?: string[] };
+type Seen = { title?: string; saw?: Saw[]; beats?: Beat[]; traits?: string[]; lessons?: { topic?: string; text?: string }[] };
 
 /** Watches one reference end to end and stores the result (or why it failed). Never throws. */
 export async function watchRef(dir: string, ref: Ref, ai: AskAI): Promise<Ref> {
@@ -70,6 +71,7 @@ export async function watchRef(dir: string, ref: Ref, ai: AskAI): Promise<Ref> {
       saw: seen.saw.slice(0, 6).map((s) => ({ k: String(s.k).toUpperCase().slice(0, 10), v: String(s.v).slice(0, 240) })),
       beats: (seen.beats ?? []).slice(0, 6).map((b) => ({ label: String(b.label).slice(0, 24), weight: Math.min(4, Math.max(1, Number(b.weight) || 1)), kind: String(b.kind ?? "other") })),
       traits: (seen.traits ?? []).slice(0, 5).map((t) => String(t).slice(0, 80)),
+      lessons: (seen.lessons ?? []).filter((l) => l?.text).slice(0, 5).map((l) => ({ topic: TOPICS.includes(l.topic as Topic) && l.topic !== "donts" ? l.topic as Topic : topicOf(String(l.topic ?? "")), text: String(l.text).slice(0, 200) })),
       ...(title && ref.url ? { name: title.slice(0, 60) } : {}),
     });
   } catch (e) {
