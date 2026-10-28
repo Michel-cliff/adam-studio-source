@@ -282,8 +282,12 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
   const decided = ofGroup.filter((p) => p.status !== "pending");
   const cardStamp = JSON.stringify((view?.proposals ?? []).map((p) => [p.id, p.status, p.variants.length])) + (view?.durationMs ?? "");
   // The variant picked on screen: the creator's click, else the first one.
-  const chosenKey = pending && pick?.proposal === pending.id ? pick.key : pending?.variants[0]?.key ?? null;
-  const chosen = pending?.variants.find((v) => v.key === chosenKey);
+  const accepted = [...decided].reverse().find((p) => p.status.startsWith("accepted") && p.variants.length);
+  const acceptedKey = accepted?.status.replace(/^accepted\s*/, "") ?? null;
+  // What the step shows: the variants waiting for a choice, else all the variants of the last choice, so another can be chosen.
+  const shown = pending ?? accepted;
+  const chosenKey = shown && pick?.proposal === shown.id ? pick.key : pending ? pending.variants[0]?.key ?? null : acceptedKey;
+  const chosen = shown?.variants.find((v) => v.key === chosenKey);
 
   // A project being created: its analysis job writes project.json at the end. Show the job, then open the studio.
   if (!view && jobId) return (
@@ -305,18 +309,14 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
   const busy = Boolean(claudeJob && claudeJob.state === "running") || Boolean(running && aiOf(running.label));
   const canClose = wf && members.includes(wf.current) && !pending && !Object.values(wf.steps).every((x) => x === "done");
   const decide = async (d: string) => { if (pending && await edit({ op: "decide", proposal: pending.id, decision: d }, d === "reject" ? "Proposal set aside" : `Variant ${d} applied`)) setPick(null); };
-  const accepted = [...decided].reverse().find((p) => p.status.startsWith("accepted") && p.variants.length > 1);
-  const acceptedKey = accepted?.status.replace(/^accepted\s*/, "");
-  const switchTo = (key: string) => accepted && edit({ op: "switch", proposal: accepted.id, variant: key }, mode === "auto" ? `Variant ${key} applied, the video is rendered again` : `Variant ${key} applied`);
-  const pickRow = accepted && (
-                  <div className="switchrow" role="group" aria-label="Your pick">
-                    <span className="mono">YOUR PICK</span>
-                    {accepted.variants.map((v) => (
-                      <button key={v.key} type="button" className={`vchip${v.key === acceptedKey ? " on" : ""}`} aria-pressed={v.key === acceptedKey} title={v.label}
-                        disabled={v.key === acceptedKey || busy || auto?.state === "running"} onClick={() => void switchTo(v.key)}><b>{v.key}</b> {v.label}</button>
-                    ))}
-                  </div>
-  );
+  const allDone = Boolean(wf && Object.values(wf.steps).every((x) => x === "done"));
+  // Another variant for a step already chosen: the first one is taken back, this one applied, then the video renders again.
+  const switchTo = async (key: string) => {
+    if (accepted && await edit({ op: "switch", proposal: accepted.id, variant: key }, allDone ? `Variant ${key} chosen: the video renders again` : `Variant ${key} chosen`)) {
+      setPick(null);
+      if (allDone) setGroup("wrap");
+    }
+  };
   const historyLabel = (p: ProposalView) => {
     const key = p.status.replace(/^accepted\s*/, "");
     return { k: p.status.startsWith("accepted") ? key : "×", label: p.variants.find((v) => v.key === key)?.label ?? p.reason ?? (p.id.startsWith("auto.") ? "First pass" : "Proposal") };
@@ -375,7 +375,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
             );
           })}
           {/* What the picked variant adds and why, under the steps: the centre stays for the pictures. */}
-          {g !== "wrap" && pending && chosen && (
+          {g !== "wrap" && shown && chosen && (
             <div className="chosen-info">
               <div className="adds mono">{chosen.key} · ADDS {(chosen.summary || "").toUpperCase()}</div>
               {chosen.why && <p className="why">{chosen.why}</p>}
@@ -392,7 +392,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
               <span className="mono">{t(NAMES[g]).toUpperCase()} · STEP {String(stepNo).padStart(2, "0")} / {String(GROUPS.length).padStart(2, "0")}</span>
             </div>
             <p className="nextline mono"><Help text={HELP[g]} />
-              {state === "done" ? (accepted ? "DONE · PICK ANOTHER VARIANT BELOW TO CHANGE IT" : "DONE") : auto?.state === "running" ? "AUTO MODE IS ON IT" : `NEXT · ${nextAction.toUpperCase()}`}</p>
+              {state === "done" ? (accepted ? "DONE · TO CHANGE IT, PICK ANOTHER VARIANT, THEN CHOOSE" : "DONE") : auto?.state === "running" ? "AUTO MODE IS ON IT" : `NEXT · ${nextAction.toUpperCase()}`}</p>
             {error && <p className="error" onClick={() => setError("")}>{error}</p>}
             {/* A job in the steps: one line of fixed height, the step's layout never moves (the full log is in Wrap). */}
             {otherJob && auto?.state !== "running" && <JobLog key={otherJob.id} id={otherJob.id} onEnd={() => load()} compact />}
@@ -400,38 +400,37 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
               // Story: the edit on the left (or the picked shape), the script on the right.
               <div className="story-view">
                 <div className="story-video">
-                  {pending && (
+                  {shown && (
                     <div className="vchips" role="group" aria-label="Story shapes">
-                      {pending.variants.map((v) => <button key={v.key} type="button" className={`vchip${v.key === chosenKey ? " on" : ""}`} aria-pressed={v.key === chosenKey}
-                        title={v.label} onClick={() => setPick({ proposal: pending.id, key: v.key })}><b>{v.key}</b> {v.label}</button>)}
+                      {shown.variants.map((v) => <button key={v.key} type="button" className={`vchip${v.key === chosenKey ? " on" : ""}`} aria-pressed={v.key === chosenKey}
+                        title={v.label} onClick={() => setPick({ proposal: shown.id, key: v.key })}><b>{v.key}</b> {v.label}{v.key === acceptedKey && shown !== pending ? " · CHOSEN" : ""}</button>)}
                     </div>
                   )}
-                  <Screen name={name} view={view} proposal={pending ? pending.id : null} variant={pending ? chosenKey : null} className="frame lit" />
-                  {!pending && pickRow}
+                  <Screen name={name} view={view} proposal={shown ? shown.id : null} variant={shown ? chosenKey : null} className="frame lit" />
                   {!pending && canClose && <button type="button" className={`act fill${need}`} onClick={() => void edit({ op: "close_step" }, "Story done")}>{t("SCRIPT READY, NEXT")} →</button>}
                   {!pending && <button type="button" className="act" disabled={busy || locked} onClick={() => void ask(PRESETS.story!.prompt)}>{PRESETS.story!.button} · OPTIONAL</button>}
                 </div>
                 <ScriptPanel name={name} aiName={ai.toUpperCase()} />
               </div>
-            ) : g === "sound" && pending ? (
+            ) : g === "sound" && shown ? (
               // Sound: the three soundtracks on the left, the edit with the picked one on the right to hear it in place.
               <div className="sound-view">
-                <SoundTracks name={name} p={pending} chosen={chosenKey} stamp={cardStamp} onPick={(key) => setPick({ proposal: pending.id, key })} />
-                <div className="sound-video"><Screen name={name} view={view} proposal={pending.id} variant={chosenKey} className="frame lit" /></div>
+                <SoundTracks name={name} p={shown} chosen={chosenKey} stamp={cardStamp} onPick={(key) => setPick({ proposal: shown.id, key })} />
+                <div className="sound-video"><Screen name={name} view={view} proposal={shown.id} variant={chosenKey} className="frame lit" /></div>
               </div>
-            ) : pending ? (
+            ) : shown ? (
               <>
                 <div className="variants" style={{ "--ar": view.format === "16:9" ? 16 / 9 : 9 / 16 } as React.CSSProperties}>
-                  {pending.variants.map((v) => {
+                  {shown.variants.map((v) => {
                     const on = v.key === chosenKey;
                     return (
                       <div key={v.key} className={`variant${on ? " on" : ""}`}>
-                        {on ? <Screen name={name} view={view} proposal={pending.id} variant={v.key} className="shot" />
-                          : <button type="button" className="shot-btn" aria-label={`Variant ${v.key}: ${v.label}`} onClick={() => setPick({ proposal: pending.id, key: v.key })}>
-                            <VariantShot name={name} proposal={pending.id} variant={v.key} stamp={cardStamp} />
+                        {on ? <Screen name={name} view={view} proposal={shown.id} variant={v.key} className="shot" />
+                          : <button type="button" className="shot-btn" aria-label={`Variant ${v.key}: ${v.label}`} onClick={() => setPick({ proposal: shown.id, key: v.key })}>
+                            <VariantShot name={name} proposal={shown.id} variant={v.key} stamp={cardStamp} />
                           </button>}
-                        <button type="button" className="vlabel" aria-pressed={on} onClick={() => setPick({ proposal: pending.id, key: v.key })}>
-                          <b>{v.key}</b><span>{v.label}</span>
+                        <button type="button" className="vlabel" aria-pressed={on} onClick={() => setPick({ proposal: shown.id, key: v.key })}>
+                          <b>{v.key}</b><span>{v.label}{v.key === acceptedKey && shown !== pending ? " · CHOSEN" : ""}</span>
                         </button>
                       </div>
                     );
@@ -441,7 +440,6 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
             ) : (
               <div className="stage">
                 <Screen name={name} view={view} proposal={null} variant={null} className="frame lit" />
-                {pickRow}
                 {PRESETS[g] && !lockedWhy && !decided.length && claudeJob?.state !== "running"
                   ? <button type="button" className={`act fill big${need}`} disabled={busy} onClick={() => void ask(PRESETS[g]!.prompt)}>{PRESETS[g]!.button}</button>
                   : <p className="mono note">{lockedWhy ?? ""}</p>}
@@ -459,11 +457,17 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
             <div className="kv"><span>Takes</span><b>{view.takes.length}</b></div>
             <div className="kv"><span>Assets</span><button type="button" className="link" onClick={() => setAssetsOpen(true)}>{view.assets.length} · OPEN</button></div>
             <div className="kv claude"><ClaudeBar stamp={`${claudeJob?.id ?? ""}:${claudeJob?.state ?? ""}`} /></div>
-            {pending && chosen && <>
-              <button type="button" className={`act fill${need}`} disabled={locked} title={lockedWhy ?? ""} onClick={() => void decide(chosen.key)}>{t("CHOOSE")} {chosen.key}</button>
+            {shown && chosen && <>
+              {shown === pending
+                ? <button type="button" className={`act fill${need}`} disabled={locked} title={lockedWhy ?? ""} onClick={() => void decide(chosen.key)}>{t("CHOOSE")} {chosen.key}</button>
+                : chosen.key === acceptedKey
+                  ? <button type="button" className="act fill" disabled>{chosen.key} · {t("CHOSEN")}</button>
+                  : <button type="button" className="act fill" disabled={busy || auto?.state === "running"} onClick={() => void switchTo(chosen.key)}>{t("CHOOSE")} {chosen.key}</button>}
               <a className="line-btn" href={`#/p/${enc(name)}/edit`}><span>{t("FINE-TUNE IN THE TIMELINE")}</span><span>→</span></a>
-              <button type="button" className="line-link" onClick={() => { setRefill(pending); setPrompt(""); }}><span>{t("More options")}</span><span>+</span></button>
-              <button type="button" className="line-link" onClick={() => void decide("reject")}><span>{t("None of these")}</span><span>×</span></button>
+              {shown === pending && <>
+                <button type="button" className="line-link" onClick={() => { setRefill(pending); setPrompt(""); }}><span>{t("More options")}</span><span>+</span></button>
+                <button type="button" className="line-link" onClick={() => void decide("reject")}><span>{t("None of these")}</span><span>×</span></button>
+              </>}
             </>}
             {canClose && <button type="button" className={`act${g !== "story" && decided.length ? need : ""}`} onClick={() => void edit({ op: "close_step" }, "Step done")}>{decided.length || g === "story" ? t("STEP DONE, NEXT") : t("SKIP THIS STEP")} →</button>}
             {decided.slice(-2).map((p) => { const h = historyLabel(p); return <div key={p.id} className="line-link dim" title={h.label}><span>History: {h.label}</span><span>{h.k}</span></div>; })}

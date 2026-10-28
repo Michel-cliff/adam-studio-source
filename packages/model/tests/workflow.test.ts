@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolve } from "../src/resolve";
-import { WorkflowError, applyPatch, decide, newWorkflow, switchVariant } from "../src/workflow";
+import { WorkflowError, applyPatch, decide, newWorkflow, switchVariant, withVariant } from "../src/workflow";
 import { makeProject, makeStyle } from "./helpers";
 
 /** A fully defaulted element: valid both as project input and as an already-parsed Element for applyPatch. */
@@ -117,7 +117,7 @@ describe("resolve with a virtual variant", () => {
 
   it("names a bad proposal or variant", () => {
     const style = makeStyle();
-    expect(() => resolve(guided(), style, { apply: { proposal: "p2", variant: "C" } })).toThrow('proposal "p2" has no variant C');
+    expect(() => resolve(guided(), style, { apply: { proposal: "p2", variant: "C" } })).toThrow('the visuals proposal has no variant C');
   });
 });
 
@@ -153,5 +153,36 @@ describe("switchVariant", () => {
   });
   it("refuses a proposal that is not accepted", () => {
     expect(() => switchVariant(guided(), "p1", "B")).toThrow(WorkflowError);
+  });
+});
+
+describe("switching a variant chosen before reverts were kept", () => {
+  it("takes back what the variant added (elements, captions, style) from its patch", () => {
+    let p = makeProject({ styleOverrides: {}, proposals: [{ id: "old", step: "visuals", reason: "", variants: [
+      { key: "A", label: "one", patch: { addElements: [text("a1")], setStyle: { caption: { size: 0.07 } } } },
+      { key: "B", label: "two", patch: { addElements: [text("b1")] } },
+    ] }] });
+    p = decide(p, "old", "A");
+    const { revert: _, ...legacy } = p.proposals[0]!;
+    p = { ...p, proposals: [legacy] };
+    p = switchVariant(p, "old", "B");
+    expect(p.elements.map((e) => e.id)).toEqual(["b1"]);
+    expect(p.styleOverrides).toEqual({});
+  });
+  it("names the step and the letter, never the proposal id, in its errors", () => {
+    expect(() => switchVariant(guided(), "p1", "B")).toThrow(/^the cuts proposal has no chosen variant/);
+  });
+});
+
+describe("withVariant", () => {
+  it("previews a variant of a decided proposal in place of the chosen one, not on top of it", () => {
+    let p = makeProject({ elements: [], proposals: [{ id: "v", step: "visuals", reason: "", variants: [
+      { key: "A", label: "one", patch: { addElements: [text("a1")] } },
+      { key: "B", label: "two", patch: { addElements: [text("b1")] } },
+    ] }] });
+    expect(withVariant(p, "v", "B").elements.map((e) => e.id)).toEqual(["b1"]);
+    p = decide(p, "v", "A");
+    expect(withVariant(p, "v", "B").elements.map((e) => e.id)).toEqual(["b1"]);
+    expect(withVariant(p, "v", "A").elements.map((e) => e.id)).toEqual(["a1"]);
   });
 });

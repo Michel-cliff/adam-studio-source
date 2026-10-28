@@ -338,9 +338,10 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
           const k = String(b.variant);
           if (!["A", "B", "C"].includes(k)) throw new HttpError(400, "variant must be A, B or C");
           const out = switchVariantIn(dir, String(b.proposal), k as "A");
-          // Auto mode: the finished video follows the creator's new pick.
+          // A finished edit: the video follows the creator's new pick, rendered again (shown in Wrap), in both modes.
           const { name } = existing(m[1]!);
-          if (studioMode(settingsFile) === "auto" && !autopilot.status(name)?.state.startsWith("running")) {
+          const wfNow = (loadRaw(dir) as { workflow?: { steps: Record<string, string> } }).workflow;
+          if (wfNow && Object.values(wfNow.steps).every((x) => x === "done") && autopilot.status(name)?.state !== "running") {
             try { jobs.start(name, buildCommand("render", dir, {}, capcutPython())); } catch { /* a job is running: the creator renders from Wrap */ }
           }
           return send(res, 200, out);

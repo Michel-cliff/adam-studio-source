@@ -21,6 +21,15 @@ export function JobLog({ id, onEnd, onRetry, compact }: { id: string; onEnd?: (j
   useEffect(() => { pre.current?.scrollTo(0, pre.current.scrollHeight); }, [output]);
   if (!job) return null;
   const tail = output.trim().split("\n").slice(-3).join("\n");
+  // A finished job leaves the step: only a failure stays, to say why.
+  if (compact && job.state === "done") return null;
+  if (compact) return (
+    <div className={`jobline mono${job.state === "failed" ? " bad" : ""}`} title={tail}>
+      <b>{job.label.toUpperCase()}</b><span>{job.state === "running" ? "…" : job.state.toUpperCase()}</span>
+      <span className="last">{output.trim().split("\n").pop() ?? ""}</span>
+      {job.state === "running" && <button type="button" className="link" onClick={() => api(`/jobs/${id}/stop`, { method: "POST" })}>stop</button>}
+    </div>
+  );
   return (
     <section>
       <div className="row">

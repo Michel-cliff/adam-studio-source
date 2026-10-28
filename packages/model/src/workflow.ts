@@ -143,18 +143,38 @@ function applyRevert(project: Project, r: Revert): Project {
   return { ...next, styleOverrides: style as Project["styleOverrides"] };
 }
 
+/** For a variant chosen before reverts were kept: what its patch added is taken back (the style it set is unset). */
+function revertFromPatch(patch: Patch): Revert {
+  return {
+    removed: [],
+    added: (patch.addElements ?? []).map((e) => e.id),
+    captions: patch.addCaptions ?? [],
+    style: Object.fromEntries(leaves(patch.setStyle ?? {}, undefined).map((path) => [path, null])),
+  };
+}
+
 /** Replaces the variant chosen on an accepted proposal by another one: its changes are taken back, the new ones applied. */
 export function switchVariant(project: Project, proposalId: string, key: VariantKey): Project {
   const idx = project.proposals.findIndex((p) => p.id === proposalId);
   if (idx < 0) throw new WorkflowError(`unknown proposal "${proposalId}"`);
   const p = project.proposals[idx]!;
-  if (typeof p.status !== "object") throw new WorkflowError(`proposal "${p.id}" has no chosen variant to switch`);
+  if (typeof p.status !== "object") throw new WorkflowError(`the ${p.step} proposal has no chosen variant to switch`);
+  const chosen = p.variants.find((x) => x.key === (p.status as { accepted: VariantKey }).accepted);
   if (p.status.accepted === key) return project;
-  if (!p.revert) throw new WorkflowError(`proposal "${p.id}" was chosen before variants could be switched: undo it instead`);
   const v = p.variants.find((x) => x.key === key);
-  if (!v) throw new WorkflowError(`proposal "${p.id}" has no variant ${key}`);
-  const back = applyRevert(project, p.revert);
+  if (!v) throw new WorkflowError(`the ${p.step} proposal has no variant ${key}`);
+  const back = applyRevert(project, p.revert ?? revertFromPatch(chosen?.patch ?? {}));
   const next = applyPatch(back, v.patch);
   const updated: Proposal = { ...p, status: { accepted: key }, revert: revertOf(back, v.patch), history: [...p.history, { variants: p.variants, decision: key }] };
   return { ...next, proposals: next.proposals.map((x, i) => (i === idx ? updated : x)) };
+}
+
+/** The project with one variant of a proposal: added on top when the proposal is pending, in place of the chosen one when decided. */
+export function withVariant(project: Project, proposalId: string, key: VariantKey): Project {
+  const p = project.proposals.find((x) => x.id === proposalId);
+  if (!p) throw new WorkflowError(`unknown proposal "${proposalId}"`);
+  if (typeof p.status === "object") return switchVariant(project, proposalId, key);
+  const v = p.variants.find((x) => x.key === key);
+  if (!v) throw new WorkflowError(`the ${p.step} proposal has no variant ${key}`);
+  return applyPatch(project, v.patch);
 }

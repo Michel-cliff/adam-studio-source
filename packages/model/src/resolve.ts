@@ -6,13 +6,13 @@ import { resolveBeats, resolveCaptions } from "./captions";
 import { createContext, mergeStyle } from "./context";
 import { resolveClipAudio, resolveElements } from "./elements";
 import { ResolveError } from "./context";
-import { applyPatch } from "./workflow";
+import { withVariant } from "./workflow";
 import type { VariantKey } from "./schema/project";
 
 export { ResolveError };
 
 export interface ResolveOptions {
-  /** Applies one pending variant virtually, for previews. */
+  /** Applies one variant virtually, for previews (in place of the chosen one when the proposal is decided). */
   apply?: { proposal: string; variant: VariantKey };
 }
 
@@ -20,11 +20,7 @@ export function resolve(projectIn: Project, styleIn: Style, options: ResolveOpti
   let project = projectIn;
   if (options.apply) {
     const { proposal, variant } = options.apply;
-    const p = project.proposals.find((x) => x.id === proposal);
-    if (!p) throw new ResolveError(`unknown proposal "${proposal}"`);
-    const v = p.variants.find((x) => x.key === variant);
-    if (!v) throw new ResolveError(`proposal "${proposal}" has no variant ${variant}`);
-    project = applyPatch(project, v.patch);
+    try { project = withVariant(project, proposal, variant); } catch (e) { throw new ResolveError((e as Error).message); }
   }
   const style = mergeStyle(styleIn, project.styleOverrides);
   const ctx = createContext(project, style);

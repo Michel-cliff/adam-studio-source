@@ -1,4 +1,4 @@
-import { applyPatch, resolve, type Project } from "@adam-studio/model";
+import { resolve, withVariant, type Project } from "@adam-studio/model";
 import { planMedia } from "@adam-studio/render/src/media";
 import type { MediaFiles } from "@adam-studio/render/src/props";
 import { load, ToolError } from "./store";
@@ -6,9 +6,8 @@ import { load, ToolError } from "./store";
 const plans = new Map<string, Map<string, string>>(); // project dir -> public path -> file on disk
 
 function applied(project: Project, apply: { proposal: string; variant: "A" | "B" | "C" }): Project {
-  const v = project.proposals.find((p) => p.id === apply.proposal)?.variants.find((x) => x.key === apply.variant);
-  if (!v) throw new ToolError(`no variant ${apply.variant} in ${apply.proposal}`);
-  return applyPatch(project, v.patch);
+  // A decided proposal shows its other variants in place of the chosen one, a pending one on top of the edit.
+  try { return withVariant(project, apply.proposal, apply.variant); } catch (e) { throw new ToolError((e as Error).message); }
 }
 
 /** What the live preview needs: the timeline, and media and fonts as URLs served by the panel. */
