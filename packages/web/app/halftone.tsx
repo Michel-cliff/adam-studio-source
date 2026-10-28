@@ -13,33 +13,32 @@ const seg = (px: number, py: number, ax: number, ay: number, bx: number, by: num
 const limb = (d: number, w = .024) => sat(1.15 - d / w);
 const egg = (x: number, y: number, cx: number, cy: number, r: number) => { const dy = (y - cy) / (r * 1.25), dx = (x - cx) / (r * (dy < 0 ? .85 : 1)); const d = Math.hypot(dx, dy); return d < 1 ? .55 + .45 * sat((1 - d) * 3) : sat(1 - (d - 1) * 14) * .6; };
 export const FX: Record<string, Field> = {
-  // The mascot walking: the egg head, a body, swinging arms and legs, the ground passing under him.
+  // The mascot walking: the egg is his whole body, two sticks for arms on its sides, two for legs under it.
   walker(u, v, t, a) {
-    const x = (u - .5) * a, y = v - .5, sw = Math.sin(t * 5.5) * .55, bob = Math.abs(Math.sin(t * 5.5)) * -.012;
-    const hip = [0, .07 + bob], sh = [0, -.07 + bob];
-    let f = egg(x, y, 0, -.19 + bob, .075);
-    f = Math.max(f, limb(seg(x, y, sh[0]!, sh[1]! - .03, hip[0]!, hip[1]!)));
+    const x = (u - .5) * a, y = v - .5, sw = Math.sin(t * 5.5) * .5, bob = Math.abs(Math.sin(t * 5.5)) * -.012;
+    const cy = -.04 + bob, r = .13;
+    let f = egg(x, y, 0, cy, r);
     for (const s of [1, -1]) {
-      f = Math.max(f, limb(seg(x, y, hip[0]!, hip[1]!, hip[0]! + Math.sin(sw * s) * .19, hip[1]! + Math.cos(sw * s) * .19)));
-      f = Math.max(f, limb(seg(x, y, sh[0]!, sh[1]!, sh[0]! + Math.sin(-sw * s) * .14, sh[1]! + Math.cos(sw * s) * .14), .02));
+      const hip = [s * .045, cy + r * 1.2], arm = [s * r * .95, cy + .01];
+      f = Math.max(f, limb(seg(x, y, hip[0]!, hip[1]!, hip[0]! + Math.sin(sw * s) * .14, hip[1]! + Math.cos(sw * s) * .14)));
+      f = Math.max(f, limb(seg(x, y, arm[0]!, arm[1]!, arm[0]! + s * .07 + Math.sin(-sw * s) * .05, arm[1]! + .1), .02));
     }
     if (Math.abs(y - .27) < .012 && ((x * 9 + t * 1.6) % 1 + 1) % 1 < .55) f = Math.max(f, .7);
     return f;
   },
-  // The mascot pushing his boulder up the hill; near the top it rolls back down, and he starts again.
+  // The mascot pushing his boulder up the hill: arms on the rock, legs pushing on the slope; near the top the rock
+  // rolls back down, and he starts again.
   sisyphus(u, v, t, a) {
     const x = u * a, y = v, slope = (q: number) => .92 - .5 * (q / a);
-    const p = (t * .09) % 1, s = p < .82 ? p / .82 : 1 - (p - .82) / .18, r = .13;
-    const cx = (.38 + .42 * s) * a, cy = slope(cx) - r * 1.08;
+    const p = (t * .09) % 1, s = p < .82 ? p / .82 : 1 - (p - .82) / .18, R = .13;
+    const cx = (.4 + .4 * s) * a, cy = slope(cx) - R * 1.08;
     let f = y > slope(x) ? (Math.abs(y - slope(x)) < .012 ? .85 : .1) : 0;
     const dr = Math.hypot(x - cx, y - cy);
-    if (dr < r) { const ang = Math.atan2(y - cy, x - cx) + s * 9; f = Math.max(f, .5 + .4 * Math.abs(Math.sin(ang * 3 + dr * 30))); }
-    const hx = cx - r - .07, step = Math.sin(t * 4) * .05;
-    const hip = [hx - .1, cy + .1], sh = [hx - .01, cy - .04];
-    f = Math.max(f, egg(x, y, hx - .03, cy - .13, .06));
-    f = Math.max(f, limb(seg(x, y, sh[0]!, sh[1]!, hip[0]!, hip[1]!)));
-    f = Math.max(f, limb(seg(x, y, sh[0]!, sh[1]!, cx - r * .95, cy - .02), .02), limb(seg(x, y, sh[0]!, sh[1]! + .02, cx - r * .9, cy + .04), .02));
-    for (const k of [1, -1]) { const fx = hip[0]! - .07 + k * step; f = Math.max(f, limb(seg(x, y, hip[0]!, hip[1]!, fx, slope(fx) - .005))); }
+    if (dr < R) { const ang = Math.atan2(y - cy, x - cx) + s * 9; f = Math.max(f, .5 + .4 * Math.abs(Math.sin(ang * 3 + dr * 30))); }
+    const ex = cx - R - .13, ey = slope(ex) - .2, r = .085, step = Math.sin(t * 4) * .04;
+    f = Math.max(f, egg(x, y, ex, ey, r));
+    f = Math.max(f, limb(seg(x, y, ex + r * .8, ey - .02, cx - R * .95, cy - .03), .02), limb(seg(x, y, ex + r * .8, ey + .03, cx - R * .9, cy + .04), .02));
+    for (const k of [1, -1]) { const hx = ex - .02 + k * .02, hy = ey + r * 1.15, fx = hx - .07 + k * step; f = Math.max(f, limb(seg(x, y, hx, hy, fx, slope(fx) - .005))); }
     return f;
   },
   ripple(u, v, t, a) { const px = .5 + .24 * Math.sin(t * .7), py = .5 + .18 * Math.cos(t * .9); const d = Math.hypot((u - px) * a, v - py); return sat((.5 + .5 * Math.sin(d * 34 - t * 4)) * Math.exp(-d * 2.4)); },
