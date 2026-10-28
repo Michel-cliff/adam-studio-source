@@ -5,7 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JobEvent, JobView, ProjectView, ProposalView } from "../server/types";
 import { api, enc, fileUrl, go, ms } from "./api";
 import { AssetsPanel, dropInto, mention } from "./Assets";
-import { ClaudeBar } from "./ClaudeBar";
+import { ClaudeBar, ENGINE_EVENT } from "./ClaudeBar";
+import { aiOf, readEvent } from "./feed";
 import { ConnectorsPanel, SkillsPanel } from "./Connectors";
 import { t, useLang } from "./i18n";
 import { JobLog } from "./JobLog";
@@ -36,20 +37,12 @@ function ClaudeFeed({ job, onEnd }: { job: JobView; onEnd: () => void }) {
       for (const line of parts) {
         let e: any;
         try { e = JSON.parse(line); } catch { continue; }
-        if (e.type === "assistant") {
-          for (const c of e.message?.content ?? []) {
-            if (c.type === "tool_use") {
-              const label = ACTIVITY[String(c.name).replace(/^mcp__adam-studio__/, "")];
-              if (label && seen[seen.length - 1] !== label) { seen.push(label); setLines([...seen]); }
-            }
-          }
+        const r = readEvent(e);
+        for (const tool of r.tools ?? []) {
+          const label = ACTIVITY[tool];
+          if (label && seen[seen.length - 1] !== label) { seen.push(label); setLines([...seen]); }
         }
-        if (e.type === "result") {
-          // Plain words only: no markdown, no internal ids; the last paragraph is the message to the creator.
-          const plain = String(e.result ?? "").replace(/\*\*|`/g, "").replace(/\bask\.[\w.]+/g, "").trim();
-          const last = plain.split(/\n\s*\n/).pop() ?? plain;
-          setSay(last.length > 320 ? `${last.slice(0, 317)}...` : last);
-        }
+        if (r.say) setSay(r.say);
       }
     };
     const ev = new EventSource(`/api/jobs/${job.id}/events`);
@@ -62,7 +55,7 @@ function ClaudeFeed({ job, onEnd }: { job: JobView; onEnd: () => void }) {
   }, [job.id]);
   return (
     <div className="feed" aria-live="polite">
-      <span className="who">{state === "running" ? <i className="pulse" /> : null}CLAUDE{state === "running" ? " · WORKING" : state === "done" ? "" : ` · ${state.toUpperCase()}`}</span>
+      <span className="who">{state === "running" ? <i className="pulse" /> : null}{(aiOf(job.label)?.ai ?? "Claude").toUpperCase()}{state === "running" ? " · WORKING" : state === "done" ? "" : ` · ${state.toUpperCase()}`}</span>
       <span className="what">{say || lines[lines.length - 1] || "Getting ready"}</span>
       {state === "running" && <button type="button" className="link" onClick={() => api(`/jobs/${job.id}/stop`, { method: "POST" })}>Stop</button>}
     </div>
@@ -167,6 +160,14 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
   const [connCount, setConnCount] = useState<number | null>(null);
   // Skills picked for the next ask (Claude Code's own skills, called with its Skill tool).
   const [skills, setSkills] = useState<string[]>([]);
+  // Skills are Claude Code's: with Codex the button and the picked skills go away.
+  const [ai, setAi] = useState<"claude" | "codex">("claude");
+  useEffect(() => {
+    api<{ engine: "claude" | "codex" }>("/settings").then((x) => setAi(x.engine), () => {});
+    const on = (e: Event) => { setAi((e as CustomEvent).detail); setSkills([]); setPop(null); };
+    addEventListener(ENGINE_EVENT, on);
+    return () => removeEventListener(ENGINE_EVENT, on);
+  }, []);
   const toggleSkill = (s: string) => setSkills((l) => (l.includes(s) ? l.filter((x) => x !== s) : [...l, s]));
   const [dropping, setDropping] = useState(false);
   const addMention = (text: string) => setPrompt((p) => (p.includes(text) ? p : `${p.trimEnd()}${p.trim() ? " " : ""}${text}`));
@@ -227,14 +228,14 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
 
   if (!view) return <div className="center-msg">{error ? <p className="error">{error}</p> : <p className="mono">OPENING THE PROJECT</p>}</div>;
   const running = view.jobs.find((j) => j.state === "running");
-  const claudeJob = view.jobs.find((j) => j.label.startsWith("Claude") && (j.state === "running" || Date.now() - (j.endedAt ?? 0) < 60_000) && groupOf(j.label.replace(/^Claude: /, "").replace(/ \(do\)$/, "")) === g);
-  const otherJob = jobId ? view.jobs.find((j) => j.id === jobId && !j.label.startsWith("Claude")) : running && !running.label.startsWith("Claude") ? running : undefined;
+  const claudeJob = view.jobs.find((j) => aiOf(j.label) && (j.state === "running" || Date.now() - (j.endedAt ?? 0) < 60_000) && groupOf(aiOf(j.label)!.step) === g);
+  const otherJob = jobId ? view.jobs.find((j) => j.id === jobId && !aiOf(j.label)) : running && !aiOf(running.label) ? running : undefined;
   const state = groupState(g, wf);
   const locked = state === "locked" && g !== "wrap";
   const lockedWhy = locked && wf ? `Finish ${t(NAMES[groupOf(wf.current)])} first` : null;
   const stepNo = GROUPS.findIndex((x) => x.id === g) + 1;
   const canAsk = Boolean(wf) && g !== "wrap";
-  const busy = Boolean(claudeJob && claudeJob.state === "running") || Boolean(running && running.label.startsWith("Claude"));
+  const busy = Boolean(claudeJob && claudeJob.state === "running") || Boolean(running && aiOf(running.label));
   const canClose = wf && members.includes(wf.current) && !pending;
   const nextGroup = () => setGroup(openGroup(view.workflow));
   const decide = async (d: string) => { if (pending && await edit({ op: "decide", proposal: pending.id, decision: d }, d === "reject" ? "Proposal set aside" : `Variant ${d} applied`)) setPick(null); };
@@ -348,7 +349,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
               if (r.errors.length) setError(r.errors.join("\n"));
               if (r.added.length) { setToast(`Added ${r.added.map((a) => a.id).join(", ")} to this video`); await load(); }
             }}>
-            <label htmlFor="ask">{t("ASK CLAUDE")}</label>
+            <label htmlFor="ask">{t("ASK CLAUDE").replace("CLAUDE", ai.toUpperCase())}</label>
             <input id="ask" value={prompt} placeholder={`${t(NAMES[g])}: what do you want?`} onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && prompt.trim() && !busy) void ask(prompt, e.ctrlKey || e.metaKey ? "propose" : "do"); }} />
             <button type="button" className="act" disabled={!prompt.trim() || busy} title="Applies your request directly (Undo puts it back)" onClick={() => ask(prompt, "do")}>{t("DO IT")}</button>
@@ -361,10 +362,10 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
           <span className="ring" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 7V3M15 7V3M7 7h10v4a5 5 0 0 1-10 0zM12 16v5" /></svg></span>
           {t("CONNECTORS")}{connCount !== null ? ` · ${connCount}` : ""}
         </button>
-        <button type="button" className="circ" aria-haspopup="dialog" aria-expanded={pop === "skills"} onClick={() => setPop(pop === "skills" ? null : "skills")}>
+        {ai === "claude" && <button type="button" className="circ" aria-haspopup="dialog" aria-expanded={pop === "skills"} onClick={() => setPop(pop === "skills" ? null : "skills")}>
           <span className="ring" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 3l1.8 5.4L19 10l-5.2 1.6L12 17l-1.8-5.4L5 10l5.2-1.6z" /></svg></span>
           {t("SKILLS")} · {skills.length}
-        </button>
+        </button>}
         <span className="hint">{hint}</span>
       </footer>
       {pop === "connectors" && <ConnectorsPanel onClose={() => setPop(null)} onCount={setConnCount} />}

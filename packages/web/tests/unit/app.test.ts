@@ -111,6 +111,31 @@ describe("studio tools", () => {
     expect((await call("PUT", "/api/settings", { body: { claudeModel: "gpt" } })).status).toBe(400);
   });
 
+  it("asks the AI the creator picked, among those installed", async () => {
+    const prev = process.env.ADAM_CODEX;
+    try {
+      process.env.ADAM_CODEX = join(root, "no-codex.exe");
+      const s = (await call("GET", "/api/settings")).json;
+      expect(s.engine).toBe("claude");
+      expect(s.engines.codex).toEqual({ installed: false, model: "default" });
+      expect((await call("PUT", "/api/settings", { body: { engine: "codex" } })).status).toBe(200);
+      const off = await call("POST", `/api/projects/${encodeURIComponent("projet démo")}/ask`, { body: { step: "hook", prompt: "x" } });
+      expect(off.status).toBe(400);
+      expect(off.json.error).toMatch(/Codex is not installed/);
+      // Any program stands for Codex here: the job is started with Codex's label.
+      process.env.ADAM_CODEX = process.execPath;
+      expect((await call("GET", "/api/settings")).json.engines.codex.installed).toBe(true);
+      expect((await call("PUT", "/api/settings", { body: { codexModel: "gpt-5.5" } })).json.engines.codex.model).toBe("gpt-5.5");
+      const on = await call("POST", `/api/projects/${encodeURIComponent("projet démo")}/ask`, { body: { step: "hook", prompt: "x" } });
+      expect(on.status).toBe(202);
+      expect(on.json.job.label).toBe("Codex: hook");
+      expect((await call("PUT", "/api/settings", { body: { engine: "gemini" } })).status).toBe(400);
+    } finally {
+      if (prev === undefined) delete process.env.ADAM_CODEX; else process.env.ADAM_CODEX = prev;
+      await call("PUT", "/api/settings", { body: { engine: "claude" } });
+    }
+  });
+
   it("keeps the look applied to every video, among the Inspiration folder's looks", async () => {
     process.env.ADAM_INSPIRATION = join(root, "inspiration");
     mkdirSync(join(root, "inspiration", "looks", "editorial-archival"), { recursive: true });

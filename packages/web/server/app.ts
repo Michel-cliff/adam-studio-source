@@ -12,14 +12,15 @@ import { listFolder } from "./fsbrowse";
 import { hostAllowed, inside, originAllowed, safeName } from "./guards";
 import { BusyError, JobManager } from "./jobs";
 import { venvPython, WEB } from "./paths";
-import { askCommand } from "./claude";
+import { askCommand, claudeBin } from "./claude";
+import { codexAskCommand, codexBin, installed, parseCodexUsage } from "./codex";
 import { stepContext } from "./context";
 import { libraryRoute } from "./library-routes";
 import { mediaFile, previewData } from "./preview";
 import { listProjects, projectView } from "./projects";
 import { applySeriesIn, closeCurrentStep, removeAssetIn, cutWordsIn, decideProposal, firstPassIn, listSeries, loadRaw, patchProject, setValue, ToolError, tightenIn, undo, updateItem } from "./store";
 import { listLooks, lookBrief } from "@adam-studio/library/src/looks";
-import { CLAUDE_MODELS, claudeModel, lookName, projectsRoot, setClaudeModel, setLookName, SETTINGS_FILE, setProjectsRoot } from "./settings";
+import { CLAUDE_MODELS, claudeModel, codexModel, engine, lookName, projectsRoot, setClaudeModel, setCodexModel, setEngine, setLookName, SETTINGS_FILE, setProjectsRoot } from "./settings";
 import { parseUsage, recordUsage, usageSummary } from "./usage";
 import { thumbnail } from "./thumb";
 import { watchProjects } from "./watch";
@@ -90,17 +91,22 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const handled = await libraryRoute({ req, res, url, method, port, root: projectsRoot(settingsFile), send: (s, b) => send(res, s, b), body: () => body(req) });
       if (handled) return;
     }
+    // The AIs this computer has: Claude Code and Codex CLI, each with its model.
     const settings = () => ({ projectsRoot: projectsRoot(settingsFile), claudeModel: claudeModel(settingsFile), models: CLAUDE_MODELS,
+      engine: engine(settingsFile),
+      engines: { claude: { installed: installed(claudeBin()), model: claudeModel(settingsFile) }, codex: { installed: installed(codexBin()), model: codexModel(settingsFile) } },
       look: lookName(settingsFile), looks: listLooks() });
     if (path === "/api/settings" && method === "GET") return send(res, 200, settings());
     if (path === "/api/settings" && method === "PUT") {
       const b = await body(req);
-      if (b.projectsRoot === undefined && b.claudeModel === undefined && b.look === undefined) throw new HttpError(400, "give projectsRoot, claudeModel or look");
+      if ([b.projectsRoot, b.claudeModel, b.look, b.engine, b.codexModel].every((v) => v === undefined)) throw new HttpError(400, "give projectsRoot, claudeModel, engine, codexModel or look");
       if (b.projectsRoot !== undefined && typeof b.projectsRoot !== "string") throw new HttpError(400, "projectsRoot must be text");
       if (b.look !== undefined && b.look !== "" && !listLooks().some((l) => l.name === b.look)) throw new HttpError(400, `no look "${b.look}" in the Inspiration folder's looks/`);
       try {
         if (b.look !== undefined) setLookName(String(b.look), settingsFile);
         if (b.claudeModel !== undefined) setClaudeModel(String(b.claudeModel), settingsFile);
+        if (b.engine !== undefined) setEngine(String(b.engine), settingsFile);
+        if (b.codexModel !== undefined) setCodexModel(String(b.codexModel), settingsFile);
         if (typeof b.projectsRoot === "string") {
           setProjectsRoot(b.projectsRoot, settingsFile);
           unwatch();
@@ -199,8 +205,10 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const { name, dir } = existing(m[1]!);
       const b = await body(req);
       const step = String(b.step ?? "");
+      const ai = engine(settingsFile);
+      if (ai === "codex" && !installed(codexBin())) throw new HttpError(400, "Codex is not installed on this computer: install Codex CLI (npm i -g @openai/codex), sign in with codex login, or pick Claude.");
       const record = (job: { output: string }) => {
-        const u = parseUsage(job.output);
+        const u = ai === "codex" ? parseCodexUsage(job.output) : parseUsage(job.output);
         if (u) { try { recordUsage(dirname(settingsFile), { project: name, step, ...u }); } catch { /* a full disk must not break the job */ } }
       };
       const look = lookName(settingsFile);
@@ -211,7 +219,11 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       let context: string | undefined;
       try { context = stepContext(dir, step); } catch { /* an unreadable project: Claude reads it with its tools */ }
       const extras = { ...askServers(home, connectorsFile), skills, mode, context };
-      return started(res, jobs.start(name, askCommand(name, step, String(b.prompt ?? ""), claudeModel(settingsFile), look ? lookBrief(look) : null, extras), record));
+      const brief = look ? lookBrief(look) : null;
+      const command = ai === "codex"
+        ? codexAskCommand(name, step, String(b.prompt ?? ""), codexModel(settingsFile), brief, extras)
+        : askCommand(name, step, String(b.prompt ?? ""), claudeModel(settingsFile), brief, extras);
+      return started(res, jobs.start(name, command, record));
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/thumb$/)) && method === "GET") {
       const { dir } = existing(m[1]!);
