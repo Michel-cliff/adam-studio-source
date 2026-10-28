@@ -491,3 +491,5 @@ kbd { font: 600 11px var(--mono); padding: 2px 6px; border: 1px solid var(--crea
 .playbtn:hover { background: rgba(237,229,200,.1); }
 .sound-video .frame { height: max(300px, calc(100vh - 430px)); width: auto; }
 .stage .act.big { min-width: 320px; }
+.dropline { position: absolute; top: 18px; bottom: 0; width: 1px; background: var(--glow); pointer-events: none; z-index: 6; }
+.dropline b { position: absolute; top: -2px; left: 4px; font: 600 11px var(--mono); color: var(--page); background: var(--glow); padding: 1px 4px; white-space: nowrap; }

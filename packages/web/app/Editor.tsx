@@ -79,7 +79,7 @@ function Filmstrip({ props }: { props: RenderProps }) {
 /** The caption's place in project.json, from its timeline id (cap3, or cap3.1 when a cut splits it). */
 const capIndex = (id: string) => Number(id.match(/^cap(\d+)/)?.[1] ?? -1);
 
-type Drag = { key: string; x0: number; width: number; dx: number; moved: boolean };
+type Drag = { key: string; x0: number; width: number; dx: number; moved: boolean; from: number };
 
 function Lanes({ props, raw, frame, selected, select, seek, move }: { props: RenderProps; raw: Raw; frame: number; selected: Selected; select: (s: Selected) => void; seek: (f: number) => void;
   move: (what: "element" | "caption" | "story", id: string | number, to: number) => void }) {
@@ -98,12 +98,12 @@ function Lanes({ props, raw, frame, selected, select, seek, move }: { props: Ren
   const pick = (kind: "clip" | "element" | "caption", id: string, from: number) => { select({ kind, id }); seek(from); };
   // Drag a block to move it: an element or a sound to another moment, a caption onto other words, a story clip to another place.
   // A press without moving is a click: it selects the block.
-  const draggable = (key: string, onDrop: (frames: number) => void, onClick: () => void) => ({
+  const draggable = (key: string, onDrop: (frames: number) => void, onClick: () => void, from = 0) => ({
     onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
       if (e.button !== 0) return;
       e.stopPropagation();
       try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* a pointer the browser no longer tracks */ }
-      setDrag({ key, x0: e.clientX, width: (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect().width, dx: 0, moved: false });
+      setDrag({ key, x0: e.clientX, width: (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect().width, dx: 0, moved: false, from });
     },
     onPointerMove: (e: React.PointerEvent<HTMLElement>) => {
       setDrag((d) => (d && d.key === key ? { ...d, dx: e.clientX - d.x0, moved: d.moved || Math.abs(e.clientX - d.x0) > 4 } : d));
@@ -137,7 +137,7 @@ function Lanes({ props, raw, frame, selected, select, seek, move }: { props: Ren
       {lane("STORY", "story", 62, <>
         <Filmstrip props={props} />
         {timeline.clips.map((c) => <button key={c.id} type="button" className={`cliprect${isSel("clip", c.id) ? " sel" : ""}`} title={`${c.id} · ${c.asset} · drag to reorder`}
-          {...draggable(`clip:${c.id}`, (f) => move("story", c.id, storyIndex(c.id, f)), () => pick("clip", c.id, c.fromFrame))}
+          {...draggable(`clip:${c.id}`, (f) => move("story", c.id, storyIndex(c.id, f)), () => pick("clip", c.id, c.fromFrame), c.fromFrame)}
           style={{ left: pct(c.fromFrame), width: pct(c.durationFrames), ...lift(`clip:${c.id}`) }} />)}
       </>)}
       {lane("ELEMENTS", "", lanesOf(els) * 23 + 2, els.map((e) => {
@@ -145,7 +145,7 @@ function Lanes({ props, raw, frame, selected, select, seek, move }: { props: Ren
         const pic = img && /\.(png|jpe?g|webp|gif|svg)(\?|$)/i.test(img) ? img : undefined;
         return (
           <button key={e.id} type="button" className={`blk${isSel("element", e.id) ? " sel" : ""}`} title={`${e.kind} ${e.id}`}
-            {...draggable(`el:${e.id}`, (f) => move("element", e.id, ms(Math.max(0, e.fromFrame + f))), () => pick("element", e.id, e.fromFrame))}
+            {...draggable(`el:${e.id}`, (f) => move("element", e.id, ms(Math.max(0, e.fromFrame + f))), () => pick("element", e.id, e.fromFrame), e.fromFrame)}
             style={{ left: pct(e.fromFrame), width: pct(e.durationFrames), top: e.lane * 23 + 1, ...lift(`el:${e.id}`) }}>
             {pic && <img src={pic} alt="" />}{e.id}
           </button>
@@ -153,16 +153,21 @@ function Lanes({ props, raw, frame, selected, select, seek, move }: { props: Ren
       }))}
       {lane("CAPTIONS", "", lanesOf(caps) * 26 + 2, caps.map((c) => (
         <button key={c.id} type="button" className={`cap${isSel("caption", c.id) ? " sel" : ""}`} title={c.text}
-          {...draggable(`cap:${c.id}`, (f) => move("caption", capIndex(c.id), ms(Math.max(0, c.fromFrame + f))), () => pick("caption", c.id, c.fromFrame))}
+          {...draggable(`cap:${c.id}`, (f) => move("caption", capIndex(c.id), ms(Math.max(0, c.fromFrame + f))), () => pick("caption", c.id, c.fromFrame), c.fromFrame)}
           style={{ left: pct(c.fromFrame), width: pct(c.durationFrames), top: c.lane * 26 + 2, ...lift(`cap:${c.id}`) }}>{c.text}</button>
       )))}
       {lane("SOUND", "", lanesOf(sounds) * 36 + 4, sounds.map((a) => (
         <span key={a.id} className={`snd${inProject(a.id) ? " movable" : ""}${isSel("element", a.id) ? " sel" : ""}`} title={inProject(a.id) ? `${a.asset} · drag to move` : a.asset}
-          {...(inProject(a.id) ? draggable(`snd:${a.id}`, (f) => move("element", a.id, ms(Math.max(0, a.fromFrame + f))), () => pick("element", a.id, a.fromFrame)) : {})}
+          {...(inProject(a.id) ? draggable(`snd:${a.id}`, (f) => move("element", a.id, ms(Math.max(0, a.fromFrame + f))), () => pick("element", a.id, a.fromFrame), a.fromFrame) : {})}
           style={{ left: pct(a.fromFrame), width: pct(Math.max(1, a.durationFrames)), top: a.lane * 36 + 3, ...lift(`snd:${a.id}`) }}>
           <Wave url={media[a.asset]?.file ?? media[a.asset]?.video} label={a.asset} />
         </span>
       )))}
+      {/* While dragging: where the block's start will land, and when. */}
+      {drag?.moved && (() => {
+        const at = Math.min(total, Math.max(0, drag.from + (drag.dx / drag.width) * total));
+        return <span className="dropline" aria-hidden="true" style={{ left: `calc(110px + (100% - 110px) * ${at / total})` }}><b>{clock(at / timeline.fps)}</b></span>;
+      })()}
       <span className="playhead" aria-hidden="true" style={{ left: `calc(110px + (100% - 110px) * ${frame / total})` }} />
     </section>
   );

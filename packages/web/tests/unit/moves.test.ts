@@ -27,6 +27,15 @@ describe("dragging on the timeline", () => {
     const p = moveCaption(project(), style, 0, 2250);
     expect(p.captions[0]).toMatchObject({ words: ["s.w2", "s.w3"], text: "red blue" });
   });
+  it("keeps all of a caption's words when its first word is cut from the edit", () => {
+    // s.w0 is cut (the first clip starts at 700 ms): the caption still spans two words of the take.
+    const p = project({ story: [{ id: "c1", asset: "s", inMs: 700, outMs: 2000 }, { id: "c2", asset: "s", inMs: 2000, outMs: 4000 }] });
+    expect(moveCaption(p, style, 0, 1600).captions[0]!.words).toEqual(["s.w2", "s.w3"]);
+  });
+  it("snaps a caption onto the word nearest to where it is dropped", () => {
+    expect(moveCaption(project(), style, 0, 2900).captions[0]!.words).toEqual(["s.w3", "s.w3"]);
+    expect(moveCaption(project(), style, 0, 2500).captions[0]!.words).toEqual(["s.w2", "s.w3"]);
+  });
   it("reorders the story: the clip goes where it is dropped", () => {
     expect(moveStory(project(), "c2", 0).story.map((c) => c.id)).toEqual(["c2", "c1"]);
     expect(moveStory(project(), "c1", 5).story.map((c) => c.id)).toEqual(["c2", "c1"]);

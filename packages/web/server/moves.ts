@@ -46,13 +46,18 @@ export function moveCaption(project: Project, style: Style, index: number, toMs:
   const c = project.captions[index];
   if (!c) throw new ToolError(`no caption ${index}`);
   const words = keptWords(project, style);
-  const from = words.findIndex((w) => w.id === c.words[0]), to = words.findIndex((w) => w.id === c.words[1]);
+  if (!words.length) throw new ToolError("no word is left in the edit to put the caption on");
+  // Counted in the take's own words: a caption often starts on a word the cuts removed.
+  const take = (asset: string) => project.transcript.words[asset] ?? [];
+  const own = Object.values(project.transcript.words).find((l) => l.some((w) => w.id === c.words[0])) ?? [];
+  const from = own.findIndex((w) => w.id === c.words[0]), to = own.findIndex((w) => w.id === c.words[1]);
   const count = from >= 0 && to >= from ? to - from + 1 : 1;
-  const start = wordAt(words, Math.max(0, toMs));
-  // As many words as before, in the same take (a caption spans one take).
-  const same = words.filter((w) => w.asset === start.asset);
-  const i = same.findIndex((w) => w.id === start.id);
-  const last = same[Math.min(same.length - 1, i + count - 1)]!;
+  // Onto the word whose start is nearest to the drop: the block lands where it is let go.
+  const at = Math.max(0, toMs);
+  const start = words.reduce((best, w) => (Math.abs(w.startMs - at) < Math.abs(best.startMs - at) ? w : best));
+  const list = take(start.asset);
+  const i = list.findIndex((w) => w.id === start.id);
+  const last = list[Math.min(list.length - 1, i + count - 1)]!;
   return { ...project, captions: project.captions.map((x, k) => (k === index ? { ...x, words: [start.id, last.id] } : x)) };
 }
 
