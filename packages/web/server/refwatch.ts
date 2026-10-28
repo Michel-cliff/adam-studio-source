@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { jsonIn, type AskAI } from "./ai";
+import { uiLang } from "./settings";
 import { readStats, topicOf, TOPICS, trends, updateRef, type Beat, type Ref, type Saw, type Topic } from "./stats";
 
 const run = promisify(execFile);
@@ -43,12 +44,12 @@ async function frames(video: string, folder: string): Promise<string[]> {
   return out;
 }
 
-export function watchPrompt(ref: Ref, subs: string, knownTraits: string[]): string {
+export function watchPrompt(ref: Ref, subs: string, knownTraits: string[], lang: "en" | "fr" = "en"): string {
   return [
     "You are helping a talking-head creator learn from a reference video. The pictures are eight frames taken evenly through it, in order.",
     ref.title || ref.name ? `Its title or name: ${ref.title || ref.name}.` : "",
     subs ? `What is said (automatic captions, may be rough): ${subs.slice(0, 2500)}` : "No captions were available: judge from the frames.",
-    "Answer with ONE JSON object only, in English, short plain sentences, no markdown:",
+    `Answer with ONE JSON object only, in ${lang === "fr" ? "French" : "English"} (the creator's interface language), short plain sentences, no markdown:`,
     '{"title": "a short title for this reference (max 40 chars, uppercase)",',
     ' "saw": [{"k": "HOOK|PACE|VISUALS|TEXT|SOUND|LOOK", "v": "one sentence: what it does, concretely"}] (4 to 6 lines; SOUND only if captions or frames show it),',
     ' "beats": [{"label": "1 to 3 words", "weight": relative length 1 to 4, "kind": "hook|problem|steps|twist|proof|cta|other"}] (3 to 6 beats, in order),',
@@ -71,7 +72,7 @@ export async function watchRef(dir: string, ref: Ref, ai: AskAI): Promise<Ref> {
     const pics = await frames(video, folder);
     if (!pics.length) throw new Error("no frame could be read from the video");
     const known = trends(readStats(dir).refs).map((t) => t.trait);
-    const answer = await ai({ prompt: watchPrompt({ ...ref, title }, subs, known), images: pics });
+    const answer = await ai({ prompt: watchPrompt({ ...ref, title }, subs, known, uiLang(join(dir, "ui.json"))), images: pics });
     const seen = jsonIn<Seen>(answer);
     if (!seen?.saw?.length) throw new Error("the AI did not describe the video");
     return updateRef(dir, ref.id, {

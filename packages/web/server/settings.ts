@@ -84,3 +84,17 @@ export function setStudioMode(m: string, file = SETTINGS_FILE): void {
   if (!MODES.includes(m as Mode)) throw new Error(`the mode must be one of ${MODES.join(", ")}`);
   write(file, { mode: m });
 }
+
+export const LANGS = ["en", "fr"] as const;
+export type UiLang = (typeof LANGS)[number];
+
+/** The language of the creator's interface when they ask: what Adam writes for them follows it. */
+export function uiLang(file = SETTINGS_FILE): UiLang {
+  const l = read(file).lang;
+  return LANGS.includes(l as UiLang) ? (l as UiLang) : "en";
+}
+
+export function setUiLang(l: string, file = SETTINGS_FILE): void {
+  if (!LANGS.includes(l as UiLang)) throw new Error(`the language must be one of ${LANGS.join(", ")}`);
+  write(file, { lang: l });
+}

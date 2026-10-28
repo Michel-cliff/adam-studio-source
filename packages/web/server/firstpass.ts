@@ -98,7 +98,22 @@ export type FirstPassSummary = { fillers: number; retakes: { from: string; to: s
  * cuts (A tight: fillers, retakes and long pauses; B light: fillers and very long pauses) and captions (A two lines
  * with a highlighted word, B one line). Re-running replaces its own pending proposals and leaves decided ones alone.
  */
-export function firstPass(input: Project, style: Style): { project: Project; summary: FirstPassSummary } {
+/** The first pass's labels, in the creator's language (their interface when they ran it). */
+const WORDS = {
+  en: {
+    tight: (f: number, r: number) => `tight: ${f} fillers, ${r} retakes, pauses over 0.4 s`, light: (f: number) => `light: ${f} fillers, pauses over 0.9 s`,
+    two: (n: number) => `${n} captions, two lines, one word highlighted`, one: (n: number) => `${n} captions, one line, no highlight`,
+    cuts: "First pass: fillers, failed takes and dead air", captions: "First pass: captions from the transcript",
+  },
+  fr: {
+    tight: (f: number, r: number) => `serré : ${f} hésitations, ${r} reprises, pauses de plus de 0,4 s`, light: (f: number) => `léger : ${f} hésitations, pauses de plus de 0,9 s`,
+    two: (n: number) => `${n} sous-titres, deux lignes, un mot en couleur`, one: (n: number) => `${n} sous-titres, une ligne, sans couleur`,
+    cuts: "Premier jet : hésitations, reprises et temps morts", captions: "Premier jet : sous-titres depuis la transcription",
+  },
+};
+
+export function firstPass(input: Project, style: Style, lang: "en" | "fr" = "en"): { project: Project; summary: FirstPassSummary } {
+  const w = WORDS[lang];
   let p: Project = { ...input, workflow: input.workflow ?? newWorkflow() };
   const words = keptWords(p);
   const fillerList = style.lint[p.canvas.format]?.fillers ?? style.fillers?.[p.transcript.lang] ?? [];
@@ -120,11 +135,11 @@ export function firstPass(input: Project, style: Style): { project: Project; sum
   const light = tightenPauses(safeCut(fillers), 900, 300);
   const same = (a: Project) => JSON.stringify(a.story) === JSON.stringify(p.story);
   const cutVariants: { key: "A" | "B"; label: string; patch: Record<string, unknown> }[] = [];
-  if (!same(tight)) cutVariants.push({ key: "A", label: `tight: ${fillers.length} fillers, ${retakes.length} retakes, pauses over 0.4 s`, patch: { setStory: tight.story } });
+  if (!same(tight)) cutVariants.push({ key: "A", label: w.tight(fillers.length, retakes.length), patch: { setStory: tight.story } });
   if (!same(light) && JSON.stringify(light.story) !== JSON.stringify(tight.story)) {
-    cutVariants.push({ key: cutVariants.length ? "B" : "A", label: `light: ${fillers.length} fillers, pauses over 0.9 s`, patch: { setStory: light.story } });
+    cutVariants.push({ key: cutVariants.length ? "B" : "A", label: w.light(fillers.length), patch: { setStory: light.story } });
   }
-  if (cutVariants.length) put("auto.cuts", "cuts", "First pass: fillers, failed takes and dead air", cutVariants);
+  if (cutVariants.length) put("auto.cuts", "cuts", w.cuts, cutVariants);
   else summary.skipped.push("auto.cuts (nothing to cut)");
 
   if (p.captions.length === 0 && words.length) {
@@ -132,9 +147,9 @@ export function firstPass(input: Project, style: Style): { project: Project; sum
     const two = captionChunks(words, max * 2, true);
     const one = captionChunks(words, max, false);
     summary.captions = two.length;
-    put("auto.captions", "captions", "First pass: captions from the transcript", [
-      { key: "A", label: `${two.length} captions, two lines, one word highlighted`, patch: { addCaptions: two } },
-      { key: "B", label: `${one.length} captions, one line, no highlight`, patch: { addCaptions: one } },
+    put("auto.captions", "captions", w.captions, [
+      { key: "A", label: w.two(two.length), patch: { addCaptions: two } },
+      { key: "B", label: w.one(one.length), patch: { addCaptions: one } },
     ]);
   } else summary.skipped.push(p.captions.length ? "auto.captions (the project has captions)" : "auto.captions (no words)");
 

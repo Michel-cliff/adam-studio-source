@@ -204,7 +204,7 @@ function MyVideos({ s }: { s: ReturnType<typeof useAll> }) {
           ))}
         </div>
         <p className="note sepline">FILLED SQUARE: FROM YOUR NUMBERS · EMPTY: FROM YOUR FEEDBACK OR A REFERENCE</p>
-        <button type="button" className="act fill" disabled={Boolean(busy)} onClick={() => void strategy()}>{busy === "strategy" ? "THINKING…" : `ASK $ADAM FOR THE NEXT STRATEGY`}</button>
+        <button type="button" className="act fill" disabled={Boolean(busy)} onClick={() => void strategy()}>{busy === "strategy" ? "THINKING…" : "ASK ADAM FOR THE NEXT STRATEGY"}</button>
       </aside>
     </div>
   );
@@ -344,7 +344,7 @@ export function Stats({ view = "videos" }: { view?: string }) {
   const s = useAll();
   const v: View = view === "refs" ? "refs" : view === "learned" ? "learned" : "videos";
   const views: [View, string, string][] = [["videos", "My videos", "#/stats"], ["refs", "References & trends", "#/stats/refs"], ["learned", "What Adam learned", "#/stats/learned"]];
-  const foot = v === "videos" ? "Your numbers stay on this computer. The AI reads them when you ask." : v === "refs" ? "The AI watches each reference once and keeps what it saw." : "Rules learned from your feedback, your references and your numbers.";
+  const foot = v === "videos" ? "Your numbers stay on this computer. Adam reads them when you ask." : v === "refs" ? "Adam watches each reference once and keeps what it saw." : "Rules learned from your feedback, your references and your numbers.";
   return (
     <>
       <nav aria-label="Statistics views" className="subnav">

@@ -33,10 +33,18 @@ export const STEP_BRIEFS: Record<string, string> = {
  * `mode`: "propose" writes A/B/C variants for the creator to choose from; "do" applies an explicit request directly.
  * `context`: the step's context (stepContext), sent up front so Claude does not explore the project tool by tool.
  */
-export type AskExtras = { servers?: Record<string, unknown>; tools?: string[]; skills?: string[]; mode?: "do" | "propose"; context?: string; learned?: string };
+export type AskExtras = { servers?: Record<string, unknown>; tools?: string[]; skills?: string[]; mode?: "do" | "propose"; context?: string; learned?: string; lang?: "en" | "fr" };
 
 // Turn caps: most of an ask's time and tokens went into exploring (26 to 80 turns, the context re-read each turn).
 const MAX_TURNS = { do: 10, propose: 22 };
+
+const LANG_NAMES = { en: "English", fr: "French" } as const;
+
+/** What Adam writes follows the creator's interface when they asked; a language named in their request wins. */
+export function languageLine(lang: "en" | "fr" = "en"): string {
+  const l = LANG_NAMES[lang];
+  return `The creator's language is ${l} (their interface when they asked). Write everything they or the viewers will read in ${l}: labels, why, reason, titles and text on screen, captions (translate the spoken words when the video is spoken in another language, keeping names and numbers). Only a language named in the creator's request overrides this.`;
+}
 
 /** What any AI gets for an ask: the brief of the step (its rules, the look, the context) and how to answer. */
 export function askBrief(project: string, step: string, prompt: string, look: string | null = null, extras: AskExtras = {}): { system: string; mode: "do" | "propose" } {
@@ -52,11 +60,12 @@ export function askBrief(project: string, step: string, prompt: string, look: st
     : [
       `Write exactly ONE proposal with the propose tool: id "${id}", step "${step}", two or three variants (A, B, C) that are genuinely different,`,
       "each with a label (at most 60 characters, what the creator will see), a why (what changes, where, what the viewer gets) and the patch,",
-      "plus a one-sentence reason for the proposal. Labels, why and reason in the transcript's language. Anchor on word ids.",
+      "plus a one-sentence reason for the proposal. Labels, why and reason in the creator's language. Anchor on word ids.",
       "search_assets / look_at / import_asset for media; look at most one still of your boldest variant. Never call decide or run.",
     ];
   const system = [
     "You are the editor inside Adam Studio, working for the creator through the adam-studio tools only.",
+    languageLine(extras.lang),
     `Project: "${project}" (pass it as the project argument). Current step: ${step}. ${STEP_BRIEFS[step]}`,
     ...task,
     extras.context
@@ -73,7 +82,7 @@ export function askBrief(project: string, step: string, prompt: string, look: st
     ...(extras.skills?.length ? [`The creator asked for these skills: invoke each with the Skill tool: ${extras.skills.join(", ")}.`,
       "Apply their rules through the adam-studio tools (the proposal is still written with propose); read their files when they point to them.", ""] : []),
     ...(extras.tools?.length ? [`Connected tools you may also use: ${extras.tools.join(", ")}.`, ""] : []),
-    "End with ONE short plain sentence (under 30 words) for the creator, in the language of the transcript: no markdown, no ids, no list.",
+    "End with ONE short plain sentence (under 30 words) for the creator, in the creator's language: no markdown, no ids, no list.",
   ].join("\n");
   return { system, mode };
 }

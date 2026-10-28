@@ -60,6 +60,13 @@ describe("captions across takes", () => {
 });
 
 describe("firstPass", () => {
+  it("labels its proposals in the creator's language", () => {
+    const { project, style } = setup();
+    const fr = firstPass(project, style, "fr").project.proposals;
+    expect(fr.find((p) => p.id === "auto.cuts")!.variants[0]!.label).toMatch(/^serré : 2 hésitations/);
+    expect(fr.find((p) => p.id === "auto.captions")!.variants[0]!.label).toMatch(/sous-titres, deux lignes/);
+    expect(firstPass(project, style).project.proposals.find((p) => p.id === "auto.cuts")!.variants[0]!.label).toMatch(/^tight: 2 fillers/);
+  });
   it("proposes cuts and captions that resolve, and re-runs without duplicates", () => {
     const { project, style } = setup();
     const { project: out, summary } = firstPass(project, style);

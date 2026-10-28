@@ -22,7 +22,7 @@ export function diskName(name: string): string {
   return base.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w.-]+/g, "_");
 }
 
-export function importPrompt(s: Stats, text: string | null): string {
+export function importPrompt(s: Stats, text: string | null, lang: "en" | "fr" = "en"): string {
   return [
     "You are the creator's growth coach inside Adam Studio (short talking-head videos).",
     text ? `The creator dropped this export of their videos' statistics:\n${text.slice(0, 12_000)}` : "The file (a screenshot or a PDF) shows the statistics of one or more of the creator's videos (TikTok, Instagram, YouTube...).",
@@ -32,7 +32,7 @@ export function importPrompt(s: Stats, text: string | null): string {
     "For each video, say in at most 50 words what to change to improve it, from its numbers (a weak 3 s hold means the hook, a low finish rate means the middle or the length, and so on).",
     `Rules the creator keeps now (id, topic, text):\n${s.rules.filter((r) => r.on).map((r) => `${r.id} [${r.topic}] ${r.text}`).join("\n") || "none yet"}`,
     "Then update these rules: at most three new ones the numbers back (a do or a don't, topic among " + TOPICS.join(", ") + ", at most 20 words, none that repeats a kept rule), and the ids of kept rules the numbers contradict.",
-    "Answer with ONE JSON object only, in the language of the stats (French if unsure):",
+    `Answer with ONE JSON object only, written in ${lang === "fr" ? "French" : "English"} (the creator's interface language):`,
     '{"say": "at most 60 words for the creator", "videos": [{"name": "the video\'s title or date, short", "metrics": {}, "advice": "..."}], "rules": [{"topic": "...", "text": "..."}], "off": ["rule ids"]}',
   ].join("\n\n");
 }

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { resolve } from "@adam-studio/model";
+import { uiLang } from "@adam-studio/web/server/settings";
 import { lintLines, load, ToolError } from "@adam-studio/web/server/store";
 
 const s = (ms: number) => (ms / 1000).toFixed(2);
@@ -12,6 +13,8 @@ export function projectSummary(dir: string): string {
   const words = Object.fromEntries(Object.entries(project.transcript.words).map(([a, w]) => [a, `${w.length} words (get_transcript)`]));
   return JSON.stringify({
     dir,
+    // What Adam writes for the creator (labels, titles, captions) is in this language unless they name another.
+    creatorLanguage: uiLang() === "fr" ? "French" : "English",
     durationMs: Math.round((timeline.durationFrames * 1000) / timeline.fps),
     lint: lintLines(dir, project, timeline),
     ...project,

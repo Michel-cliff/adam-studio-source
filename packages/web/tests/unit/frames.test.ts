@@ -29,3 +29,16 @@ describe("the frame a variant card shows", () => {
     expect(keyFrame(v, base)).toBe(171);
   });
 });
+
+describe("the frame of a step's variants", () => {
+  // A hook lives in the first seconds: its cards opened in the middle of the video (0:12 on a 25 s take).
+  it("shows hook, story and cut variants at the start, at their change when it is in the first seconds", () => {
+    expect(keyFrame(tl([]), tl([]), "hook")).toBe(30);
+    expect(keyFrame(tl([{ id: "title", fromFrame: 45 }]), tl([]), "hook")).toBe(66);
+    expect(keyFrame(tl([{ id: "late", fromFrame: 600 }]), tl([]), "hook")).toBe(30);
+    expect(keyFrame(tl([]), tl([]), "cuts")).toBe(30);
+  });
+  it("keeps the change of other steps", () => {
+    expect(keyFrame(tl([{ id: "late", fromFrame: 600 }]), tl([]), "visuals")).toBe(621);
+  });
+});

@@ -178,3 +178,11 @@ export function withVariant(project: Project, proposalId: string, key: VariantKe
   if (!v) throw new WorkflowError(`the ${p.step} proposal has no variant ${key}`);
   return applyPatch(project, v.patch);
 }
+
+/** The project without the variant chosen on a proposal (as before the choice); a pending proposal changes nothing. */
+export function withoutVariant(project: Project, proposalId: string): Project {
+  const p = project.proposals.find((x) => x.id === proposalId);
+  if (!p || typeof p.status !== "object") return project;
+  const chosen = p.variants.find((x) => x.key === (p.status as { accepted: VariantKey }).accepted);
+  return applyRevert(project, p.revert ?? revertFromPatch(chosen?.patch ?? {}));
+}

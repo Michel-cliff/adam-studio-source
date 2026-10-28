@@ -36,6 +36,13 @@ Read this first; do not re-explore what is written here. Keep replies short, no 
   (`createApp({ settingsFile })` on port 4399, `projectsRoot` in that ui.json) and `makeSynthetic` from
   `packages/render/tests/e2e/synthetic.ts`.
 
+## Language
+
+- The interface is translated by `app/translate.ts` from the dictionary `app/i18n-fr.ts` (exact texts + patterns):
+  a new English string needs its French there. Check with a French crawl of every page.
+- What Adam writes (labels, titles, captions, analyses, first pass) follows `uiLang` in settings, set by the interface
+  when the creator switches; a language named in their request wins.
+
 ## Pitfalls already met
 
 - Edit files with the Edit tool. Python or sed replacements fail silently when the text does not match exactly; if a

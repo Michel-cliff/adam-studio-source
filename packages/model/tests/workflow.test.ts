@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolve } from "../src/resolve";
-import { WorkflowError, applyPatch, decide, newWorkflow, switchVariant, withVariant } from "../src/workflow";
+import { WorkflowError, applyPatch, decide, newWorkflow, switchVariant, withVariant, withoutVariant } from "../src/workflow";
 import { makeProject, makeStyle } from "./helpers";
 
 /** A fully defaulted element: valid both as project input and as an already-parsed Element for applyPatch. */
@@ -184,5 +184,17 @@ describe("withVariant", () => {
     p = decide(p, "v", "A");
     expect(withVariant(p, "v", "B").elements.map((e) => e.id)).toEqual(["b1"]);
     expect(withVariant(p, "v", "A").elements.map((e) => e.id)).toEqual(["a1"]);
+  });
+});
+
+describe("withoutVariant", () => {
+  it("takes back the chosen variant of a decided proposal, leaves a pending one as it is", () => {
+    let p = makeProject({ elements: [], proposals: [{ id: "v", step: "hook", reason: "", variants: [
+      { key: "A", label: "one", patch: { addElements: [text("a1")] } },
+      { key: "B", label: "two", patch: { addElements: [text("b1")] } },
+    ] }] });
+    expect(withoutVariant(p, "v")).toBe(p);
+    p = decide(p, "v", "A");
+    expect(withoutVariant(p, "v").elements).toEqual([]);
   });
 });

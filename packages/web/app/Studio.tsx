@@ -13,7 +13,7 @@ import { JobLog } from "./JobLog";
 import { askStep, GROUPS, groupOf, groupState, openGroup, type GroupId } from "./steps";
 import { keyFrame } from "./frames";
 import { PRESETS, ScriptPanel, SoundTracks } from "./StepViews";
-import { VariantShot } from "./VariantShot";
+import { props as cachedProps, VariantShot } from "./VariantShot";
 import { Halftone } from "./halftone";
 
 const ICONS: Record<GroupId, string> = {
@@ -96,29 +96,32 @@ function ClaudeFeed({ job, onEnd }: { job: JobView; onEnd: () => void }) {
 }
 
 /** The edit, playable: as it stands, or with a variant applied (then it opens on what the variant adds). */
-function Screen({ name, view, proposal, variant, className = "" }: { name: string; view: ProjectView; proposal: string | null; variant: string | null; className?: string }) {
+function Screen({ name, view, proposal, variant, className = "", step, decided }: { name: string; view: ProjectView; proposal: string | null; variant: string | null; className?: string; step?: string; decided?: boolean }) {
   const [props, setProps] = useState<RenderProps | null>(null);
   const [base, setBase] = useState<RenderProps | null>(null);
   const [error, setError] = useState("");
   const player = useRef<PlayerRef>(null);
-  const stamp = JSON.stringify(view.proposals.map((p) => [p.id, p.status, p.variants.length])) + (view?.durationMs ?? "");
+  // Any write to project.json changes it: a cached preview never outlives an edit.
+  const stamp = String(view.modified ?? JSON.stringify(view.proposals.map((p) => [p.id, p.status, p.variants.length])) + (view?.durationMs ?? ""));
   useEffect(() => {
     let alive = true;
     // Another variant: the player waits for its own edit, so it mounts on that variant's frame.
     setProps(null); setBase(null);
+    // The same cache as the variant cards: a step shown again does not fetch its previews again.
+    const url = `/projects/${enc(name)}/preview`;
     const q = proposal && variant ? `?proposal=${enc(proposal)}&variant=${variant}` : "";
-    Promise.all([api<RenderProps>(`/projects/${enc(name)}/preview${q}`), q ? api<RenderProps>(`/projects/${enc(name)}/preview`) : Promise.resolve(null)])
+    Promise.all([cachedProps(`${url}${q}`, stamp), q ? cachedProps(decided ? `${url}?without=${enc(proposal!)}` : url, stamp) : Promise.resolve(null)])
       .then(([p, b]) => { if (alive) { setProps(p); setBase(b); setError(""); } })
       .catch((e) => { if (alive) { setProps(null); setError(e.message); } });
     return () => { alive = false; };
-  }, [name, proposal, variant, stamp]);
+  }, [name, proposal, variant, stamp, decided]);
   const tl = props?.timeline;
   return (
     <div className={`screen ${className}`} style={tl ? { aspectRatio: `${tl.width} / ${tl.height}` } : undefined}>
       {tl && props ? (
         // A variant opens on the same frame as its card (keyFrame), set at mount so it cannot be lost while the player loads.
         <Player key={`${proposal}:${variant}:${stamp}`} ref={player} component={Edit} inputProps={props} durationInFrames={Math.max(1, tl.durationFrames)} fps={tl.fps}
-          initialFrame={proposal && variant && base ? keyFrame(tl, base.timeline) : 0} acknowledgeRemotionLicense
+          initialFrame={proposal && variant && base ? keyFrame(tl, base.timeline, step) : 0} acknowledgeRemotionLicense
           compositionWidth={tl.width} compositionHeight={tl.height} controls style={{ width: "100%", height: "100%" }} />
       ) : <div className="empty">{error ? <span className="error">{error}</span> : "LOADING"}</div>}
     </div>
@@ -280,7 +283,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
   const ofGroup = useMemo(() => (view?.proposals ?? []).filter((p) => members.includes(p.step)), [view, g]);
   const pending = ofGroup.find((p) => p.status === "pending" && p.variants.length);
   const decided = ofGroup.filter((p) => p.status !== "pending");
-  const cardStamp = JSON.stringify((view?.proposals ?? []).map((p) => [p.id, p.status, p.variants.length])) + (view?.durationMs ?? "");
+  const cardStamp = String(view?.modified ?? JSON.stringify((view?.proposals ?? []).map((p) => [p.id, p.status, p.variants.length])) + (view?.durationMs ?? ""));
   // The variant picked on screen: the creator's click, else the first one.
   const accepted = [...decided].reverse().find((p) => p.status.startsWith("accepted") && p.variants.length);
   const acceptedKey = accepted?.status.replace(/^accepted\s*/, "") ?? null;
@@ -406,17 +409,17 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
                         title={v.label} onClick={() => setPick({ proposal: shown.id, key: v.key })}><b>{v.key}</b> {v.label}{v.key === acceptedKey && shown !== pending ? " · CHOSEN" : ""}</button>)}
                     </div>
                   )}
-                  <Screen name={name} view={view} proposal={shown ? shown.id : null} variant={shown ? chosenKey : null} className="frame lit" />
+                  <Screen name={name} view={view} proposal={shown ? shown.id : null} variant={shown ? chosenKey : null} step={shown?.step} decided={!!shown && shown !== pending} className="frame lit" />
                   {!pending && canClose && <button type="button" className={`act fill${need}`} onClick={() => void edit({ op: "close_step" }, "Story done")}>{t("SCRIPT READY, NEXT")} →</button>}
                   {!pending && <button type="button" className="act" disabled={busy || locked} onClick={() => void ask(PRESETS.story!.prompt)}>{PRESETS.story!.button} · OPTIONAL</button>}
                 </div>
-                <ScriptPanel name={name} aiName={ai.toUpperCase()} />
+                <ScriptPanel name={name} aiName="ADAM" />
               </div>
             ) : g === "sound" && shown ? (
               // Sound: the three soundtracks on the left, the edit with the picked one on the right to hear it in place.
               <div className="sound-view">
                 <SoundTracks name={name} p={shown} chosen={chosenKey} stamp={cardStamp} onPick={(key) => setPick({ proposal: shown.id, key })} />
-                <div className="sound-video"><Screen name={name} view={view} proposal={shown.id} variant={chosenKey} className="frame lit" /></div>
+                <div className="sound-video"><Screen name={name} view={view} proposal={shown.id} variant={chosenKey} step={shown.step} decided={shown !== pending} className="frame lit" /></div>
               </div>
             ) : shown ? (
               <>
@@ -425,9 +428,9 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
                     const on = v.key === chosenKey;
                     return (
                       <div key={v.key} className={`variant${on ? " on" : ""}`}>
-                        {on ? <Screen name={name} view={view} proposal={shown.id} variant={v.key} className="shot" />
+                        {on ? <Screen name={name} view={view} proposal={shown.id} variant={v.key} step={shown.step} decided={shown !== pending} className="shot" />
                           : <button type="button" className="shot-btn" aria-label={`Variant ${v.key}: ${v.label}`} onClick={() => setPick({ proposal: shown.id, key: v.key })}>
-                            <VariantShot name={name} proposal={shown.id} variant={v.key} stamp={cardStamp} />
+                            <VariantShot name={name} proposal={shown.id} variant={v.key} stamp={cardStamp} step={shown.step} decided={shown !== pending} />
                           </button>}
                         <button type="button" className="vlabel" aria-pressed={on} onClick={() => setPick({ proposal: shown.id, key: v.key })}>
                           <b>{v.key}</b><span>{v.label}{v.key === acceptedKey && shown !== pending ? " · CHOSEN" : ""}</span>

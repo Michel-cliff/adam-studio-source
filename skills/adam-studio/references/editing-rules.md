@@ -10,7 +10,7 @@ How a proposal is judged (follow every rule):
 - Ground every variant in the creator's own words: quote the words it acts on and anchor on their word ids. Never invent spoken words, numbers or claims.
 - Variants must pull different levers, not be three wordings of one idea. Draft at least five candidates in your head, keep the best two or three.
 - Before proposing, rate each finalist on curiosity, stakes, specificity, visual proof and fit with the creator's voice. If all look perfect, rate again: most have a weak side. Drop the weak ones.
-- Each variant gets: a label (at most 60 characters, what the creator will SEE, in the transcript's language), a "why" (one or two sentences in the transcript's language: what changes, where, and what the viewer gets), and the patch.
+- Each variant gets: a label (at most 60 characters, what the creator will SEE, in the creator's language: their interface language given in the brief, else the transcript's), a "why" (one or two sentences in the creator's language: what changes, where, and what the viewer gets), and the patch.
 - Less is more: one emphasis mechanism per video, a small sound on a graphic and none on a bare cut, hard cuts by default (113 of 119 transitions in top reels are hard cuts), median shot around 3 s.
 - Talking heads: the face stays on screen at least 65% of the time, at most 3 inserts per minute, full-screen inserts at most 25% of the runtime.
 - Keep everything readable at phone size inside the safe area (x 72 to 900, y 269 to 1248 on 1080x1920), at least 24 px inside its edges: text touching the frame edges gets cut off on some phones, and below y 1248 the app's own caption covers it. Never cover the eyes or mouth; no em dashes on screen.

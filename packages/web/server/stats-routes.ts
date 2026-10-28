@@ -12,6 +12,7 @@ import {
   type Metric, type Stats,
 } from "./stats";
 import { applyImport, diskName, IMPORT_FILES, importPrompt, isImage, type ImportAnswer } from "./stats-import";
+import { uiLang } from "./settings";
 import { loadRaw } from "./store";
 
 type Ctx = {
@@ -56,13 +57,13 @@ function chatPrompt(root: string, s: Stats, name: string, question: string): str
     videoContext(root, name),
     `Rules they already keep:\n${rulesText(s)}`,
     v.chat.length ? `The conversation so far:\n${v.chat.slice(-10).map((m) => `${m.who === "you" ? "Creator" : "You"}: ${m.text}`).join("\n")}` : "",
-    "Answer the creator's message below in its language, in at most 90 words of plain text (no markdown, no lists of more than three items).",
+    "Answer the creator's message below in the language they wrote it in, in at most 90 words of plain text (no markdown, no lists of more than three items).",
     "Be concrete: name the moment, the words or the element you mean. If a number would change your answer and is missing, say which one to add.",
     `Creator: ${question}`,
   ].filter(Boolean).join("\n\n");
 }
 
-function strategyPrompt(root: string, s: Stats, review: boolean): string {
+function strategyPrompt(root: string, s: Stats, review: boolean, lang: "en" | "fr"): string {
   const vids = videosOf(root, s).map((v) => `- ${v.name}: ${numbers(v.stats.metrics)}${v.stats.note ? `; the creator thinks: ${v.stats.note}` : ""}`).join("\n") || "none yet";
   const refs = s.refs.filter((r) => r.status === "watched").map((r) => `- ${r.title ?? r.name}: ${r.saw.map((x) => `${x.k} ${x.v}`).join(" / ")}`).join("\n") || "none yet";
   return [
@@ -72,7 +73,7 @@ function strategyPrompt(root: string, s: Stats, review: boolean): string {
     review
       ? "Review these rules: which ones contradict each other, repeat each other or are not backed by the numbers? Suggest at most three better rules."
       : "Say what to do in the next video: what to keep, what to test (one change at a time, and which number will tell), what to stop.",
-    `Topics are: ${TOPICS.join(", ")}. Answer with ONE JSON object only, in the language of the creator's notes (French if unsure):`,
+    `Topics are: ${TOPICS.join(", ")}. Answer with ONE JSON object only, written in ${lang === "fr" ? "French" : "English"} (the creator's interface language):`,
     `{"say": "at most 80 words of plain text for the creator", "rules": [{"topic": "...", "text": "one concrete rule, at most 20 words"}]${review ? ', "off": ["ids of rules to turn off"]' : ""}}`,
     "At most three rules; none that repeats a rule they already keep.",
   ].join("\n\n");
@@ -133,7 +134,7 @@ export async function statsRoute(c: Ctx): Promise<boolean> {
       const file = await saveBody(c.req, join(dir, "stats-imports"), url.searchParams.get("name") ?? "", IMPORT_FILES);
       const image = isImage(file);
       let said: string;
-      try { said = await ai({ prompt: importPrompt(readStats(dir), image ? null : readFileSync(file, "utf8")), images: image ? [file] : [] }); }
+      try { said = await ai({ prompt: importPrompt(readStats(dir), image ? null : readFileSync(file, "utf8"), uiLang(join(dir, "ui.json"))), images: image ? [file] : [] }); }
       catch { throw new StatsError("Adam could not open this file. Try a screenshot (PNG or JPG) of the same stats page."); }
       const answer = jsonIn<ImportAnswer>(said);
       const done = answer ? applyImport(dir, answer) : null;
@@ -144,7 +145,7 @@ export async function statsRoute(c: Ctx): Promise<boolean> {
       const review = path.endsWith("review");
       const b = await c.body();
       const s = readStats(dir);
-      const answer = jsonIn<{ say?: string; rules?: { topic: string; text: string }[]; off?: string[] }>(await ai({ prompt: strategyPrompt(root, s, review) }));
+      const answer = jsonIn<{ say?: string; rules?: { topic: string; text: string }[]; off?: string[] }>(await ai({ prompt: strategyPrompt(root, s, review, uiLang(join(dir, "ui.json"))) }));
       if (!answer?.say) throw new StatsError("the AI gave no usable answer, try again");
       const fromNumbers = Object.values(s.videos).some((v) => Object.keys(v.metrics).length);
       const added = (answer.rules ?? []).slice(0, 3).flatMap((r) => { try { return [addRule(dir, { topic: TOPICS.includes(r.topic as never) ? r.topic : topicOf(r.topic), text: r.text, source: fromNumbers ? "YOUR NUMBERS" : "CLAUDE · STRATEGY" })]; } catch { return []; } });

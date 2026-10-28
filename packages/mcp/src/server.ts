@@ -5,7 +5,7 @@ import { exportSchemas, type Decision } from "@adam-studio/model";
 import { addCommand, checkVideos, newProjectCommand } from "@adam-studio/web/server/actions";
 import { safeName } from "@adam-studio/web/server/guards";
 import { listProjects } from "@adam-studio/web/server/projects";
-import { projectsRoot } from "@adam-studio/web/server/settings";
+import { projectsRoot, uiLang } from "@adam-studio/web/server/settings";
 import { z } from "zod";
 import { nameInRoot, runAction, runSetup, stills, tail } from "./run";
 import { importAsset, lookAt } from "@adam-studio/library/src/importer";
@@ -127,7 +127,7 @@ tool("import_asset", "Copies a file (path) or downloads one (url) into the proje
 tool("first_pass", "Automatic first pass of a project: writes the mechanical proposals (cuts: fillers, failed takes, dead air; captions) and returns a brief (the edit as sentences with word ids, frameworks, Inspiration, style) for you to write the creative proposals (structure, hook, beats, visuals, sound, look) with propose.",
   { project }, ({ project: p }) => {
     const dir = dirOf(p);
-    const r = firstPassIn(dir);
+    const r = firstPassIn(dir, uiLang());
     return text(`${firstPassBrief(dir, root(), r.summary)}\n\nlint now: ${r.lint.join(" | ") || "clean"}`);
   });
 

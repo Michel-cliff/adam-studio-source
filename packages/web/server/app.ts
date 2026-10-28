@@ -32,7 +32,7 @@ import { listProjects, projectView } from "./projects";
 import { moveIn } from "./store";
 import { applySeriesIn, closeCurrentStep, switchVariantIn, removeAssetIn, cutWordsIn, decideProposal, firstPassIn, listSeries, loadRaw, patchProject, setValue, ToolError, tightenIn, undo, updateItem } from "./store";
 import { listLooks, lookBrief } from "@adam-studio/library/src/looks";
-import { CLAUDE_MODELS, claudeModel, codexModel, engine, lookName, projectsRoot, setClaudeModel, setCodexModel, setEngine, setLookName, SETTINGS_FILE, setProjectsRoot, setStudioMode, studioMode } from "./settings";
+import { CLAUDE_MODELS, claudeModel, codexModel, engine, lookName, projectsRoot, setClaudeModel, setCodexModel, setEngine, setLookName, SETTINGS_FILE, setProjectsRoot, setStudioMode, setUiLang, studioMode, uiLang } from "./settings";
 import { parseUsage, recordUsage, usageSummary } from "./usage";
 import { thumbnail } from "./thumb";
 import { watchProjects } from "./watch";
@@ -99,7 +99,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     const skills = wanted.filter((x) => known.has(x));
     let context: string | undefined;
     try { context = stepContext(dir, step); } catch { /* an unreadable project: the AI reads it with its tools */ }
-    const extras = { ...askServers(home, connectorsFile), skills, mode, context, learned: learnedFor(dirname(settingsFile), step) };
+    const extras = { ...askServers(home, connectorsFile), skills, mode, context, learned: learnedFor(dirname(settingsFile), step), lang: uiLang(settingsFile) };
     const brief = look ? lookBrief(look) : null;
     const command = engineNow === "codex"
       ? codexAskCommand(name, step, prompt, codexModel(settingsFile), brief, extras)
@@ -109,7 +109,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
   const ended = (start: (done: (j: JobView) => void) => void) => new Promise<JobView>((done) => start(done));
   const autopilot = new Autopilot({
     load: (dir) => loadRaw(dir) as never,
-    firstPass: (dir) => { firstPassIn(dir); },
+    firstPass: (dir) => { firstPassIn(dir, uiLang(settingsFile)); },
     decide: (dir, id, d) => { decideProposal(dir, id, d as "A"); },
     close: (dir) => { closeCurrentStep(dir); },
     ask: async (name, dir, step, prompt) => { await ended((done) => askJob(name, dir, step, prompt, "propose", [], done)); },
@@ -148,7 +148,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     const settings = () => ({ projectsRoot: projectsRoot(settingsFile), claudeModel: claudeModel(settingsFile), models: CLAUDE_MODELS,
       engine: engine(settingsFile),
       engines: { claude: { installed: installed(claudeBin()), model: claudeModel(settingsFile) }, codex: { installed: installed(codexBin()), model: codexModel(settingsFile) } },
-      look: lookName(settingsFile), looks: listLooks(), mode: studioMode(settingsFile) });
+      look: lookName(settingsFile), looks: listLooks(), mode: studioMode(settingsFile), lang: uiLang(settingsFile) });
     if (path === "/api/settings" && method === "GET") return send(res, 200, settings());
     // The creator's API keys: only whether they are set (last four characters) ever leaves the server.
     // Adam Studio as a connector of the creator's own Claude Desktop (their subscription, Anthropic's app).
@@ -183,7 +183,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     }
     if (path === "/api/settings" && method === "PUT") {
       const b = await body(req);
-      if ([b.projectsRoot, b.claudeModel, b.look, b.engine, b.codexModel, b.mode].every((v) => v === undefined)) throw new HttpError(400, "give projectsRoot, claudeModel, engine, codexModel, mode or look");
+      if ([b.projectsRoot, b.claudeModel, b.look, b.engine, b.codexModel, b.mode, b.lang].every((v) => v === undefined)) throw new HttpError(400, "give projectsRoot, claudeModel, engine, codexModel, mode, lang or look");
       if (b.projectsRoot !== undefined && typeof b.projectsRoot !== "string") throw new HttpError(400, "projectsRoot must be text");
       if (b.look !== undefined && b.look !== "" && !listLooks().some((l) => l.name === b.look)) throw new HttpError(400, `no look "${b.look}" in the Inspiration folder's looks/`);
       try {
@@ -192,6 +192,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
         if (b.engine !== undefined) setEngine(String(b.engine), settingsFile);
         if (b.codexModel !== undefined) setCodexModel(String(b.codexModel), settingsFile);
         if (b.mode !== undefined) setStudioMode(String(b.mode), settingsFile);
+        if (b.lang !== undefined) setUiLang(String(b.lang), settingsFile);
         if (typeof b.projectsRoot === "string") {
           setProjectsRoot(b.projectsRoot, settingsFile);
           unwatch();
@@ -277,7 +278,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const proposal = url.searchParams.get("proposal");
       const variant = url.searchParams.get("variant");
       if (proposal && variant && !["A", "B", "C"].includes(variant)) throw new HttpError(400, "variant must be A, B or C");
-      return send(res, 200, previewData(dir, name, proposal && variant ? { proposal, variant: variant as "A" | "B" | "C" } : undefined));
+      return send(res, 200, previewData(dir, name, proposal && variant ? { proposal, variant: variant as "A" | "B" | "C" } : undefined, url.searchParams.get("without") ?? undefined));
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/media\/(.+)$/)) && (method === "GET" || method === "HEAD")) {
       const { name, dir } = existing(m[1]!);
@@ -328,7 +329,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
         case "cut_words": return send(res, 200, cutWordsIn(dir, Array.isArray(b.words) ? b.words.map(String) : []));
         case "tighten": return send(res, 200, tightenIn(dir, Number(b.minPauseMs ?? 600), Number(b.keepMs ?? 200)));
         case "undo": return send(res, 200, { message: undo(dir) });
-        case "first_pass": return send(res, 200, firstPassIn(dir));
+        case "first_pass": return send(res, 200, firstPassIn(dir, uiLang(settingsFile)));
         case "decide": {
           const d = String(b.decision);
           if (!["A", "B", "C", "reject", "more"].includes(d)) throw new HttpError(400, "decision must be A, B, C, reject or more");

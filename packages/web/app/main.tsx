@@ -3,7 +3,7 @@ import { SetupNote } from "./Setup";
 import { createRoot } from "react-dom/client";
 import { Editor } from "./Editor";
 import { Home } from "./Home";
-import { setLang, t, useLang } from "./i18n";
+import { setLang, startLang, t, useLang } from "./i18n";
 import { Library } from "./Library";
 import { NewProject } from "./NewProject";
 import { Stats } from "./Stats";
@@ -53,3 +53,4 @@ function App() {
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
+startLang();

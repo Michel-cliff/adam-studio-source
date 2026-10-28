@@ -1,4 +1,4 @@
-import { resolve, withVariant, type Project } from "@adam-studio/model";
+import { resolve, withVariant, withoutVariant, type Project } from "@adam-studio/model";
 import { planMedia } from "@adam-studio/render/src/media";
 import type { MediaFiles } from "@adam-studio/render/src/props";
 import { load, ToolError } from "./store";
@@ -11,8 +11,10 @@ function applied(project: Project, apply: { proposal: string; variant: "A" | "B"
 }
 
 /** What the live preview needs: the timeline, and media and fonts as URLs served by the panel. */
-export function previewData(dir: string, name: string, apply?: { proposal: string; variant: "A" | "B" | "C" }) {
-  const loaded = load(dir);
+export function previewData(dir: string, name: string, apply?: { proposal: string; variant: "A" | "B" | "C" }, without?: string) {
+  const raw = load(dir);
+  // Without a choice: the edit as it was before a decided proposal, the base its variants are compared with.
+  const loaded = without ? { ...raw, project: withoutVariant(raw.project, without) } : raw;
   const style = loaded.style;
   const project = apply ? applied(loaded.project, apply) : loaded.project;
   let timeline;
