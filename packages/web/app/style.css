@@ -459,3 +459,10 @@ textarea.json { width: 100%; min-height: 200px; font: 12px/1.5 var(--mono); marg
 .addrule textarea { min-height: 70px; resize: vertical; }
 .metrics .kv > span { white-space: nowrap; }
 .metrics .kv input.field { width: 110px; flex: none; margin: 0; }
+
+/* Timeline: dragging and the shortcuts */
+.cliprect, .blk, .cap, .snd.movable { touch-action: none; cursor: grab; }
+.snd.sel { border-color: var(--mustard); }
+.keys { margin-top: 16px; }
+.keys .kv { font-size: 12.5px; min-height: 26px; }
+kbd { font: 600 11px var(--mono); padding: 2px 6px; border: 1px solid var(--cream); white-space: nowrap; }

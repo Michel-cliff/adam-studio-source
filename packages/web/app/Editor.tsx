@@ -101,7 +101,14 @@ function Wave({ url, label }: { url?: string; label: string }) {
   );
 }
 
-function Lanes({ props, frame, selected, select, seek }: { props: RenderProps; frame: number; selected: Selected; select: (s: Selected) => void; seek: (f: number) => void }) {
+/** The caption's place in project.json, from its timeline id (cap3, or cap3.1 when a cut splits it). */
+const capIndex = (id: string) => Number(id.match(/^cap(\d+)/)?.[1] ?? -1);
+
+type Drag = { key: string; x0: number; width: number; dx: number; moved: boolean };
+
+function Lanes({ props, raw, frame, selected, select, seek, move }: { props: RenderProps; raw: Raw; frame: number; selected: Selected; select: (s: Selected) => void; seek: (f: number) => void;
+  move: (what: "element" | "caption" | "story", id: string | number, to: number) => void }) {
+  const [drag, setDrag] = useState<Drag | null>(null);
   const { timeline, media } = props;
   const total = Math.max(1, timeline.durationFrames);
   const pct = (f: number) => `${(f / total) * 100}%`;
@@ -113,7 +120,37 @@ function Lanes({ props, frame, selected, select, seek }: { props: RenderProps; f
   const step = secs > 90 ? 15 : secs > 30 ? 10 : 5;
   const ticks = Array.from({ length: Math.floor(secs / step) + 1 }, (_, i) => i * step);
   const isSel = (kind: string, id: string) => selected?.kind === kind && selected.id === id;
-  const pick = (kind: "clip" | "element" | "caption", id: string, from: number) => (e: React.MouseEvent) => { e.stopPropagation(); select({ kind, id }); seek(from); };
+  const pick = (kind: "clip" | "element" | "caption", id: string, from: number) => { select({ kind, id }); seek(from); };
+  // Drag a block to move it: an element or a sound to another moment, a caption onto other words, a story clip to another place.
+  // A press without moving is a click: it selects the block.
+  const draggable = (key: string, onDrop: (frames: number) => void, onClick: () => void) => ({
+    onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
+      if (e.button !== 0) return;
+      e.stopPropagation();
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* a pointer the browser no longer tracks */ }
+      setDrag({ key, x0: e.clientX, width: (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect().width, dx: 0, moved: false });
+    },
+    onPointerMove: (e: React.PointerEvent<HTMLElement>) => {
+      setDrag((d) => (d && d.key === key ? { ...d, dx: e.clientX - d.x0, moved: d.moved || Math.abs(e.clientX - d.x0) > 4 } : d));
+    },
+    onPointerUp: (e: React.PointerEvent<HTMLElement>) => {
+      e.stopPropagation();
+      const d = drag;
+      setDrag(null);
+      if (!d || d.key !== key) return;
+      if (d.moved) onDrop(Math.round((d.dx / d.width) * total)); else onClick();
+    },
+    onClick: (e: React.MouseEvent) => e.stopPropagation(),
+  });
+  const lift = (key: string) => (drag?.key === key && drag.moved ? { transform: `translateX(${drag.dx}px)`, zIndex: 5, opacity: 0.85, cursor: "grabbing" } : {});
+  const ms = (f: number) => Math.round((f * 1000) / timeline.fps);
+  const inProject = (id: string) => (raw.elements ?? []).some((x: Raw) => x.id === id);
+  // A story clip dropped among the others: its place is how many clips have their middle before where its middle lands.
+  const storyIndex = (id: string, shift: number) => {
+    const c = timeline.clips.find((x) => x.id === id)!;
+    const mid = c.fromFrame + c.durationFrames / 2 + shift;
+    return timeline.clips.filter((x) => x.id !== id && x.fromFrame + x.durationFrames / 2 < mid).length;
+  };
   const onTrack = (e: React.MouseEvent<HTMLDivElement>) => { const r = e.currentTarget.getBoundingClientRect(); seek(Math.round(((e.clientX - r.left) / r.width) * total)); };
   const lane = (label: string, cls: string, height: number, children: React.ReactNode) => (
     <div className="lane"><span className="lname">{label}</span><div className={`track ${cls}`} style={{ height }} onClick={onTrack}>{children}</div></div>
@@ -124,25 +161,30 @@ function Lanes({ props, frame, selected, select, seek }: { props: RenderProps; f
       <div className="lane"><span /><div className="ruler" aria-hidden="true" style={{ backgroundSize: `${(timeline.fps / total) * 100}% 100%` }} /></div>
       {lane("STORY", "story", 62, <>
         <Filmstrip props={props} />
-        {timeline.clips.map((c) => <button key={c.id} type="button" className={`cliprect${isSel("clip", c.id) ? " sel" : ""}`} title={`${c.id} · ${c.asset}`}
-          style={{ left: pct(c.fromFrame), width: pct(c.durationFrames) }} onClick={pick("clip", c.id, c.fromFrame)} />)}
+        {timeline.clips.map((c) => <button key={c.id} type="button" className={`cliprect${isSel("clip", c.id) ? " sel" : ""}`} title={`${c.id} · ${c.asset} · drag to reorder`}
+          {...draggable(`clip:${c.id}`, (f) => move("story", c.id, storyIndex(c.id, f)), () => pick("clip", c.id, c.fromFrame))}
+          style={{ left: pct(c.fromFrame), width: pct(c.durationFrames), ...lift(`clip:${c.id}`) }} />)}
       </>)}
       {lane("ELEMENTS", "", lanesOf(els) * 23 + 2, els.map((e) => {
         const img = typeof e.props.asset === "string" ? media[e.props.asset]?.file : undefined;
         const pic = img && /\.(png|jpe?g|webp|gif|svg)(\?|$)/i.test(img) ? img : undefined;
         return (
           <button key={e.id} type="button" className={`blk${isSel("element", e.id) ? " sel" : ""}`} title={`${e.kind} ${e.id}`}
-            style={{ left: pct(e.fromFrame), width: pct(e.durationFrames), top: e.lane * 23 + 1 }} onClick={pick("element", e.id, e.fromFrame)}>
+            {...draggable(`el:${e.id}`, (f) => move("element", e.id, ms(Math.max(0, e.fromFrame + f))), () => pick("element", e.id, e.fromFrame))}
+            style={{ left: pct(e.fromFrame), width: pct(e.durationFrames), top: e.lane * 23 + 1, ...lift(`el:${e.id}`) }}>
             {pic && <img src={pic} alt="" />}{e.id}
           </button>
         );
       }))}
       {lane("CAPTIONS", "", lanesOf(caps) * 26 + 2, caps.map((c) => (
         <button key={c.id} type="button" className={`cap${isSel("caption", c.id) ? " sel" : ""}`} title={c.text}
-          style={{ left: pct(c.fromFrame), width: pct(c.durationFrames), top: c.lane * 26 + 2 }} onClick={pick("caption", c.id, c.fromFrame)}>{c.text}</button>
+          {...draggable(`cap:${c.id}`, (f) => move("caption", capIndex(c.id), ms(Math.max(0, c.fromFrame + f))), () => pick("caption", c.id, c.fromFrame))}
+          style={{ left: pct(c.fromFrame), width: pct(c.durationFrames), top: c.lane * 26 + 2, ...lift(`cap:${c.id}`) }}>{c.text}</button>
       )))}
       {lane("SOUND", "", lanesOf(sounds) * 36 + 4, sounds.map((a) => (
-        <span key={a.id} className="snd" style={{ left: pct(a.fromFrame), width: pct(Math.max(1, a.durationFrames)), top: a.lane * 36 + 3 }}>
+        <span key={a.id} className={`snd${inProject(a.id) ? " movable" : ""}${isSel("element", a.id) ? " sel" : ""}`} title={inProject(a.id) ? `${a.asset} · drag to move` : a.asset}
+          {...(inProject(a.id) ? draggable(`snd:${a.id}`, (f) => move("element", a.id, ms(Math.max(0, a.fromFrame + f))), () => pick("element", a.id, a.fromFrame)) : {})}
+          style={{ left: pct(a.fromFrame), width: pct(Math.max(1, a.durationFrames)), top: a.lane * 36 + 3, ...lift(`snd:${a.id}`) }}>
           <Wave url={media[a.asset]?.file ?? media[a.asset]?.video} label={a.asset} />
         </span>
       )))}
@@ -151,16 +193,30 @@ function Lanes({ props, frame, selected, select, seek }: { props: RenderProps; f
   );
 }
 
+// What the keyboard and the mouse do in the timeline, as built.
+const KEYS: [string, string][] = [
+  ["Space", "Play · pause"], ["Del · ⌫", "Remove the selection"], ["Ctrl+Z", "Undo the last change"], ["T", "Back to the steps"],
+  ["Drag a block", "Move it (story: reorder)"], ["Click a word", "Jump there"], ["Shift+click", "Select a passage"],
+];
+function Keys() {
+  return (
+    <div className="keys" aria-label="Shortcuts">
+      <div className="h small">SHORTCUTS</div>
+      {KEYS.map(([k, v]) => <div key={k} className="kv"><kbd>{k}</kbd><span>{v}</span></div>)}
+    </div>
+  );
+}
+
 function Inspector({ raw, props, selected, edit }: { raw: Raw; props: RenderProps; selected: Selected; edit: (body: Raw) => Promise<boolean> }) {
   const where = selected ? ({ clip: "story", element: "elements", caption: "captions" } as const)[selected.kind] : null;
-  const index = where && Array.isArray(raw[where]) ? raw[where].findIndex((x: Raw) => x.id === selected!.id) : -1;
+  const index = !where || !Array.isArray(raw[where]) ? -1 : selected!.kind === "caption" ? (raw.captions[capIndex(selected!.id)] ? capIndex(selected!.id) : -1) : raw[where].findIndex((x: Raw) => x.id === selected!.id);
   const item = index >= 0 ? raw[where!][index] : null;
   const [text, setText] = useState("");
   useEffect(() => { setText(item ? JSON.stringify(item, null, 2) : ""); }, [JSON.stringify(item)]);
   const tl = props.timeline;
   const placed = selected?.kind === "clip" ? tl.clips.find((c) => c.id === selected.id) : selected?.kind === "element" ? tl.elements.find((e) => e.id === selected.id) : tl.captions.find((c) => c.id === selected?.id);
   const undo = <button type="button" className="act" onClick={() => edit({ op: "undo" })}>UNDO</button>;
-  if (!selected) return <aside aria-label="Selected element" className="status"><div className="h">NOTHING SELECTED</div><p className="note">CLICK A BLOCK OF THE TIMELINE.</p><div className="pair">{undo}</div></aside>;
+  if (!selected) return <aside aria-label="Selected element" className="status"><div className="h">NOTHING SELECTED</div><p className="note">CLICK A BLOCK OF THE TIMELINE.</p><div className="pair">{undo}</div><Keys /></aside>;
   const kv: [string, string][] = [];
   if (placed) { kv.push(["Starts", clock(placed.fromFrame / tl.fps)], ["Duration", `${(placed.durationFrames / tl.fps).toFixed(2)} s`]); }
   if (placed && "x" in placed) kv.push(["Position", `${placed.x.toFixed(2)} · ${placed.y.toFixed(2)}`]);
@@ -193,6 +249,7 @@ function Inspector({ raw, props, selected, edit }: { raw: Raw; props: RenderProp
           <button type="button" className="act" onClick={save}>SAVE</button>
         </details>
       )}
+      <Keys />
     </aside>
   );
 }
@@ -295,7 +352,7 @@ export function Editor({ name }: { name: string }) {
       if (words.length) { void edit({ op: "cut_words", words: words.map((w) => w.id) }).then((ok) => ok && setWordSelRaw(null)); return; }
       if (!selected || selected.kind === "clip") return;
       const where = selected.kind === "element" ? "elements" : "captions";
-      const index = Array.isArray(raw[where]) ? raw[where].findIndex((x: Raw) => x.id === selected.id) : -1;
+      const index = !Array.isArray(raw[where]) ? -1 : selected.kind === "caption" ? (raw.captions[capIndex(selected.id)] ? capIndex(selected.id) : -1) : raw[where].findIndex((x: Raw) => x.id === selected.id);
       if (index >= 0) void edit({ op: "set_value", pointer: `/${where}/${index}`, remove: true }).then((ok) => ok && setSelectedRaw(null));
     },
   };
@@ -354,7 +411,8 @@ export function Editor({ name }: { name: string }) {
             <Words raw={raw} props={props} frame={frame} seek={seek} edit={edit} sel={wordSel} setSel={setWordSel} />
             <Inspector raw={raw} props={props} selected={selected} edit={edit} />
           </div>
-          <Lanes props={props} frame={frame} selected={selected} select={setSelected} seek={seek} />
+          <Lanes props={props} raw={raw} frame={frame} selected={selected} select={setSelected} seek={seek}
+            move={(what, id, to) => void edit({ op: "move", what, ...(what === "caption" ? { index: id } : { id }), to }).then((ok) => ok && setNote(what === "story" ? "Clip moved. Ctrl+Z puts it back." : "Moved. Ctrl+Z puts it back."))} />
         </>
       )}
       <footer className="foot">

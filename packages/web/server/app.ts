@@ -21,6 +21,7 @@ import { learnedFor } from "./stats";
 import { statsRoute } from "./stats-routes";
 import { mediaFile, previewData } from "./preview";
 import { listProjects, projectView } from "./projects";
+import { moveIn } from "./store";
 import { applySeriesIn, closeCurrentStep, removeAssetIn, cutWordsIn, decideProposal, firstPassIn, listSeries, loadRaw, patchProject, setValue, ToolError, tightenIn, undo, updateItem } from "./store";
 import { listLooks, lookBrief } from "@adam-studio/library/src/looks";
 import { CLAUDE_MODELS, claudeModel, codexModel, engine, lookName, projectsRoot, setClaudeModel, setCodexModel, setEngine, setLookName, SETTINGS_FILE, setProjectsRoot } from "./settings";
@@ -247,6 +248,8 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const { dir } = existing(m[1]!);
       const b = await body(req);
       switch (b.op) {
+        // A block dragged on the timeline: an element or a sound to a moment, a caption to other words, a clip to another place.
+        case "move": return send(res, 200, moveIn(dir, String(b.what), b.what === "caption" ? Number(b.index) : String(b.id), Number(b.to)));
         case "update_item": return send(res, 200, updateItem(dir, b.collection === "story" ? "story" : "elements", String(b.id), b.changes ?? {}));
         case "set_value": return send(res, 200, setValue(dir, String(b.pointer), b.remove ? undefined : b.value));
         case "patch": return send(res, 200, patchProject(dir, b.patch));

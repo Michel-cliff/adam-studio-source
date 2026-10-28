@@ -7,6 +7,7 @@ import {
 import { applySeries } from "@adam-studio/model";
 import { listSeries, loadSeries } from "@adam-studio/render/src/series";
 import { cutWords, tightenPauses } from "./cuts";
+import { moveCaption, moveElement, moveStory } from "./moves";
 import { firstPass, type FirstPassSummary } from "./firstpass";
 import { safeName } from "./guards";
 
@@ -230,4 +231,16 @@ export function firstPassIn(dir: string): { summary: FirstPassSummary; lint: str
     try { const out = firstPass(project, style); summary = out.summary; return out.project; } catch (e) { throw new ToolError((e as Error).message); }
   });
   return { summary, ...r };
+}
+
+/** A block dragged on the timeline (see moves.ts), validated and saved like every write. */
+export function moveIn(dir: string, what: string, id: string | number, to: number) {
+  if (!Number.isFinite(to)) throw new ToolError("say where to move it");
+  const { style } = load(dir);
+  return edit(dir, (p) => {
+    if (what === "element") return moveElement(p, style, String(id), to);
+    if (what === "caption") return moveCaption(p, style, Number(id), to);
+    if (what === "story") return moveStory(p, String(id), to);
+    throw new ToolError(`cannot move "${what}"`);
+  });
 }
