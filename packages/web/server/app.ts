@@ -19,6 +19,8 @@ import { libraryRoute } from "./library-routes";
 import { aiRunner, type AskAI } from "./ai";
 import { learnedFor } from "./stats";
 import { aiEnv, keyStatus, setKey } from "./keys";
+import { claudeDesktopConfig, claudeDesktopStatus, connectClaudeDesktop } from "./desktop";
+import { adamServer } from "./claude";
 import { statsRoute } from "./stats-routes";
 import { draftScript, readScript, saveScript } from "./script";
 import { mediaFile, previewData } from "./preview";
@@ -110,6 +112,12 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       look: lookName(settingsFile), looks: listLooks() });
     if (path === "/api/settings" && method === "GET") return send(res, 200, settings());
     // The creator's API keys: only whether they are set (last four characters) ever leaves the server.
+    // Adam Studio as a connector of the creator's own Claude Desktop (their subscription, Anthropic's app).
+    if (path === "/api/connect/claude-desktop" && method === "GET") return send(res, 200, claudeDesktopStatus());
+    if (path === "/api/connect/claude-desktop" && method === "POST") {
+      try { connectClaudeDesktop(claudeDesktopConfig(), adamServer()); } catch (e) { throw new HttpError(400, (e as Error).message); }
+      return send(res, 200, claudeDesktopStatus());
+    }
     if (path === "/api/keys" && method === "GET") return send(res, 200, keyStatus(dirname(settingsFile)));
     if (path === "/api/keys" && method === "PUT") {
       const b = await body(req);

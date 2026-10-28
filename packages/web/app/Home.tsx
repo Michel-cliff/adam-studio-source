@@ -33,8 +33,30 @@ function Keys() {
           )}
         </div>
       ))}
+      <Desktop />
       {err && <p className="error">{err}</p>}
     </div>
+  );
+}
+
+/** Use the creator's Claude subscription the allowed way: Adam Studio as a connector of their own Claude Desktop. */
+function Desktop() {
+  const [s, setS] = useState<{ app: boolean; connected: boolean } | null>(null);
+  const [err, setErr] = useState("");
+  useEffect(() => { api<typeof s>("/connect/claude-desktop").then(setS, () => {}); }, []);
+  const connect = async () => { try { setS(await api<typeof s>("/connect/claude-desktop", { method: "POST" })); setErr(""); } catch (e) { setErr((e as Error).message); } };
+  if (!s) return null;
+  return (
+    <>
+      <div className="kv sep"><span>OR YOUR SUBSCRIPTION</span><b className="dim">IN CLAUDE DESKTOP</b></div>
+      <div className="kv">
+        <span>Claude Desktop</span>
+        {s.connected ? <b className="ok" title="Quit and reopen Claude Desktop once, then ask it about your Adam Studio projects.">CONNECTED · RESTART IT</b>
+          : s.app ? <button type="button" className="link" onClick={() => void connect()}>connect</button>
+          : <a href="https://claude.ai/download" target="_blank" rel="noreferrer">install it</a>}
+      </div>
+      {err && <p className="error">{err}</p>}
+    </>
   );
 }
 
