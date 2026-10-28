@@ -1,0 +1,51 @@
+# Adam Studio: working notes for Claude Code
+
+Read this first; do not re-explore what is written here. Keep replies short, no em dashes in delivered text.
+
+## Map
+
+- `packages/model`: project format (zod), `resolve`, workflow (`decide`, `closeStep`, `switchVariant`, `withVariant`). Tests: `npx vitest run`.
+- `packages/render`: Remotion composition and the `adam` CLI (render, review, still, capcut-prep).
+- `packages/web`: the studio. `server/` (Node, `app.ts` routes, `autopilot.ts`, `doctor.ts`, `stats*.ts`, `rules.ts`),
+  `app/` (React: `Studio.tsx` steps, `Home.tsx`, `Stats.tsx`, `Library.tsx`, `style.css`, `i18n.ts` FR strings).
+- `packages/mcp`: the MCP server Claude/Codex edit projects through. `skills/adam-studio`: the skill (generated, see below).
+- `py/analysis`, `py/capcut`: Python venvs (`.venv` inside each).
+- Specs: `docs/superpowers/specs/`. DA rules: `docs/da/`.
+
+## Commands
+
+- Web tests: `cd packages/web && npx vitest run tests/unit` (unit only, fast). `tests/e2e/panel.test.ts` "creates a project
+  from rushes" fails on timeout already: not a regression, say so, do not chase it.
+- Types: `npx tsc --noEmit -p .` in the package. Model schema JSON: `npm run export-schemas -w @adam-studio/model`
+  (other schema files show as modified only by line endings: do not commit them).
+- UI build: `cd packages/web && npm run build` (the server serves `dist/`; a page reload picks it up, no restart).
+- Server: port 4317, started detached with node + tsx (`server/main.ts`). Restart it only for server code changes, and
+  never while a job runs (check `GET /api/projects/<name>` jobs, `GET /api/projects/<name>/auto`).
+- Skill: rules live in `packages/web/server/rules.ts`; `npm run skill` regenerates and installs the skill (a test fails on drift).
+- Setup kit: `npm run setup` (also postinstall and first launch of `Adam Studio.cmd`).
+
+## Checking UI changes cheaply
+
+- Headless Chrome with CDP on 9223:
+  `chrome --headless=new --remote-debugging-port=9223 --user-data-dir=%TEMP%/chrome-shot`
+- `W=1440 H=900 node packages/web/scripts/shot.mjs <url> out.png 6000 "<js>"`: the js result prints to stdout.
+  **Measure with js first** (`document.documentElement.scrollHeight` vs `innerHeight`, element widths, text present);
+  read a screenshot only once, at the end, cropped to the part that changed.
+- Fixed-size layout: a feature never grows the page or squashes a column. Check every step at 1440x900 and 1280x720.
+- Test on a demo project, not on the creator's projects (WAMI): a second instance with its own settings
+  (`createApp({ settingsFile })` on port 4399, `projectsRoot` in that ui.json) and `makeSynthetic` from
+  `packages/render/tests/e2e/synthetic.ts`.
+
+## Pitfalls already met
+
+- Edit files with the Edit tool. Python or sed replacements fail silently when the text does not match exactly; if a
+  script is unavoidable, assert that each replacement matched.
+- Windows: accents in file names break paths passed on a command line (`diskName` in `stats-import.ts`); `.cmd`
+  files (npm, claude, codex) start only through a shell, and `spawn` throws EINVAL synchronously.
+- Real AI calls cost the creator's subscription: unit tests inject fakes; one real end-to-end run at the end, on a demo project.
+- Never commit footage, third-party assets, or keys (`~/.adam-studio/.env`). Do not touch CapCut drafts.
+
+## Git
+
+Branch `feature/systeme-ui`; push after each finished change (the creator said push). End commit messages with the
+Co-Authored-By line.
