@@ -1,21 +1,24 @@
 import { useEffect, useState } from "react";
 import type { ProjectListItem } from "../server/types";
 import { api, enc } from "./api";
+import { t, useLang } from "./i18n";
 
 type Local = { path: string; rel: string; kind: string; title: string; notes: string; durationMs?: number; thumb?: string };
 type Online = { source: string; kind: string; title: string; url: string; preview: string; page: string; license: string; creator: string };
 const KINDS = ["", "video", "image", "audio", "font", "lottie"];
 type Folder = { id: string; title: string; count: number };
 const fileUrl = (path: string) => `/api/library/file?path=${enc(path)}`;
+// How Claude uses each folder.
+const READS: Record<string, string> = { typo: "as fonts", interdits: "as rules", sons: "as material", "images-textures-palettes": "as material" };
 
-function Preview({ kind, src }: { kind: string; src: string }) {
-  if (kind === "audio") return <audio controls preload="none" src={src} style={{ width: "100%" }} />;
-  if (kind === "video") return <video controls preload="metadata" src={src} style={{ maxHeight: 220 }} />;
-  if (kind === "image") return <img src={src} alt="" style={{ width: "100%", maxHeight: 220, objectFit: "contain", borderRadius: 6 }} />;
-  return null;
+function Thumb({ kind, src, title }: { kind: string; src: string; title: string }) {
+  if (kind === "audio") return <audio controls preload="none" src={src} />;
+  if (kind === "image" || kind === "video") return <img src={src} alt="" loading="lazy" />;
+  return <span className="glyph">{kind === "font" ? "Aa" : title.slice(0, 2)}</span>;
 }
 
 export function Library() {
+  useLang();
   const [q, setQ] = useState("");
   const [kind, setKind] = useState("");
   const [online, setOnline] = useState(false);
@@ -26,19 +29,19 @@ export function Library() {
   const [busy, setBusy] = useState(false);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [folder, setFolder] = useState("");
-  const [over, setOver] = useState("");
-  const loadFolders = () => api<{ folders: Folder[] }>("/library/folders").then((f) => setFolders(f.folders)).catch(() => undefined);
+  const [over, setOver] = useState(false);
+  const loadFolders = () => api<{ folders: Folder[] }>("/library/folders").then((f) => { setFolders(f.folders); setFolder((cur) => cur || f.folders[0]?.id || ""); }).catch(() => undefined);
   useEffect(() => { api<ProjectListItem[]>("/projects").then((p) => { setProjects(p); setProject(p[0]?.name ?? ""); }); void loadFolders(); }, []);
-  useEffect(() => { void search(); }, [folder]);
-  // A file dropped on a folder lands in that folder of the Inspiration folder.
-  const drop = async (id: string, files: FileList) => {
-    setOver("");
+  useEffect(() => { if (folder) void search(); }, [folder]);
+  // A file dropped on the open folder lands in that folder of the Inspiration folder.
+  const drop = async (files: FileList) => {
+    setOver(false);
     for (const f of Array.from(files)) {
-      try { await fetch(`/api/library/upload?name=${enc(f.name)}&category=${enc(id)}`, { method: "POST", body: f }).then(async (r) => { if (!r.ok) throw new Error((await r.json()).error ?? r.statusText); }); }
+      try { await fetch(`/api/library/upload?name=${enc(f.name)}&category=${enc(folder)}`, { method: "POST", body: f }).then(async (r) => { if (!r.ok) throw new Error((await r.json()).error ?? r.statusText); }); }
       catch (e) { setMsg(`${f.name}: ${(e as Error).message}`); return; }
     }
-    setMsg(`${files.length} file${files.length > 1 ? "s" : ""} added to ${folders.find((x) => x.id === id)?.title ?? id}.`);
-    await loadFolders(); if (folder === id) await search(); else setFolder(id);
+    setMsg(`${files.length} file${files.length > 1 ? "s" : ""} added.`);
+    await loadFolders(); await search();
   };
   async function search() {
     setBusy(true);
@@ -47,74 +50,83 @@ export function Library() {
     setBusy(false);
   }
   const add = async (source: Record<string, unknown>) => {
-    try { const r = await api<{ imported: { id: string; path: string }; message?: string }>("/library/import", { method: "POST", body: { project, source } }); setMsg(r.message ?? `Added to ${project} as asset "${r.imported.id}" (${r.imported.path}).`); }
+    try { const r = await api<{ imported: { id: string; path: string }; message?: string }>("/library/import", { method: "POST", body: { project, source } }); setMsg(r.message ?? `Added to ${project} as "${r.imported.id}".`); }
     catch (e) { setMsg((e as Error).message); }
   };
   // Deleting moves the file (and its notes) to the Inspiration folder's .trash: recoverable.
   const remove = async (i: Local) => {
     if (!confirm(`Delete “${i.title}”?\n\nIt moves to the .trash folder of your Inspiration folder.`)) return;
-    try { await api(`/library/file?path=${enc(i.path)}`, { method: "DELETE" }); setMsg(`${i.title} moved to the trash.`); await search(); }
+    try { await api(`/library/file?path=${enc(i.path)}`, { method: "DELETE" }); setMsg(`${i.title} moved to the trash.`); await search(); await loadFolders(); }
     catch (e) { setMsg((e as Error).message); }
   };
-  const addBar = (source: Record<string, unknown>) => <button className="quiet" disabled={!project} onClick={() => add(source)}>Add to {project || "a project"}</button>;
+  const cur = folders.find((f) => f.id === folder);
+  const ROW = 31;
   return (
     <>
-      <h1>Library</h1>
-      <section className="folders" aria-label="Reference folders">
-        {folders.map((f) => (
-          <button key={f.id} type="button" className={`folder${folder === f.id ? " on" : ""}${over === f.id ? " over" : ""}${f.id === "interdits" ? " donts" : ""}`}
-            onClick={() => setFolder(folder === f.id ? "" : f.id)}
-            onDragOver={(e) => { e.preventDefault(); setOver(f.id); }} onDragLeave={() => setOver("")}
-            onDrop={(e) => { e.preventDefault(); void drop(f.id, e.dataTransfer.files); }}>
-            <span className="tab" aria-hidden="true" />
-            <span className="name">{f.title}</span>
-            <span className="count">{f.count} file{f.count === 1 ? "" : "s"}</span>
-          </button>
-        ))}
-      </section>
-      {folders.length > 0 && <p className="muted">Drop files on a folder to file them there. Don'ts are what you never want: Claude follows them as rules.</p>}
-      <section className="row">
-        <input placeholder="Search (e.g. glitch, whoosh, neon)" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void search(); }} style={{ flex: 1, minWidth: 200 }} />
-        <select value={kind} onChange={(e) => setKind(e.target.value)}>{KINDS.map((k) => <option key={k} value={k}>{k || "any kind"}</option>)}</select>
-        <label className="row" style={{ gap: 4 }}><input type="checkbox" checked={online} onChange={(e) => setOnline(e.target.checked)} /> online too</label>
-        <button disabled={busy} onClick={search}>Search</button>
-        <span className="muted">into</span>
-        <select value={project} onChange={(e) => setProject(e.target.value)}>{projects.map((p) => <option key={p.name}>{p.name}</option>)}</select>
-      </section>
-      {online && !kind && <p className="muted">Pick a kind to search online.</p>}
-      {msg && <p className="muted">{msg}</p>}
-      {result && (
-        <>
-          <h2>Inspiration <span className="muted">({result.root})</span></h2>
-          {result.local.length === 0 && <p className="muted">Nothing here yet. Drop videos, images, sounds, fonts or Lottie files in that folder; a .txt next to a file adds notes.</p>}
-          <div className="grid">
-            {result.local.map((i) => (
-              <div className="card" key={i.path}>
-                <Preview kind={i.kind} src={i.kind === "video" && i.thumb ? fileUrl(i.thumb) : fileUrl(i.path)} />
-                <div><strong>{i.title}</strong> <span className="muted">{i.kind}{i.durationMs ? ` · ${(i.durationMs / 1000).toFixed(1)} s` : ""}</span></div>
-                <div className="muted" style={{ fontSize: 13 }}>{i.rel}</div>
-                {i.notes && <div style={{ fontSize: 13 }}>{i.notes.slice(0, 160)}</div>}
-                <div className="row">
-                  {addBar({ path: i.path, kind: i.kind, title: i.title })}
-                  <button className="ghost" onClick={() => remove(i)}>Delete</button>
-                </div>
-              </div>
+      <div className="cols library-cols">
+        <section aria-label="Reference folders" className="cabinet">
+          <div role="tablist" aria-label="Folders" className="ftabs" style={{ height: Math.max(0, folders.length - 1) * ROW + 40 }}>
+            {folders.map((f, i) => (
+              <span key={f.id}>
+                <span className="sheet" aria-hidden="true" style={{ top: i * ROW + 38, zIndex: i * 2 }} />
+                <button type="button" role="tab" aria-selected={f.id === folder} className={`ftab${i % 2 ? " right" : ""}${f.id === folder ? " on" : ""}${f.id === "interdits" ? " donts" : ""}`}
+                  style={{ top: i * ROW, zIndex: i * 2 + 1 }} onClick={() => setFolder(f.id)}
+                  onDragOver={(e) => { e.preventDefault(); if (f.id !== folder) setFolder(f.id); }}>
+                  <span className="in"><span>{String(i + 1).padStart(3, "0")}</span><span>{f.title}</span><span className="n">{f.count}</span></span>
+                </button>
+              </span>
             ))}
           </div>
-          {result.online.length > 0 && <h2>Online</h2>}
-          {result.notes.map((n) => <p key={n} className="muted">{n}</p>)}
-          <div className="grid">
-            {result.online.map((i) => (
-              <div className="card" key={i.url}>
-                <Preview kind={i.kind === "video" ? "image" : i.kind} src={i.kind === "audio" ? i.url : i.preview} />
-                <div><strong>{i.title.slice(0, 60)}</strong></div>
-                <div className="muted" style={{ fontSize: 13 }}>{i.source} · {i.license} · {i.creator} · <a href={i.page} target="_blank" rel="noreferrer">source</a></div>
-                {addBar({ url: i.url, kind: i.kind, title: i.title, license: i.license, creator: i.creator, page: i.page })}
-              </div>
-            ))}
+          <div role="tabpanel" aria-label={cur?.title} className={`drawer${over ? " over" : ""}`}
+            onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); setOver(true); } }} onDragLeave={() => setOver(false)}
+            onDrop={(e) => { e.preventDefault(); void drop(e.dataTransfer.files); }}>
+            {result && result.local.length === 0 && <p className="mono note">EMPTY. DROP FILES HERE: A .TXT NEXT TO A FILE ADDS NOTES.</p>}
+            <div className="items">
+              {result?.local.map((i) => (
+                <figure key={i.path} className="item" title={i.notes || i.rel}>
+                  <div className="pic"><Thumb kind={i.kind} title={i.title} src={i.kind === "video" && i.thumb ? fileUrl(i.thumb) : fileUrl(i.path)} /></div>
+                  <figcaption>{i.title}<br /><span className="dim">{i.kind}{i.durationMs ? ` · ${(i.durationMs / 1000).toFixed(1)} s` : ""}</span></figcaption>
+                  <div className="acts">
+                    <button type="button" className="link" disabled={!project} onClick={() => add({ path: i.path, kind: i.kind, title: i.title })}>+ {project}</button>
+                    <button type="button" className="link" aria-label={`Delete ${i.title}`} onClick={() => remove(i)}>×</button>
+                  </div>
+                </figure>
+              ))}
+            </div>
+            {result && result.online.length > 0 && <div className="h mono">ONLINE</div>}
+            {result?.notes.map((n) => <p key={n} className="mono note">{n}</p>)}
+            <div className="items">
+              {result?.online.map((i) => (
+                <figure key={i.url} className="item" title={`${i.source} · ${i.license} · ${i.creator}`}>
+                  <div className="pic"><Thumb kind={i.kind === "video" ? "image" : i.kind} title={i.title} src={i.kind === "audio" ? i.url : i.preview} /></div>
+                  <figcaption>{i.title.slice(0, 50)}<br /><span className="dim">{i.source} · {i.license} · <a href={i.page} target="_blank" rel="noreferrer">source</a></span></figcaption>
+                  <div className="acts"><button type="button" className="link" disabled={!project} onClick={() => add({ url: i.url, kind: i.kind, title: i.title, license: i.license, creator: i.creator, page: i.page })}>+ {project}</button></div>
+                </figure>
+              ))}
+            </div>
           </div>
-        </>
-      )}
+        </section>
+
+        <aside aria-label="Use" className="status">
+          <div className="h">{(cur?.title ?? "").toUpperCase()}</div>
+          <div className="kv"><span>Files</span><b>{cur?.count ?? 0}</b></div>
+          <div className="kv"><span>Folder</span><b>references/{folder}</b></div>
+          <div className="kv"><span>Claude reads it</span><b>{READS[folder] ?? "as references"}</b></div>
+          <label htmlFor="lib-q" className="h small">{t("SEARCH THIS FOLDER")}</label>
+          <input id="lib-q" placeholder="yellow, grain, whoosh…" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void search(); }} />
+          <div className="kv"><span>Kind</span><select aria-label="Kind" value={kind} onChange={(e) => setKind(e.target.value)}>{KINDS.map((k) => <option key={k} value={k}>{k || "any"}</option>)}</select></div>
+          <label className="kv"><span>Online too</span><input type="checkbox" checked={online} onChange={(e) => setOnline(e.target.checked)} /></label>
+          {online && !kind && <p className="mono note">PICK A KIND TO SEARCH ONLINE.</p>}
+          <button type="button" className="act" disabled={busy} onClick={search}>SEARCH</button>
+          <div className="kv"><span>Add to</span><select aria-label="Project to add to" value={project} onChange={(e) => setProject(e.target.value)}>{projects.map((p) => <option key={p.name}>{p.name}</option>)}</select></div>
+          <div className={`dropzone${over ? " over" : ""}`} onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={(e) => { e.preventDefault(); void drop(e.dataTransfer.files); }}>
+            {t("DROP FILES HERE")}<br />→ {(cur?.title ?? "").toUpperCase()}
+          </div>
+          {msg && <p className="mono note">{msg}</p>}
+          <div className="synced plain">ONLINE: PIXABAY · FREESOUND</div>
+        </aside>
+      </div>
+      <footer className="foot"><span className="hint">{t("Click a folder to open it.")}</span></footer>
     </>
   );
 }
