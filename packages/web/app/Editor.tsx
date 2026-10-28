@@ -9,6 +9,11 @@ import { pack, peaks, stripSlots } from "./lanes";
 type Raw = Record<string, any>;
 type Selected = { kind: "clip" | "element" | "caption"; id: string } | null;
 type Word = { id: string; text: string; startMs: number; endMs: number };
+type WordSel = { asset: string; from: number; to: number } | null;
+const wordsIn = (raw: Raw, sel: WordSel): Word[] => {
+  const list: Word[] = sel ? raw.transcript?.words?.[sel.asset] ?? [] : [];
+  return sel ? list.slice(Math.min(sel.from, sel.to), Math.max(sel.from, sel.to) + 1) : [];
+};
 const SLOTS = 14;
 const clock = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, "0")}`;
 
@@ -192,8 +197,7 @@ function Inspector({ raw, props, selected, edit }: { raw: Raw; props: RenderProp
   );
 }
 
-function Words({ raw, props, frame, seek, edit }: { raw: Raw; props: RenderProps; frame: number; seek: (f: number) => void; edit: (body: Raw) => Promise<boolean> }) {
-  const [sel, setSel] = useState<{ asset: string; from: number; to: number } | null>(null);
+function Words({ raw, props, frame, seek, edit, sel, setSel }: { raw: Raw; props: RenderProps; frame: number; seek: (f: number) => void; edit: (body: Raw) => Promise<boolean>; sel: WordSel; setSel: (s: WordSel) => void }) {
   const [minPause, setMinPause] = useState(600);
   const box = useRef<HTMLDivElement>(null);
   const words: Record<string, Word[]> = raw.transcript?.words ?? {};
@@ -213,10 +217,10 @@ function Words({ raw, props, frame, seek, edit }: { raw: Raw; props: RenderProps
     return best?.id ?? null;
   }, [frame, raw, props]);
   useEffect(() => { box.current?.querySelector(".word.now")?.scrollIntoView({ block: "nearest" }); }, [now]);
-  const chosen = sel ? words[sel.asset]!.slice(Math.min(sel.from, sel.to), Math.max(sel.from, sel.to) + 1) : [];
+  const chosen = wordsIn(raw, sel);
   return (
     <section aria-label="Transcript" className="words-col">
-      <div className="h row-between"><span>WORDS</span><span className="mono">CLICK TO JUMP · SHIFT+CLICK A PASSAGE</span></div>
+      <div className="h row-between"><span>WORDS</span><span className="mono">CLICK TO JUMP · SHIFT+CLICK A PASSAGE · DEL CUTS</span></div>
       <div className="words-box" ref={box}>
         {Object.entries(words).map(([asset, list]) => (
           <p key={asset} className="words">
@@ -255,7 +259,11 @@ export function Editor({ name }: { name: string }) {
   const [note, setNote] = useState("");
   const [frame, setFrame] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [selected, setSelected] = useState<Selected>(null);
+  const [selected, setSelectedRaw] = useState<Selected>(null);
+  const [wordSel, setWordSelRaw] = useState<WordSel>(null);
+  // One selection at a time, so Delete knows what to remove: a block of the timeline or a passage of words.
+  const setSelected = (s: Selected) => { setSelectedRaw(s); if (s) setWordSelRaw(null); };
+  const setWordSel = (s: WordSel) => { setWordSelRaw(s); if (s) setSelectedRaw(null); };
   const player = useRef<PlayerRef>(null);
   const load = useCallback(async () => {
     try {
@@ -277,10 +285,26 @@ export function Editor({ name }: { name: string }) {
     p.addEventListener("frameupdate", on); p.addEventListener("play", play); p.addEventListener("pause", pause);
     return () => { p.removeEventListener("frameupdate", on); p.removeEventListener("play", play); p.removeEventListener("pause", pause); };
   }, [props !== null]);
-  // T goes back to the steps, space plays.
+  // Delete or Backspace removes the selection, Ctrl+Z undoes the last change, T goes back to the steps, space plays.
+  const keys = useRef({ remove: () => {}, undo: () => {} });
+  keys.current = {
+    undo: () => void edit({ op: "undo" }).then((ok) => ok && setNote("Undone.")),
+    remove: () => {
+      if (!raw) return;
+      const words = wordsIn(raw, wordSel);
+      if (words.length) { void edit({ op: "cut_words", words: words.map((w) => w.id) }).then((ok) => ok && setWordSelRaw(null)); return; }
+      if (!selected || selected.kind === "clip") return;
+      const where = selected.kind === "element" ? "elements" : "captions";
+      const index = Array.isArray(raw[where]) ? raw[where].findIndex((x: Raw) => x.id === selected.id) : -1;
+      if (index >= 0) void edit({ op: "set_value", pointer: `/${where}/${index}`, remove: true }).then((ok) => ok && setSelectedRaw(null));
+    },
+  };
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); keys.current.undo(); return; }
+      if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); keys.current.remove(); return; }
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === "t") go(`#/p/${enc(name)}`);
       if (e.key === " " && player.current) { e.preventDefault(); player.current.toggle(); }
     };
@@ -327,7 +351,7 @@ export function Editor({ name }: { name: string }) {
                 <span>{clock(sec)}</span>
               </div>
             </div>
-            <Words raw={raw} props={props} frame={frame} seek={seek} edit={edit} />
+            <Words raw={raw} props={props} frame={frame} seek={seek} edit={edit} sel={wordSel} setSel={setWordSel} />
             <Inspector raw={raw} props={props} selected={selected} edit={edit} />
           </div>
           <Lanes props={props} frame={frame} selected={selected} select={setSelected} seek={seek} />
@@ -335,7 +359,7 @@ export function Editor({ name }: { name: string }) {
       )}
       <footer className="foot">
         {note && <span className="mono note-line" title={note}>{note.split("\n")[0]}</span>}
-        <span className="hint">{selected ? "Space plays · T goes back to the steps." : "Select an element on the timeline."}</span>
+        <span className="hint">{selected || wordSel ? "Del removes it · Ctrl+Z undoes · Space plays · T goes back to the steps." : "Select an element on the timeline. Ctrl+Z undoes."}</span>
       </footer>
     </>
   );

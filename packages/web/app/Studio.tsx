@@ -180,9 +180,13 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
   }, [name]);
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(""), 3200); return () => clearTimeout(id); }, [toast]);
   useEffect(() => { if (view && group === null) setGroup(openGroup(view.workflow)); }, [view]);
-  // T switches to the timeline, as the toggle says.
+  // T switches to the timeline, as the toggle says; Ctrl+Z undoes the last change to the project.
   useEffect(() => {
-    const key = (e: KeyboardEvent) => { if (e.key === "t" && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement)) go(`#/p/${enc(name)}/edit`); };
+    const key = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); void api(`/projects/${enc(name)}/edit`, { method: "POST", body: { op: "undo" } }).then(() => { setToast("Undone"); void load(); }, (err) => setError((err as Error).message)); return; }
+      if (e.key === "t" && !e.ctrlKey && !e.metaKey && !e.altKey) go(`#/p/${enc(name)}/edit`);
+    };
     addEventListener("keydown", key);
     return () => removeEventListener("keydown", key);
   }, [name]);
