@@ -383,3 +383,8 @@ textarea.json { width: 100%; min-height: 200px; font: 12px/1.5 var(--mono); marg
 .item[draggable="true"] { cursor: grab; }
 .item[draggable="true"]:active { cursor: grabbing; }
 .item .pic img { pointer-events: none; }
+
+/* New video: videos dropped from the computer, under the folder browser */
+.rushdrop { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; min-height: 48px; padding: 8px 14px; margin: 4px 0 14px; border: 2px dashed var(--cream); }
+.rushdrop.over { border-color: var(--glow); color: var(--glow); background: var(--sel); }
+.rushdrop .error { flex-basis: 100%; }

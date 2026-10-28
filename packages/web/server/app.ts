@@ -1,11 +1,12 @@
-import { existsSync, mkdirSync, renameSync } from "node:fs";
+import { closeSync, createWriteStream, existsSync, mkdirSync, openSync, readSync, renameSync, rmSync, statSync } from "node:fs";
+import { pipeline } from "node:stream/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, extname, join } from "node:path";
 import { addConnector, askServers, listConnectors, removeConnector, setEnabled } from "./connectors";
 import { listSkills } from "./skills";
-import { ActionError, addCommand, buildCommand, checkVideos, newProjectCommand } from "./actions";
+import { ActionError, addCommand, buildCommand, checkVideos, newProjectCommand, VIDEO_EXT } from "./actions";
 import { serveFile } from "./files";
 import { listFolder } from "./fsbrowse";
 import { hostAllowed, inside, originAllowed, safeName } from "./guards";
@@ -22,6 +23,20 @@ import { CLAUDE_MODELS, claudeModel, lookName, projectsRoot, setClaudeModel, set
 import { parseUsage, recordUsage, usageSummary } from "./usage";
 import { thumbnail } from "./thumb";
 import { watchProjects } from "./watch";
+
+/** Two files with the same size and bytes (videos are big: compared in chunks, stopping at the first difference). */
+function sameBytes(a: string, b: string): boolean {
+  if (statSync(a).size !== statSync(b).size) return false;
+    const fa = openSync(a, "r"), fb = openSync(b, "r");
+  try {
+    const ba = Buffer.alloc(1 << 20), bb = Buffer.alloc(1 << 20);
+    for (;;) {
+      const na = readSync(fa, ba, 0, ba.length, null), nb = readSync(fb, bb, 0, bb.length, null);
+      if (na !== nb || !ba.subarray(0, na).equals(bb.subarray(0, nb))) return false;
+      if (na === 0) return true;
+    }
+  } finally { closeSync(fa); closeSync(fb); }
+}
 
 class HttpError extends Error { constructor(public status: number, message: string) { super(message); } }
 
@@ -246,6 +261,22 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const off = jobs.subscribe(job.id, (e) => { push(e); if (e.type === "end") res.end(); });
       req.on("close", off);
       return;
+    }
+    // A video dropped on New video: the browser gives bytes, not a path, so it is kept in <projects>/.rushes
+    // (the same video dropped twice is the same file; another one with that name gets its own).
+    if (path === "/api/rushes" && method === "POST") {
+      const name = basename(url.searchParams.get("name") ?? "").replace(/[<>:"|?*\u0000-\u001f]/g, "_");
+      if (!name || !VIDEO_EXT.test(name)) throw new HttpError(400, `not a video file: ${name || "?"}`);
+      const folder = join(projectsRoot(settingsFile), ".rushes");
+      mkdirSync(folder, { recursive: true });
+      const tmp = join(folder, `.incoming-${Date.now().toString(36)}`);
+      try { await pipeline(req, createWriteStream(tmp)); } catch (e) { rmSync(tmp, { force: true }); throw new HttpError(400, `upload failed: ${(e as Error).message}`); }
+      const ext = extname(name), stem = basename(name, ext);
+      for (let i = 1; ; i++) {
+        const target = join(folder, i === 1 ? name : `${stem} (${i})${ext}`);
+        if (!existsSync(target)) { renameSync(tmp, target); return send(res, 200, { path: target }); }
+        if (sameBytes(tmp, target)) { rmSync(tmp, { force: true }); return send(res, 200, { path: target }); }
+      }
     }
     if (path === "/api/series" && method === "GET") return send(res, 200, listSeries());
     if (path === "/api/fs" && method === "GET") {

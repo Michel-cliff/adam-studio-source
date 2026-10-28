@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { request, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -154,6 +154,24 @@ describe("studio tools", () => {
     const again = await upload(`/api/library/upload?name=${encodeURIComponent("logo final.png")}`, Buffer.concat([png, Buffer.from("v2")]));
     expect(again.json.saved).toMatch(/logo final [(]2[)][.]png$/);
     expect((await upload("/api/library/upload?name=virus.exe", png)).status).toBe(400);
+  });
+
+  it("keeps a video dropped on New video in the projects folder's rushes, once", async () => {
+    const send = (name: string, body: string) => new Promise<{ status: number; json: any }>((done) => {
+      const req = request({ host: "127.0.0.1", port, method: "POST", path: `/api/rushes?name=${encodeURIComponent(name)}`, headers: { host: `127.0.0.1:${port}` } }, (r) => {
+        let t = ""; r.on("data", (c) => (t += c)); r.on("end", () => done({ status: r.statusCode!, json: JSON.parse(t) }));
+      });
+      req.end(body);
+    });
+    const a = await send("take 1.mp4", "video bytes");
+    expect(a.status).toBe(200);
+    expect(a.json.path).toMatch(/rushes[\\/]take 1\.mp4$/);
+    expect(readFileSync(a.json.path, "utf8")).toBe("video bytes");
+    // The same video dropped again is the same file; another one with that name gets its own.
+    expect((await send("take 1.mp4", "video bytes")).json.path).toBe(a.json.path);
+    expect((await send("take 1.mp4", "other take")).json.path).toMatch(/take 1 \(2\)\.mp4$/);
+    expect((await send("notes.txt", "x")).status).toBe(400);
+    expect((await send("../evil.mp4", "x")).json.path).toMatch(/rushes[\\/]evil\.mp4$/);
   });
 
   it("deletes an Inspiration file into the folder's trash, and nothing outside the folder", async () => {

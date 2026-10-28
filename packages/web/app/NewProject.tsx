@@ -32,6 +32,39 @@ function FolderPicker({ picked, setPicked }: { picked: string[]; setPicked: (v: 
   );
 }
 
+/** Videos dropped from the computer: copied into the projects folder's rushes, then picked like the others. */
+function DropRushes({ onAdd }: { onAdd: (paths: string[]) => void }) {
+  const [over, setOver] = useState(false);
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  const take = async (files: FileList) => {
+    setOver(false); setError("");
+    const videos = Array.from(files).filter((f) => /\.(mp4|mov|mkv|m4v|avi|webm)$/i.test(f.name));
+    if (!videos.length) { setError("Drop video files (mp4, mov, mkv, m4v, avi, webm)."); return; }
+    const added: string[] = [];
+    for (const [i, f] of videos.entries()) {
+      setBusy(`COPYING ${i + 1} / ${videos.length} · ${f.name}`);
+      try {
+        const r = await fetch(`/api/rushes?name=${enc(f.name)}`, { method: "POST", body: f });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error ?? r.statusText);
+        added.push(j.path);
+      } catch (e) { setError(`${f.name}: ${(e as Error).message}`); }
+    }
+    setBusy("");
+    if (added.length) onAdd(added);
+  };
+  return (
+    <div className={`rushdrop${over ? " over" : ""}`}
+      onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); setOver(true); } }}
+      onDragLeave={() => setOver(false)} onDrop={(e) => { e.preventDefault(); void take(e.dataTransfer.files); }}>
+      <span className="mono">{busy || "OR DROP YOUR VIDEOS HERE"}</span>
+      <label className="link">browse<input type="file" accept="video/*" multiple hidden onChange={(e) => { if (e.target.files) void take(e.target.files); e.target.value = ""; }} /></label>
+      {error && <span className="error">{error}</span>}
+    </div>
+  );
+}
+
 export function NewProject({ addTo }: { addTo?: string }) {
   const [picked, setPicked] = useState<string[]>([]);
   const [name, setName] = useState("");
@@ -73,6 +106,7 @@ export function NewProject({ addTo }: { addTo?: string }) {
         <select value={lang} onChange={(e) => setLang(e.target.value)}>{LANGS.map((l) => <option key={l}>{l}</option>)}</select>
       </div>
       <FolderPicker picked={picked} setPicked={setPicked} />
+      <DropRushes onAdd={(paths) => setPicked([...new Set([...picked, ...paths])])} />
       {picked.length > 0 && (
         <section>
           <strong>{picked.length} video{picked.length === 1 ? "" : "s"} picked</strong>
