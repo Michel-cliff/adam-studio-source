@@ -53,6 +53,11 @@ export function usageSummary(dir: string, now = Date.now()): UsageSummary {
   const today = rows.filter((r) => new Date(r.at).toDateString() === day);
   let limits: UsageSummary["limits"] = null;
   try { limits = JSON.parse(readFileSync(join(dir, "usage-limits.json"), "utf8")); } catch { /* none yet */ }
+  // A window whose reset time has passed is empty, though no ask has reported it yet.
+  if (limits) {
+    const fresh = (w: Window) => (w.resetsAt && w.resetsAt <= now ? { ...w, used: 0 } : w);
+    limits = { ...limits, fiveHour: fresh(limits.fiveHour), sevenDay: fresh(limits.sevenDay) };
+  }
   return {
     today: { asks: today.length, costUsd: today.reduce((s, r) => s + r.costUsd, 0), tokens: today.reduce((s, r) => s + r.tokens.input + r.tokens.output, 0) },
     last: rows.at(-1) ?? null,
