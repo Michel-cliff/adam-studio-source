@@ -15,7 +15,6 @@ import { keyFrame } from "./frames";
 import { PRESETS, ScriptPanel, SoundTracks } from "./StepViews";
 import { VariantShot } from "./VariantShot";
 import { Halftone } from "./halftone";
-import { Mascot } from "./Mascot";
 
 const ICONS: Record<GroupId, string> = {
   story: "M4 6h16M4 12h10M4 18h13", captions: "M4 7h16v10H4zM8 12h3M13 12h3", hook: "M12 3v8a4 4 0 1 1-4-4",
@@ -283,6 +282,8 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
           <section aria-label="Variants" className="center">
             <div className="head">
               <h1>{chosen ? `${chosen.key} · ${chosen.label.toUpperCase()}` : t(NAMES[g]).toUpperCase()}</h1>
+              {/* While the AI works: the dot wave stretched between the title and the step count. */}
+              {claudeJob?.state === "running" && <Halftone fx="wave" step={5} className="headwave" label="Your AI is working" />}
               <span className="mono">{t(NAMES[g]).toUpperCase()} · STEP {String(stepNo).padStart(2, "0")} / {String(GROUPS.length).padStart(2, "0")}</span>
             </div>
             {error && <p className="error" onClick={() => setError("")}>{error}</p>}
@@ -329,7 +330,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
               </>
             ) : (
               <div className="stage">
-                {claudeJob?.state === "running" ? <Mascot /> : <Screen name={name} view={view} proposal={null} variant={null} className="frame lit" />}
+                <Screen name={name} view={view} proposal={null} variant={null} className="frame lit" />
                 {PRESETS[g] && !lockedWhy && claudeJob?.state !== "running"
                   ? <button type="button" className="act fill big" disabled={busy} onClick={() => void ask(PRESETS[g]!.prompt)}>{PRESETS[g]!.button}</button>
                   : <p className="mono note">{lockedWhy ?? ""}</p>}
