@@ -468,7 +468,7 @@ textarea.json { width: 100%; min-height: 200px; font: 12px/1.5 var(--mono); marg
 kbd { font: 600 11px var(--mono); padding: 2px 6px; border: 1px solid var(--cream); white-space: nowrap; }
 
 /* Story: the edit and its script */
-.story-view { flex: 1; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 28px; padding: 14px 0; min-height: 0; }
+.story-view { flex: 1; display: grid; grid-template-columns: minmax(0, max-content) minmax(340px, 1fr); gap: 28px; padding: 14px 0; min-height: 0; }
 .story-video { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .story-video .frame { height: max(300px, calc(100vh - 470px)); width: auto; }
 .vchips { display: flex; flex-direction: column; gap: 4px; align-self: stretch; max-width: 320px; }
@@ -658,3 +658,18 @@ kbd { font: 600 11px var(--mono); padding: 2px 6px; border: 1px solid var(--crea
 /* Story: the pick sits under the video, as wide as the video, never wider (the column sizes to the video) */
 .story-video .switchrow { flex-direction: column; align-items: stretch; gap: 4px; align-self: stretch; width: 0; min-width: 100%; }
 .story-video .switchrow .vchip { max-width: 100%; }
+/* A job inside a step: one line, fixed height */
+.jobline { display: flex; align-items: center; gap: 10px; height: 26px; flex: none; font-size: 11px; overflow: hidden; white-space: nowrap; color: var(--glow); }
+.jobline.bad { color: #FF8A80; }
+.jobline .last { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: rgba(237,229,200,.6); }
+/* Story: the video takes the height left once the pick and the buttons are placed (9:16 kept): the step never grows */
+.story-view { overflow: hidden; padding: 8px 0; }
+.story-video { min-height: 0; overflow: hidden; }
+.story-video .frame { flex: 1 1 0; min-height: 160px; height: auto; max-height: max(300px, calc(100vh - 470px)); aspect-ratio: 9 / 16; width: auto; }
+.story-video > *:not(.frame) { flex: none; }
+/* Steps without pending variants: the video takes the height left once the pick and the button are placed (9:16 kept) */
+.stage { overflow: hidden; padding: 8px 0; }
+.stage > .frame { flex: 1 1 0; min-height: 160px; height: auto; max-height: max(300px, calc(100vh - 430px)); aspect-ratio: 9 / 16; width: auto; }
+.stage > *:not(.frame) { flex: none; }
+.stage .switchrow { justify-content: center; max-width: 100%; }
+.stage .switchrow .vchip { max-width: 260px; }

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import type { JobEvent, JobView } from "../server/types";
 import { api } from "./api";
 
-export function JobLog({ id, onEnd, onRetry }: { id: string; onEnd?: (j: JobView) => void; onRetry?: (extra: Record<string, boolean>) => void }) {
+/** A job's output; compact: one line of fixed height (label, state, last line, Stop), for views whose layout must not move. */
+export function JobLog({ id, onEnd, onRetry, compact }: { id: string; onEnd?: (j: JobView) => void; onRetry?: (extra: Record<string, boolean>) => void; compact?: boolean }) {
   const [job, setJob] = useState<JobView | null>(null);
   const [output, setOutput] = useState("");
   const pre = useRef<HTMLPreElement>(null);

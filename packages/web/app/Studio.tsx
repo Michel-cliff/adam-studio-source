@@ -303,7 +303,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
   const stepNo = GROUPS.findIndex((x) => x.id === g) + 1;
   const canAsk = Boolean(wf) && g !== "wrap";
   const busy = Boolean(claudeJob && claudeJob.state === "running") || Boolean(running && aiOf(running.label));
-  const canClose = wf && members.includes(wf.current) && !pending;
+  const canClose = wf && members.includes(wf.current) && !pending && !Object.values(wf.steps).every((x) => x === "done");
   const decide = async (d: string) => { if (pending && await edit({ op: "decide", proposal: pending.id, decision: d }, d === "reject" ? "Proposal set aside" : `Variant ${d} applied`)) setPick(null); };
   const accepted = [...decided].reverse().find((p) => p.status.startsWith("accepted") && p.variants.length > 1);
   const acceptedKey = accepted?.status.replace(/^accepted\s*/, "");
@@ -394,8 +394,8 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
             <p className="nextline mono"><Help text={HELP[g]} />
               {state === "done" ? (accepted ? "DONE · PICK ANOTHER VARIANT BELOW TO CHANGE IT" : "DONE") : auto?.state === "running" ? "AUTO MODE IS ON IT" : `NEXT · ${nextAction.toUpperCase()}`}</p>
             {error && <p className="error" onClick={() => setError("")}>{error}</p>}
-            {/* During an auto run, its progress is in the top bar: the render log stays out of the step. */}
-            {otherJob && auto?.state !== "running" && <JobLog key={otherJob.id} id={otherJob.id} onEnd={() => load()} />}
+            {/* A job in the steps: one line of fixed height, the step's layout never moves (the full log is in Wrap). */}
+            {otherJob && auto?.state !== "running" && <JobLog key={otherJob.id} id={otherJob.id} onEnd={() => load()} compact />}
             {!wf && g === "story" ? <Rushes name={name} view={view} run={run} firstPass={firstPass} /> : g === "story" ? (
               // Story: the edit on the left (or the picked shape), the script on the right.
               <div className="story-view">
