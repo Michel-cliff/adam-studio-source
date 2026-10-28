@@ -9,8 +9,9 @@ const leaf = (p: string) => p.split(/[\\/]/).filter(Boolean).pop() ?? p;
 function FolderPicker({ picked, setPicked }: { picked: string[]; setPicked: (v: string[]) => void }) {
   const [view, setView] = useState<FolderView | null>(null);
   const [error, setError] = useState("");
-  const open = (path?: string) => api<FolderView>(`/fs${path ? `?path=${enc(path)}` : ""}`).then((v) => { setView(v); setError(""); }, (e) => setError(e.message));
-  useEffect(() => { open(localStorage.getItem("adam.lastFolder") ?? undefined).catch(() => open()); }, []);
+  const open = (path?: string) => api<FolderView>(`/fs${path ? `?path=${enc(path)}` : ""}`).then((v) => { setView(v); setError(""); return true; }, (e) => { setError(e.message); return false; });
+  // The folder of the last visit, or the drives when it is gone.
+  useEffect(() => { const last = localStorage.getItem("adam.lastFolder"); void (last ? open(last).then((ok) => ok || open()) : open()); }, []);
   useEffect(() => { try { if (view?.path) localStorage.setItem("adam.lastFolder", view.path); } catch { /* private mode */ } }, [view?.path]);
   const toggle = (v: string) => setPicked(picked.includes(v) ? picked.filter((x) => x !== v) : [...picked, v]);
   return (
@@ -68,6 +69,11 @@ function DropRushes({ onAdd }: { onAdd: (paths: string[]) => void }) {
 export function NewProject({ addTo }: { addTo?: string }) {
   const [picked, setPicked] = useState<string[]>([]);
   const [name, setName] = useState("");
+  // No name yet: the first video picked names the project (the creator can change it).
+  useEffect(() => {
+    if (addTo || name.trim() || !picked[0]) return;
+    setName(leaf(picked[0]).replace(/\.[^.]+$/, "").replace(/[<>:"/\|?*]/g, " ").trim().slice(0, 60));
+  }, [picked]);
   const [format, setFormat] = useState("9:16");
   const [lang, setLang] = useState("fr");
   const [series, setSeries] = useState("");
@@ -114,6 +120,7 @@ export function NewProject({ addTo }: { addTo?: string }) {
         </section>
       )}
       {error && <p className="error">{error}</p>}
+      {!busy && (picked.length === 0 || (!addTo && !name.trim())) && <p className="mono note">{picked.length === 0 ? "PICK OR DROP AT LEAST ONE VIDEO." : "GIVE THE PROJECT A NAME (TOP OF THE PAGE)."}</p>}
       <button disabled={busy || picked.length === 0 || (!addTo && !name.trim())} onClick={submit}>{addTo ? "Add and analyze" : "Create and analyze"}</button>
     </>
   );
