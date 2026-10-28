@@ -348,7 +348,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
               <button type="button" className="line-link" onClick={() => void decide("reject")}><span>{t("None of these")}</span><span>×</span></button>
             </>}
             {canClose && <button type="button" className="act" onClick={() => edit({ op: "close_step" }, "Step done").then((ok) => ok && nextGroup())}>{decided.length ? t("STEP DONE, NEXT") : t("SKIP THIS STEP")} →</button>}
-            {decided.slice(-3).map((p) => { const h = historyLabel(p); return <div key={p.id} className="line-link dim"><span>History: {h.label}</span><span>{h.k}</span></div>; })}
+            {decided.slice(-2).map((p) => { const h = historyLabel(p); return <div key={p.id} className="line-link dim" title={h.label}><span>History: {h.label}</span><span>{h.k}</span></div>; })}
             <div className="synced">{running ? `● ${running.label.toUpperCase()}` : "● SYNCED"}</div>
           </aside>
         )}
