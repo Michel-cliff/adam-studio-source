@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { makeSynthetic } from "../../render/tests/e2e/synthetic";
-import { closeCurrentStep, decideProposal, patchProject, projectDir, propose, setValue, undo, updateItem } from "@adam-studio/web/server/store";
+import { closeCurrentStep, cutWordsIn, decideProposal, patchProject, projectDir, propose, setValue, undo, updateItem } from "@adam-studio/web/server/store";
 import { projectSummary, transcriptText } from "../src/view";
 
 let dir: string;
@@ -73,6 +73,19 @@ describe("store", () => {
     expect(() => decideProposal(dir, "p2", "A")).toThrow(/already decided/);
     expect(() => propose(dir, { id: "p3", step: "visuals", variants: [] })).toThrow(/one to three/);
     expect(() => closeCurrentStep(dir)).toThrow();
+  });
+
+  it("refuses a variant whose element would be hidden (anchored on a cut word), naming it, and keeps the rest", () => {
+    const words = Object.values(read().transcript.words).flat() as { id: string }[];
+    const cut = words[words.length - 2]!.id;
+    cutWordsIn(dir, [cut]);
+    const before = readFileSync(join(dir, "project.json"), "utf8");
+    const hidden = { key: "B", label: "Title on a cut word", patch: { addElements: [{ ...magenta, id: "tB", anchor: { word: cut } }] } };
+    const fine = { key: "A", label: "fine", patch: { addElements: [{ ...magenta, id: "tA" }] } };
+    expect(() => propose(dir, { id: "p4", step: "visuals", variants: [fine, hidden] })).toThrow(/variant B.*tB.*hidden/);
+    expect(readFileSync(join(dir, "project.json"), "utf8")).toBe(before);
+    propose(dir, { id: "p4", step: "visuals", variants: [fine] });
+    expect(read().proposals.find((p: { id: string }) => p.id === "p4").variants).toHaveLength(1);
   });
 });
 

@@ -125,16 +125,37 @@ export function propose(dir: string, input: unknown) {
   if (!p.success) throw new ToolError(`not a valid proposal: ${p.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`);
   const proposal = p.data;
   if (proposal.variants.length === 0) throw new ToolError("a proposal needs one to three variants");
+  const { style } = load(dir);
+  // A variant must show what its label promises: an element anchored on a cut word is hidden from the edit.
+  const hiddenIn = (project: Project) => {
+    const before = new Set(resolve(project, style).orphans);
+    return proposal.variants.flatMap((v) => {
+      let orphans: string[];
+      try { orphans = resolve(project, style, { apply: { proposal: proposal.id, variant: v.key } }).orphans; } catch { return []; }
+      const added = orphans.filter((o) => !before.has(o));
+      return added.length ? [`variant ${v.key}: ${added.join(", ")}`] : [];
+    });
+  };
   return edit(dir, (project) => {
-    const i = project.proposals.findIndex((x) => x.id === proposal.id);
-    if (i < 0) return { ...project, proposals: [...project.proposals, { ...proposal, status: "pending", history: [] }] };
-    const old = project.proposals[i]!;
-    if (old.status !== "pending" || old.variants.length > 0) {
-      throw new ToolError(`proposal "${proposal.id}" exists and is ${old.status === "pending" ? "waiting for a decision" : "decided"}: use another id`);
+    const next = proposeInto(project, proposal);
+    const hidden = hiddenIn(next);
+    if (hidden.length) {
+      throw new ToolError(`${hidden.join("; ")} would be hidden: anchored on a word that is cut from the edit (or ends on one). `
+        + "Anchor on a word that is kept (get_transcript shows the cut ones) and propose again.");
     }
-    const next = { ...old, variants: proposal.variants, reason: proposal.reason || old.reason, anchor: proposal.anchor ?? old.anchor };
-    return { ...project, proposals: project.proposals.map((x, j) => (j === i ? next : x)) };
+    return next;
   });
+}
+
+function proposeInto(project: Project, proposal: ReturnType<typeof ProposalSchema.parse>): Project {
+  const i = project.proposals.findIndex((x) => x.id === proposal.id);
+  if (i < 0) return { ...project, proposals: [...project.proposals, { ...proposal, status: "pending", history: [] }] };
+  const old = project.proposals[i]!;
+  if (old.status !== "pending" || old.variants.length > 0) {
+    throw new ToolError(`proposal "${proposal.id}" exists and is ${old.status === "pending" ? "waiting for a decision" : "decided"}: use another id`);
+  }
+  const next = { ...old, variants: proposal.variants, reason: proposal.reason || old.reason, anchor: proposal.anchor ?? old.anchor };
+  return { ...project, proposals: project.proposals.map((x, j) => (j === i ? next : x)) };
 }
 
 export function decideProposal(dir: string, id: string, decision: Decision, note?: string) {

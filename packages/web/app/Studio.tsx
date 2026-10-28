@@ -11,6 +11,7 @@ import { ConnectorsPanel, SkillsPanel } from "./Connectors";
 import { t, useLang } from "./i18n";
 import { JobLog } from "./JobLog";
 import { askStep, GROUPS, groupOf, groupState, openGroup, type GroupId } from "./steps";
+import { keyFrame } from "./frames";
 import { VariantShot } from "./VariantShot";
 
 const NAMES: Record<GroupId, string> = { story: "Story", captions: "Captions", hook: "Hook", visuals: "Visuals", sound: "Sound", wrap: "Wrap" };
@@ -71,25 +72,21 @@ function Screen({ name, view, proposal, variant, className = "" }: { name: strin
   const stamp = JSON.stringify(view.proposals.map((p) => [p.id, p.status, p.variants.length])) + (view?.durationMs ?? "");
   useEffect(() => {
     let alive = true;
+    // Another variant: the player waits for its own edit, so it mounts on that variant's frame.
+    setProps(null); setBase(null);
     const q = proposal && variant ? `?proposal=${enc(proposal)}&variant=${variant}` : "";
     Promise.all([api<RenderProps>(`/projects/${enc(name)}/preview${q}`), q ? api<RenderProps>(`/projects/${enc(name)}/preview`) : Promise.resolve(null)])
       .then(([p, b]) => { if (alive) { setProps(p); setBase(b); setError(""); } })
       .catch((e) => { if (alive) { setProps(null); setError(e.message); } });
     return () => { alive = false; };
   }, [name, proposal, variant, stamp]);
-  useEffect(() => {
-    if (!props || !base || !player.current) return;
-    const known = new Set(base.timeline.elements.map((e) => e.id));
-    const added = props.timeline.elements.filter((e) => !known.has(e.id)).map((e) => e.fromFrame);
-    const caps = props.timeline.captions.length !== base.timeline.captions.length ? [props.timeline.captions[0]?.fromFrame ?? 0] : [];
-    const frame = [...added, ...caps].sort((a, b) => a - b)[0] ?? 0;
-    player.current.seekTo(Math.min(props.timeline.durationFrames - 1, frame + Math.round(props.timeline.fps * 0.7)));
-  }, [props, base]);
   const tl = props?.timeline;
   return (
     <div className={`screen ${className}`} style={tl ? { aspectRatio: `${tl.width} / ${tl.height}` } : undefined}>
       {tl && props ? (
-        <Player ref={player} component={Edit} inputProps={props} durationInFrames={Math.max(1, tl.durationFrames)} fps={tl.fps}
+        // A variant opens on the same frame as its card (keyFrame), set at mount so it cannot be lost while the player loads.
+        <Player key={`${proposal}:${variant}:${stamp}`} ref={player} component={Edit} inputProps={props} durationInFrames={Math.max(1, tl.durationFrames)} fps={tl.fps}
+          initialFrame={proposal && variant && base ? keyFrame(tl, base.timeline) : 0} acknowledgeRemotionLicense
           compositionWidth={tl.width} compositionHeight={tl.height} controls style={{ width: "100%", height: "100%" }} />
       ) : <div className="empty">{error ? <span className="error">{error}</span> : "LOADING"}</div>}
     </div>

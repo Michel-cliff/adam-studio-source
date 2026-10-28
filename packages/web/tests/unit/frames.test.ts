@@ -18,4 +18,9 @@ describe("the frame a variant card shows", () => {
     expect(keyFrame(tl([]), tl([]))).toBe(450);
     expect(keyFrame(tl([{ id: "late", fromFrame: 80 }], [], 90), tl([]))).toBe(89);
   });
+  it("goes to an element the variant changes, when it adds none (a new title text on the existing title)", () => {
+    const base = tl([{ id: "title", fromFrame: 0, props: { text: "OLD" } }, { id: "z1", fromFrame: 400, props: {} }] as never);
+    const v = tl([{ id: "title", fromFrame: 0, props: { text: "IA OU STYLO ?" } }, { id: "z1", fromFrame: 400, props: {} }] as never);
+    expect(keyFrame(v, base)).toBe(21);
+  });
 });
