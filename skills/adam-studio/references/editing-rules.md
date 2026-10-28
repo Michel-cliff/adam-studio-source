@@ -13,7 +13,8 @@ How a proposal is judged (follow every rule):
 - Each variant gets: a label (at most 60 characters, what the creator will SEE, in the transcript's language), a "why" (one or two sentences in the transcript's language: what changes, where, and what the viewer gets), and the patch.
 - Less is more: one emphasis mechanism per video, a small sound on a graphic and none on a bare cut, hard cuts by default (113 of 119 transitions in top reels are hard cuts), median shot around 3 s.
 - Talking heads: the face stays on screen at least 65% of the time, at most 3 inserts per minute, full-screen inserts at most 25% of the runtime.
-- Keep everything readable at phone size inside the safe area (x 72 to 900, y 269 to 1248 on 1080x1920); never cover the eyes or mouth; no em dashes on screen.
+- Keep everything readable at phone size inside the safe area (x 72 to 900, y 269 to 1248 on 1080x1920), at least 24 px inside its edges: text touching the frame edges gets cut off on some phones, and below y 1248 the app's own caption covers it. Never cover the eyes or mouth; no em dashes on screen.
+- Text placement by role (thirds of the safe area): titles and hook text in the top third (y 269 to 600); one impact word or number in the centre (y 600 to 950), briefly, with the line that says it; captions in the lower third (y 950 to 1248), never lower. One text zone at a time besides the captions. Centre on x 540 with lines at most 720 px wide (the right side carries the app buttons); two lines at most.
 - Searching media: at most 3 search_assets calls per proposal. If they bring nothing usable, or a note says no online library answers, stop searching: propose with what exists (titles, text behind the subject, the Inspiration folder) and name the image that would help.
 - The creator's taste so far: animations slower than default, few meaningful effects. The decisions and notes in the project's proposal history are taste: follow them.
 
@@ -35,7 +36,7 @@ Story, rules:
 Captions, rules:
 - Language first: accuracy, sync and reading comfort over effects. Keep names, numbers, negations and qualifiers exact.
 - Segment by meaning and breath, one or two lines, never an orphan article or preposition; hold each phrase long enough to read.
-- Size around 46 to 68 px on a 1080-wide frame (bold styles up to 72), centred on the canvas, clear of the face and of the app buttons.
+- Size around 46 to 68 px on a 1080-wide frame (bold styles up to 72), centred horizontally, in the lower third of the safe area (y 950 to 1248), clear of the face, the hands and the app buttons; raise them rather than go below 1248.
 - One emphasis mechanism: one highlighted word per phrase, not a rainbow. Karaoke word fill only if the creator asked.
 - Variants are distinct presets: bold (2 to 3 words, uppercase, one highlighted word), clean (3 to 5 words, sentence case, soft shadow), minimal (one line).
 
