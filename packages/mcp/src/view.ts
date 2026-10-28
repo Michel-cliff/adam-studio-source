@@ -16,7 +16,29 @@ export function projectSummary(dir: string): string {
     lint: lintLines(dir, project, timeline),
     ...project,
     transcript: { lang: project.transcript.lang, words },
+    proposals: project.proposals.map(compactProposal),
   });
+}
+
+type Proposal = ReturnType<typeof load>["project"]["proposals"][number];
+
+/**
+ * A proposal as the AI needs it, read again on every turn: a pending one whole (it may refill it), a decided one as
+ * its choice, the other labels and the creator's notes (their taste). Without this, the history's copies of the
+ * variants were most of the project: 66 000 of 77 000 characters on a real one.
+ */
+function compactProposal(p: Proposal) {
+  const { history, revert: _, ...rest } = p;
+  if (p.status === "pending") return rest;
+  const key = p.status === "rejected" ? null : p.status.accepted;
+  const notes = history.flatMap((h) => (h.note ? [h.note] : []));
+  return {
+    id: p.id, step: p.step, ...(p.reason ? { reason: p.reason } : {}),
+    status: key ? `accepted ${key}` : "rejected",
+    ...(key ? { chosen: p.variants.find((v) => v.key === key)?.label ?? key } : {}),
+    others: p.variants.filter((v) => v.key !== key).map((v) => `${v.key} ${v.label}`),
+    ...(notes.length ? { notes } : {}),
+  };
 }
 
 /** One line per word ("c01.w12 1.23-1.50 bonjour") with the pauses between them, optionally for one take and a time range. */

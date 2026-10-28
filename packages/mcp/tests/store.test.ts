@@ -101,3 +101,22 @@ describe("view", () => {
     expect(() => transcriptText(dir, { asset: "zz" })).toThrow(/no transcript/);
   });
 });
+
+describe("get_project stays small", () => {
+  // Decided proposals carried full copies of their variants in their history: 66 000 of a real project's 77 000
+  // characters, re-read on every turn of every ask. The AI needs what was chosen and the notes, not the copies.
+  it("keeps the choice, the other labels and the notes of decided proposals, and pending ones whole", () => {
+    const d = mkdtempSync(join(tmpdir(), "adam view-"));
+    makeSynthetic(d, { withProposal: true });
+    const v = (key: "A" | "B", label: string) => ({ key, label, patch: { setStyle: { caption: { size: key === "A" ? 0.06 : 0.05 } } } });
+    propose(d, { id: "c1", step: "captions", reason: "caption size", variants: [v("A", "big"), v("B", "small")] });
+    decideProposal(d, "c1", "B", "smaller reads better on my face");
+    propose(d, { id: "c2", step: "captions", reason: "next", variants: [v("A", "big"), v("B", "small")] });
+    const s = JSON.parse(projectSummary(d));
+    const c1 = s.proposals.find((p: { id: string }) => p.id === "c1");
+    expect(c1).toEqual({ id: "c1", step: "captions", reason: "caption size", status: "accepted B", chosen: "small", others: ["A big"], notes: ["smaller reads better on my face"] });
+    const c2 = s.proposals.find((p: { id: string }) => p.id === "c2");
+    expect(c2.variants[0].patch).toBeDefined();
+    expect(c2.history).toBeUndefined();
+  }, 60_000);
+});

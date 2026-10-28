@@ -62,6 +62,8 @@ export function askBrief(project: string, step: string, prompt: string, look: st
     extras.context
       ? "Everything the step needs is in the context below: call get_project, get_transcript or get_reference only if something you need is missing."
       : "Check get_project first (its proposal history holds the creator's past choices); get_reference gives the schemas.",
+    // Each turn re-reads this whole brief and the tool list: fewer turns is the main saving, on every computer.
+    "Work in as few turns as possible: call independent tools together in the same turn, write the whole proposal in one call, never read twice what you already have.",
     "",
     ...(extras.context ? ["# Context of the step", extras.context, ""] : []),
     rulesFor(step),
