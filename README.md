@@ -20,7 +20,16 @@ Status: sub-project 1 (the edit core) in progress. See `docs/superpowers/specs/`
 
 ## Development
 
-Requirements: Node 24 or later.
+Requirements: Node 24 or later. Everything else is installed by the setup kit, which runs after `npm install`,
+on the first launch of `Adam Studio.cmd`, and again with `npm run setup`:
+
+- required: Python 3.12+, ffmpeg and ffprobe, Git, yt-dlp and Deno (winget on Windows, Homebrew on macOS), the
+  analysis environment and its models (about 2 GB), an AI (Claude Code, or Codex) and the adam-studio skill;
+- optional, suggested at startup: the house fonts (Anton, DM Serif Display, Manrope), CapCut Desktop, the Pixabay
+  and Freesound keys (Projects page, Status).
+
+The studio shows what is still missing in a message at the bottom right, with an Install button for each piece.
+`ADAM_SKIP_SETUP=1` skips the kit (CI does too).
 
     npm install
     npm test

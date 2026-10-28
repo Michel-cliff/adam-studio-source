@@ -1,7 +1,8 @@
 # Connections and API keys
 
 Every key lives in `~/.adam-studio/.env` on your machine (never in the repo), one `NAME=value` per line.
-Adam Studio reads it on each search: edit the file, no restart needed.
+Adam Studio reads it on each search: set the keys on the Projects page (Status, Library keys) or edit the file,
+no restart needed. Both keys are optional. The AI needs no key: it runs on your Claude or ChatGPT subscription.
 
     PIXABAY_API_KEY=...
     FREESOUND_API_KEY=...

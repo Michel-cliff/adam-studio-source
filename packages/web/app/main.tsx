@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { SetupNote } from "./Setup";
 import { createRoot } from "react-dom/client";
 import { Editor } from "./Editor";
 import { Home } from "./Home";
@@ -46,6 +47,7 @@ function App() {
       </nav>
       <div className="marks" aria-hidden="true" />
       {body}
+      <SetupNote />
     </div>
   );
 }

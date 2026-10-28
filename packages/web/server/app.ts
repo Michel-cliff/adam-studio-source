@@ -19,7 +19,8 @@ import { stepContext } from "./context";
 import { libraryRoute } from "./library-routes";
 import { aiRunner, type AskAI } from "./ai";
 import { learnedFor } from "./stats";
-import { aiEnv, keyStatus, setKey } from "./keys";
+import { Doctor } from "./doctor-routes";
+import { keyStatus, PROVIDERS, setKey } from "./keys";
 import { claudeDesktopConfig, claudeDesktopStatus, codexConfig, codexStatus, connectClaudeDesktop, connectCodex } from "./desktop";
 import { adamServer } from "./claude";
 import { statsRoute } from "./stats-routes";
@@ -70,11 +71,12 @@ function sse(res: ServerResponse): (data: unknown) => void {
 export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capcutPython?: () => string | null; dist?: string; home?: string; ai?: AskAI } = {}): Server {
   const home = opts.home ?? homedir();
   const settingsFile = opts.settingsFile ?? SETTINGS_FILE;
+  const doctor = new Doctor(dirname(settingsFile));
   const jobs = opts.jobs ?? new JobManager();
   const capcutPython = opts.capcutPython ?? (() => venvPython("capcut", "ADAM_CAPCUT_PYTHON"));
   const dist = opts.dist ?? join(WEB, "dist");
   // The AI for questions outside the edit (statistics): the one the creator picked, with its model.
-  const ai = opts.ai ?? aiRunner(() => engine(settingsFile), () => (engine(settingsFile) === "codex" ? codexModel(settingsFile) : claudeModel(settingsFile)), 240_000, () => aiEnv(dirname(settingsFile)));
+  const ai = opts.ai ?? aiRunner(() => engine(settingsFile), () => (engine(settingsFile) === "codex" ? codexModel(settingsFile) : claudeModel(settingsFile)), 240_000);
   const clients = new Set<(d: unknown) => void>();
   const notify = (project: string) => { for (const c of clients) c({ type: "change", project }); };
   let unwatch = watchProjects(projectsRoot(settingsFile), notify);
@@ -129,10 +131,17 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       try { connectCodex(codexConfig(), adamServer()); } catch (e) { throw new HttpError(400, (e as Error).message); }
       return send(res, 200, codexStatus());
     }
+    if (path === "/api/doctor" && method === "GET") return send(res, 200, doctor.view());
+    if (path === "/api/doctor/refresh" && method === "POST") { doctor.refresh(); return send(res, 202, doctor.view()); }
+    if (path === "/api/doctor/fix" && method === "POST") {
+      const b = await body(req);
+      try { doctor.fix(String(b.id ?? "")); } catch (e) { throw new HttpError(409, (e as Error).message); }
+      return send(res, 202, doctor.view());
+    }
     if (path === "/api/keys" && method === "GET") return send(res, 200, keyStatus(dirname(settingsFile)));
     if (path === "/api/keys" && method === "PUT") {
       const b = await body(req);
-      try { for (const p of ["anthropic", "openai"] as const) if (typeof b[p] === "string") setKey(dirname(settingsFile), p, b[p]); }
+      try { for (const p of PROVIDERS) if (typeof b[p] === "string") setKey(dirname(settingsFile), p, b[p]); }
       catch (e) { throw new HttpError(400, (e as Error).message); }
       return send(res, 200, keyStatus(dirname(settingsFile)));
     }
@@ -262,8 +271,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const command = ai === "codex"
         ? codexAskCommand(name, step, String(b.prompt ?? ""), codexModel(settingsFile), brief, extras)
         : askCommand(name, step, String(b.prompt ?? ""), claudeModel(settingsFile), brief, extras);
-      // The creator's own API key, when set, goes with the command (used before any subscription sign-in).
-      return started(res, jobs.start(name, { ...command, env: aiEnv(dirname(settingsFile)) }, record));
+      return started(res, jobs.start(name, command, record));
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/thumb$/)) && method === "GET") {
       const { dir } = existing(m[1]!);

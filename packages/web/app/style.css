@@ -612,3 +612,17 @@ kbd { font: 600 11px var(--mono); padding: 2px 6px; border: 1px solid var(--crea
 .rcard.dummy:hover .dummy-in { color: var(--glow); }
 .item.dummy { opacity: .55; } .item.dummy .pic { border-style: dashed; }
 .dummyrow { opacity: .5; border-style: dashed; } .dummyframe { border: 2px dashed rgba(237,229,200,.45) !important; background: transparent !important; aspect-ratio: 9 / 16; }
+
+/* Setup: the startup message, bottom right, above everything */
+.setupnote { position: fixed; right: 18px; bottom: 18px; z-index: 50; width: min(380px, calc(100vw - 36px)); background: var(--field); border: 1px solid rgba(237,229,200,.45);
+  clip-path: var(--chamfer); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+.setupnote.must { border-color: #FF8A80; }
+.setupnote .h { font: 700 11px var(--mono); letter-spacing: .08em; color: var(--glow); }
+.setupnote.must .h:first-child { color: #FF8A80; }
+.setupnote ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.setupnote li { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 13px; }
+.setupnote li > span:first-child { display: flex; flex-direction: column; min-width: 0; }
+.setupnote li .mono { font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.setupnote > .link { align-self: flex-end; font-size: 12px; }
+.setuplog { margin: 0; max-height: 72px; overflow: hidden; font: 10px var(--mono); color: rgba(237,229,200,.7); white-space: pre-wrap; word-break: break-all; }
+.keysbox .kv a { color: inherit; }
