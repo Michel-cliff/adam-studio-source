@@ -278,7 +278,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
             {otherJob && <JobLog key={otherJob.id} id={otherJob.id} onEnd={() => load()} />}
             {!wf && g === "story" ? <Rushes name={name} view={view} run={run} firstPass={firstPass} /> : pending ? (
               <>
-                <div className="variants">
+                <div className="variants" style={{ "--ar": view.format === "16:9" ? 16 / 9 : 9 / 16 } as React.CSSProperties}>
                   {pending.variants.map((v) => {
                     const on = v.key === chosenKey;
                     return (

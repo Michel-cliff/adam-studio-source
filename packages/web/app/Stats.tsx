@@ -124,7 +124,7 @@ function MyVideos({ s }: { s: ReturnType<typeof useAll> }) {
         </div>
         <div className="talk">
           <div className="notecol">
-            <label htmlFor="worked" className="h small">WHAT YOU THINK WORKED</label>
+            <label htmlFor="worked" className="chathead">WHAT YOU THINK WORKED</label>
             <textarea id="worked" key={v.name} defaultValue={v.stats.note} onBlur={(e) => { if (e.target.value !== v.stats.note) void put({ note: e.target.value }); }} />
           </div>
           <div className="chatbox">

@@ -316,7 +316,9 @@ pre.note { white-space: pre-wrap; }
 
 /* The three shots share the height left by the title and the labels; their width follows the video's format. */
 .variant { align-items: center; }
-.variant .shot-btn, .variant.on .shot { height: min(40vh, 420px); width: auto; max-width: 100%; max-height: none; }
+.variant { container-type: inline-size; }
+/* As tall as the room left, never wider than the column: the video keeps its format, nothing is cropped. */
+.variant .shot-btn, .variant.on .shot { height: min(max(300px, calc(100vh - 420px)), calc(100cqw / var(--ar, 0.5625))); width: auto; max-width: 100%; max-height: none; }
 .variant .shot-btn .shot { height: 100%; width: auto; }
 .variant .vlabel { align-self: stretch; }
 .studio-cols .center .head h1 { font-size: 30px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
@@ -386,7 +388,7 @@ textarea.json { width: 100%; min-height: 200px; font: 12px/1.5 var(--mono); marg
 .item .pic img { pointer-events: none; }
 
 /* New video: videos dropped from the computer, under the folder browser */
-.rushdrop { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; min-height: 48px; padding: 8px 14px; margin: 4px 0 14px; border: 2px dashed var(--cream); }
+.rushdrop { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; min-height: 84px; padding: 12px 16px; margin: 6px 0 14px; border: 2px dashed var(--cream); justify-content: center; }
 .rushdrop.over { border-color: var(--glow); color: var(--glow); background: var(--sel); }
 .rushdrop .error { flex-basis: 100%; }
 
@@ -407,8 +409,8 @@ textarea.json { width: 100%; min-height: 200px; font: 12px/1.5 var(--mono); marg
 .metrics .kv { padding: 3px 0; font-size: 14px; }
 .field { width: 110px; min-height: 30px; padding: 0 8px; text-align: right; font: 600 13px var(--mono); }
 .talk { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 16px; flex: 1; min-height: 200px; }
-.notecol { display: flex; flex-direction: column; min-height: 0; }
-.notecol textarea { flex: 1; min-height: 120px; margin-top: 6px; resize: none; }
+.notecol { display: flex; flex-direction: column; min-height: 0; border: 1.5px solid var(--cream); background: var(--field); }
+.notecol textarea { flex: 1; min-height: 120px; border: 0; padding: 10px 12px; resize: none; }
 .chatbox { display: flex; flex-direction: column; min-height: 0; border: 1.5px solid var(--cream); background: var(--field); }
 .chathead { display: flex; justify-content: space-between; padding: 6px 10px; background: var(--cream); color: var(--field); font: 700 13px var(--display); letter-spacing: .04em; }
 .chathead .mono { font-weight: 400; font-size: 11px; }
