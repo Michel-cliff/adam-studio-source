@@ -11,7 +11,7 @@ import {
   addChat, addRef, addRule, updateRef, emptyVideo, METRICS, platformOf, readStats, removeRef, removeRule, saveVideo, setRule, topicOf, TOPICS, trends,
   type Metric, type Stats,
 } from "./stats";
-import { applyImport, IMPORT_FILES, importPrompt, isImage, type ImportAnswer } from "./stats-import";
+import { applyImport, diskName, IMPORT_FILES, importPrompt, isImage, type ImportAnswer } from "./stats-import";
 import { loadRaw } from "./store";
 
 type Ctx = {
@@ -79,7 +79,7 @@ function strategyPrompt(root: string, s: Stats, review: boolean): string {
 }
 
 async function saveBody(req: IncomingMessage, folder: string, name: string, ok: RegExp): Promise<string> {
-  const clean = basename(name).replace(/[<>:"|?*\u0000-\u001f]/g, "_");
+  const clean = diskName(name);
   if (!clean || !ok.test(clean)) throw new StatsError(`cannot use ${clean || "this file"}`);
   mkdirSync(folder, { recursive: true });
   const file = join(folder, `${Date.now().toString(36)}-${clean}`);
@@ -132,9 +132,12 @@ export async function statsRoute(c: Ctx): Promise<boolean> {
     if (path === "/api/stats/import" && method === "POST") {
       const file = await saveBody(c.req, join(dir, "stats-imports"), url.searchParams.get("name") ?? "", IMPORT_FILES);
       const image = isImage(file);
-      const answer = jsonIn<ImportAnswer>(await ai({ prompt: importPrompt(readStats(dir), image ? null : readFileSync(file, "utf8")), images: image ? [file] : [] }));
+      let said: string;
+      try { said = await ai({ prompt: importPrompt(readStats(dir), image ? null : readFileSync(file, "utf8")), images: image ? [file] : [] }); }
+      catch { throw new StatsError("your AI could not open this file. Try a screenshot (PNG or JPG) of the same stats page."); }
+      const answer = jsonIn<ImportAnswer>(said);
       const done = answer ? applyImport(dir, answer) : null;
-      if (!done?.videos.length) throw new StatsError("no video's numbers could be read in this file");
+      if (!done?.videos.length) throw new StatsError("no video's numbers were found in this file. Drop the statistics page of a video (views, watch time, likes...), as exported by Instagram, TikTok or YouTube, or a screenshot of it.");
       send(200, { ...all(), imported: done }); return true;
     }
     if ((path === "/api/stats/strategy" || path === "/api/stats/review") && method === "POST") {

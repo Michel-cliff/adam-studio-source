@@ -13,11 +13,22 @@ export const IMPORT_FILES = /\.(png|jpe?g|webp|pdf|csv|tsv|txt|json)$/i;
 /** Files the AI opens itself (pictures, PDF); the others go in the prompt as text. */
 export const isImage = (name: string) => /\.(png|jpe?g|webp|pdf)$/i.test(name);
 
+/**
+ * The name a dropped file gets on disk: plain letters, digits, dots and dashes only. The AI opens it from a path on its
+ * command line, and Windows mangles accents there ("août" became "aoÃ»t": the file was not found and the AI gave up).
+ */
+export function diskName(name: string): string {
+  const base = name.split(/[\/]/).pop() ?? "";
+  return base.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w.-]+/g, "_");
+}
+
 export function importPrompt(s: Stats, text: string | null): string {
   return [
     "You are the creator's growth coach inside Adam Studio (short talking-head videos).",
     text ? `The creator dropped this export of their videos' statistics:\n${text.slice(0, 12_000)}` : "The file (a screenshot or a PDF) shows the statistics of one or more of the creator's videos (TikTok, Instagram, YouTube...).",
     `Read each video's numbers into these keys: ${METRICS.join(", ")} (keep units like s, %, K as shown; leave out what is not there).`,
+    "Platforms name them differently: views are Vues / Views / Lectures (not Spectateurs / Accounts reached, that is reach); watchTime is the average watch time; kept3s the share still watching at 3 s; finished the share watching to the end; sharesSaves is the shares and the saves together, written short as \"39 · 32\" (shares · saves) when both are shown; follows the follows from this video.",
+    "The video's name: its title or caption, short (at most 8 words), else its publication date.",
     "For each video, say in at most 50 words what to change to improve it, from its numbers (a weak 3 s hold means the hook, a low finish rate means the middle or the length, and so on).",
     `Rules the creator keeps now (id, topic, text):\n${s.rules.filter((r) => r.on).map((r) => `${r.id} [${r.topic}] ${r.text}`).join("\n") || "none yet"}`,
     "Then update these rules: at most three new ones the numbers back (a do or a don't, topic among " + TOPICS.join(", ") + ", at most 20 words, none that repeats a kept rule), and the ids of kept rules the numbers contradict.",

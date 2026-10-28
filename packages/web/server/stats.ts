@@ -45,7 +45,7 @@ export function saveVideo(dir: string, name: string, patch: { metrics?: Record<s
   if (patch.metrics) {
     for (const [k, val] of Object.entries(patch.metrics)) {
       if (!METRICS.includes(k as Metric)) throw new Error(`unknown number "${k}"`);
-      const t = String(val ?? "").trim().slice(0, 24);
+      const t = String(val ?? "").trim().slice(0, 32);
       if (t) v.metrics = { ...v.metrics, [k]: t }; else { const { [k as Metric]: _, ...rest } = v.metrics; v.metrics = rest; }
     }
   }

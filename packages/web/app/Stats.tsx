@@ -78,7 +78,7 @@ function ImportStats({ s, onPick }: { s: ReturnType<typeof useAll>; onPick: (nam
   const run = async (files: File[]) => {
     const sum: Imported = { say: "", videos: [], added: [], off: [] };
     for (const [i, f] of files.entries()) {
-      setBusy(files.length > 1 ? `READING ${i + 1} OF ${files.length}…` : "READING THE NUMBERS…");
+      setBusy(`${files.length > 1 ? `READING ${i + 1} OF ${files.length}` : "YOUR AI READS THE NUMBERS"} · ABOUT 20 S…`);
       try {
         const j = await upload("/stats/import", f) as All & { imported: Imported };
         s.setAll(j); s.setError("");
@@ -99,7 +99,7 @@ function ImportStats({ s, onPick }: { s: ReturnType<typeof useAll>; onPick: (nam
         <span className="mono ok">{[n(done.videos.length, "VIDEO", "VIDEOS"), n(done.added.length, "NEW RULE", "NEW RULES"), done.off.length ? n(done.off.length, "RULE OFF", "RULES OFF") : ""].filter(Boolean).join(" · ")}</span>
         {done.say && <p>{done.say}</p>}
       </div>}
-      {!done && !busy && <p className="note">YOUR AI ADVISES EACH VIDEO AND UPDATES YOUR DOS AND DON'TS.</p>}
+      {!done && !busy && <p className="note">THE STATS PAGE OF A VIDEO, AS EXPORTED BY INSTAGRAM, TIKTOK OR YOUTUBE, OR A SCREENSHOT OF IT. YOUR AI READS VIEWS, WATCH TIME, LIKES, SHARES, ADVISES THE VIDEO AND UPDATES YOUR DOS AND DON'TS.</p>}
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { applyImport, importPrompt } from "../../server/stats-import";
+import { applyImport, diskName, importPrompt } from "../../server/stats-import";
 import { addRule, readStats } from "../../server/stats";
 
 describe("importing the stats of other videos", () => {
@@ -33,5 +33,15 @@ describe("importing the stats of other videos", () => {
     expect(p).toContain("My video,1200");
     expect(p).toContain(rule.id);
     expect(p).toMatch(/"videos"/);
+  });
+});
+
+describe("the name a dropped file gets on disk", () => {
+  // Windows mangles accents on the command line the AI gets: "août" became "aoÃ»t" and the file was not found.
+  it("keeps only plain letters, digits, dots and dashes, and the extension", () => {
+    expect(diskName("Statistiques du reel pour cliff.iscurious - 16 août 2026 - 27 oct. 2026.pdf"))
+      .toBe("Statistiques_du_reel_pour_cliff.iscurious_-_16_aout_2026_-_27_oct._2026.pdf");
+    expect(diskName("../../été 🎬.PNG")).toBe("ete_.PNG");
+    expect(diskName("")).toBe("");
   });
 });
