@@ -16,13 +16,6 @@ import { PRESETS, ScriptPanel, SoundTracks } from "./StepViews";
 import { VariantShot } from "./VariantShot";
 import { Halftone } from "./halftone";
 
-// What each step does, as an animated picture and one line, while nothing is proposed.
-const FEATURES: Partial<Record<GroupId, { fx: "timeline" | "code" | "target" | "ripple" | "wave"; text: string }>> = {
-  captions: { fx: "code", text: "Three caption styles: font, colors, the word that pops." },
-  hook: { fx: "target", text: "Three openings that grab in the first three seconds." },
-  visuals: { fx: "ripple", text: "Icons, images and effects on the words you say." },
-  sound: { fx: "wave", text: "Three soundtracks to hear in place, effects on the key moments." },
-};
 const ICONS: Record<GroupId, string> = {
   story: "M4 6h16M4 12h10M4 18h13", captions: "M4 7h16v10H4zM8 12h3M13 12h3", hook: "M12 3v8a4 4 0 1 1-4-4",
   visuals: "M4 5h16v14H4zM4 15l5-5 4 4 3-3 4 4", sound: "M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2", wrap: "M5 12l5 5 9-10",
@@ -335,12 +328,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
               </>
             ) : (
               <div className="stage">
-                {claudeJob?.state === "running"
-                  ? <div className="working-big"><Halftone fx="code" step={9} /><span className="mono">YOUR AI IS PREPARING THREE OPTIONS…</span></div>
-                  : <div className="stage-row">
-                    <Screen name={name} view={view} proposal={null} variant={null} className="frame lit" />
-                    {FEATURES[g] && <div className="feature"><Halftone fx={FEATURES[g]!.fx} step={7} /><p>{FEATURES[g]!.text}</p></div>}
-                  </div>}
+                <Screen name={name} view={view} proposal={null} variant={null} className="frame lit" />
                 {PRESETS[g] && !lockedWhy && claudeJob?.state !== "running"
                   ? <button type="button" className="act fill big" disabled={busy} onClick={() => void ask(PRESETS[g]!.prompt)}>{PRESETS[g]!.button}</button>
                   : <p className="mono note">{lockedWhy ?? ""}</p>}
