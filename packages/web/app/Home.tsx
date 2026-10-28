@@ -15,7 +15,7 @@ function Keys() {
 function Desktop() {
   return (
     <>
-      <div className="kv sep"><span>YOUR AI</span><b className="dim">ON YOUR SUBSCRIPTION</b></div>
+      <div className="kv sep"><span>ADAM'S ENGINE</span><b className="dim">ON YOUR SUBSCRIPTION</b></div>
       <Connect name="Claude Desktop" path="claude-desktop" install="https://claude.ai/download" />
       <Connect name="Codex" path="codex" install="https://openai.com/codex/" />
     </>

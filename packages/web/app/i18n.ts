@@ -5,7 +5,7 @@ export type Lang = "en" | "fr";
 const FR: Record<string, string> = {
   PROJECTS: "PROJETS", STUDIO: "STUDIO", LIBRARY: "BIBLIOTHÈQUE", STATISTICS: "STATISTIQUES",
   Story: "Histoire", Captions: "Sous-titres", Hook: "Accroche", Visuals: "Visuels", Sound: "Son", Wrap: "Livraison",
-  STEPS: "ÉTAPES", TIMELINE: "TIMELINE", STATUS: "ÉTAT", "ASK YOUR AI": "DEMANDER À TON IA", "DO IT": "FAIS-LE",
+  STEPS: "ÉTAPES", TIMELINE: "TIMELINE", STATUS: "ÉTAT", "ASK ADAM": "DEMANDER À ADAM", "DO IT": "FAIS-LE",
   "PROPOSE A / B / C": "PROPOSE A / B / C", CHOOSE: "CHOISIR", "More options": "D'autres options", "None of these": "Aucune",
   "FINE-TUNE IN THE TIMELINE": "AFFINER DANS LA TIMELINE", CONNECTORS: "CONNECTEURS", SKILLS: "SKILLS",
   "Select a variant.": "Choisis une variante.", "NEW PROJECT": "NOUVEAU PROJET", "MOVE TO TRASH": "METTRE À LA CORBEILLE",
@@ -13,7 +13,7 @@ const FR: Record<string, string> = {
   Exported: "Exportés", "STEP DONE, NEXT": "ÉTAPE FINIE, SUIVANTE", "SCRIPT READY, NEXT": "SCRIPT PRÊT, SUIVANTE", CHOSEN: "CHOISIE", "SKIP THIS STEP": "PASSER CETTE ÉTAPE", "RUN THE FIRST PASS": "LANCER LE PREMIER JET",
   "ADD RUSHES": "AJOUTER DES RUSHES", "Click a folder to open it.": "Clique sur un dossier pour l'ouvrir.", "SEARCH THIS FOLDER": "CHERCHER DANS CE DOSSIER",
   "DROP FILES HERE": "DÉPOSE DES FICHIERS ICI", "My videos": "Mes vidéos", "References & trends": "Références et tendances",
-  "What your AI learned": "Ce que ton IA a appris", EXPORT: "EXPORTER", "Nothing proposed yet for this step.": "Rien de proposé pour cette étape.",
+  "What Adam learned": "Ce qu'Adam a appris", EXPORT: "EXPORTER", "Nothing proposed yet for this step.": "Rien de proposé pour cette étape.",
 };
 
 let lang: Lang = (() => { try { return localStorage.getItem("adam.lang") === "fr" ? "fr" : "en"; } catch { return "en"; } })();

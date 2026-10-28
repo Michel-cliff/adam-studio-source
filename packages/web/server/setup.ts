@@ -45,7 +45,7 @@ async function main(): Promise<number> {
   const missing = checks.filter((c) => c.need === "required" && !c.ok);
   console.log("\nResult:\n");
   checks.forEach((c) => console.log(line(c)));
-  if (checks.some((c) => c.id === "ai" && c.ok)) console.log("\nSign in to your AI once if not done yet: run `claude` (or `codex`) in a terminal.");
+  if (checks.some((c) => c.id === "ai" && c.ok)) console.log("\nSign in to Adam's engine once if not done yet: run `claude` (or `codex`) in a terminal.");
   const optional = checks.filter((c) => c.need === "optional" && !c.ok);
   if (optional.length) console.log(`Optional, from the studio's Projects page: ${optional.map((c) => c.label).join(", ")}.`);
   mkdirSync(dirname(MARKER), { recursive: true });

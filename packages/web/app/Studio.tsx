@@ -23,7 +23,7 @@ const ICONS: Record<GroupId, string> = {
 const NAMES: Record<GroupId, string> = { story: "Story", captions: "Captions", hook: "Hook", visuals: "Visuals", sound: "Sound", wrap: "Wrap" };
 
 const HELP: Record<GroupId, string> = {
-  story: "Your AI cut the silences and failed takes. Pick the cut you like (A tight, B light), then paste your script or let your AI write it from what you say. Press SCRIPT READY, NEXT to move on. Story shapes are optional.",
+  story: "Adam cut the silences and failed takes. Pick the cut you like (A tight, B light), then paste your script or let Adam write it from what you say. Press SCRIPT READY, NEXT to move on. Story shapes are optional.",
   captions: "How your words show on screen. Press PROPOSE 3 CAPTION STYLES, pick one with CHOOSE, or skip the step to keep plain captions.",
   hook: "The first three seconds decide if people stay. Ask for three hooks, pick one with CHOOSE. You can skip it.",
   visuals: "Images, icons, effects and the color treatment, anchored on what you say. Ask for three directions, pick one, or skip.",
@@ -88,7 +88,7 @@ function ClaudeFeed({ job, onEnd }: { job: JobView; onEnd: () => void }) {
   }, [job.id]);
   return (
     <div className="feed" aria-live="polite">
-      {state === "running" && <Halftone fx="wave" step={5} className="feedwave" />}<span className="who">{state === "running" ? <i className="pulse" /> : null}YOUR AI{state === "running" ? " · WORKING" : state === "done" ? "" : ` · ${state.toUpperCase()}`}</span>
+      {state === "running" && <Halftone fx="wave" step={5} className="feedwave" />}<span className="who">{state === "running" ? <i className="pulse" /> : null}ADAM{state === "running" ? " · WORKING" : state === "done" ? "" : ` · ${state.toUpperCase()}`}</span>
       <span className="what">{say || lines[lines.length - 1] || "Getting ready"}</span>
       {state === "running" && <button type="button" className="link" onClick={() => api(`/jobs/${job.id}/stop`, { method: "POST" })}>Stop</button>}
     </div>
@@ -326,7 +326,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
     : current === "wrap" ? "Every step is done: export your video."
     : g !== current ? (groupState(g, wf) === "done" ? `Next step: ${t(NAMES[current])}.` : `Finish ${t(NAMES[current])} first.`)
     : pending ? `Pick a variant, then press CHOOSE ${chosenKey}.`
-    : g === "story" ? "Paste your script or let your AI write it, then press SCRIPT READY, NEXT."
+    : g === "story" ? "Paste your script or let Adam write it, then press SCRIPT READY, NEXT."
     : PRESETS[g] && !decided.length ? `Press ${PRESETS[g]!.button}, or skip the step.`
     : "Press STEP DONE, NEXT.";
   const need = nudge ? " nudge" : "";
@@ -388,7 +388,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
             <div className="head">
               <h1>{chosen ? `${chosen.key} · ${chosen.label.toUpperCase()}` : t(NAMES[g]).toUpperCase()}</h1>
               {/* While the AI works: the dot wave stretched between the title and the step count. */}
-              {claudeJob?.state === "running" && <Halftone fx="wave" step={5} className="headwave" label="Your AI is working" />}
+              {claudeJob?.state === "running" && <Halftone fx="wave" step={5} className="headwave" label="Adam is working" />}
               <span className="mono">{t(NAMES[g]).toUpperCase()} · STEP {String(stepNo).padStart(2, "0")} / {String(GROUPS.length).padStart(2, "0")}</span>
             </div>
             <p className="nextline mono"><Help text={HELP[g]} />
@@ -495,7 +495,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
               if (r.errors.length) setError(r.errors.join("\n"));
               if (r.added.length) { setToast(`Added ${r.added.map((a) => a.id).join(", ")} to this video`); await load(); }
             }}>
-            <label htmlFor="ask">{t("ASK YOUR AI")}</label>
+            <label htmlFor="ask">{t("ASK ADAM")}</label>
             <input id="ask" value={prompt} placeholder={`${t(NAMES[g])}: what do you want?`} onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && prompt.trim() && !busy) void ask(prompt, e.ctrlKey || e.metaKey ? "propose" : "do"); }} />
             <button type="button" className="act" disabled={!prompt.trim() || busy} title="Applies your request directly (Undo puts it back)" onClick={() => ask(prompt, "do")}>{t("DO IT")}</button>

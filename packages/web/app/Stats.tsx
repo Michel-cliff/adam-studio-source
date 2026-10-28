@@ -78,7 +78,7 @@ function ImportStats({ s, onPick }: { s: ReturnType<typeof useAll>; onPick: (nam
   const run = async (files: File[]) => {
     const sum: Imported = { say: "", videos: [], added: [], off: [] };
     for (const [i, f] of files.entries()) {
-      setBusy(`${files.length > 1 ? `READING ${i + 1} OF ${files.length}` : "YOUR AI READS THE NUMBERS"} · ABOUT 20 S…`);
+      setBusy(`${files.length > 1 ? `READING ${i + 1} OF ${files.length}` : "ADAM READS THE NUMBERS"} · ABOUT 20 S…`);
       try {
         const j = await upload("/stats/import", f) as All & { imported: Imported };
         s.setAll(j); s.setError("");
@@ -99,7 +99,7 @@ function ImportStats({ s, onPick }: { s: ReturnType<typeof useAll>; onPick: (nam
         <span className="mono ok">{[n(done.videos.length, "VIDEO", "VIDEOS"), n(done.added.length, "NEW RULE", "NEW RULES"), done.off.length ? n(done.off.length, "RULE OFF", "RULES OFF") : ""].filter(Boolean).join(" · ")}</span>
         {done.say && <p>{done.say}</p>}
       </div>}
-      {!done && !busy && <p className="note">THE STATS PAGE OF A VIDEO, AS EXPORTED BY INSTAGRAM, TIKTOK OR YOUTUBE, OR A SCREENSHOT OF IT. YOUR AI READS VIEWS, WATCH TIME, LIKES, SHARES, ADVISES THE VIDEO AND UPDATES YOUR DOS AND DON'TS.</p>}
+      {!done && !busy && <p className="note">THE STATS PAGE OF A VIDEO, AS EXPORTED BY INSTAGRAM, TIKTOK OR YOUTUBE, OR A SCREENSHOT OF IT. ADAM READS VIEWS, WATCH TIME, LIKES, SHARES, ADVISES THE VIDEO AND UPDATES YOUR DOS AND DON'TS.</p>}
     </div>
   );
 }
@@ -120,9 +120,9 @@ function MyVideos({ s }: { s: ReturnType<typeof useAll> }) {
       <section className="center">
         <div className="head"><h1>YOUR VIDEO, ONCE EXPORTED</h1></div>
         <div className="perf"><div className="frame dummyframe" /><div className="metrics">{all.metrics.map((m) => <div key={m.k} className="kv"><span>{m.label}</span><b className="dim">—</b></div>)}</div></div>
-        <p className="note">EXPORT A VIDEO FROM THE STUDIO (WRAP), PUBLISH IT, THEN COME BACK WITH ITS NUMBERS: YOUR AI TELLS YOU WHAT WORKED.</p>
+        <p className="note">EXPORT A VIDEO FROM THE STUDIO (WRAP), PUBLISH IT, THEN COME BACK WITH ITS NUMBERS: ADAM TELLS YOU WHAT WORKED.</p>
       </section>
-      <aside className="status"><div className="h">WHAT YOUR AI APPLIES</div><p className="note">RULES APPEAR HERE AS YOUR AI LEARNS FROM YOUR VIDEOS.</p></aside>
+      <aside className="status"><div className="h">WHAT ADAM APPLIES</div><p className="note">RULES APPEAR HERE AS ADAM LEARNS FROM YOUR VIDEOS.</p></aside>
     </div>
   );
   const put = (body: Record<string, unknown>) => s.call(`/stats/videos/${enc(v.name)}`, "PUT", body);
@@ -171,7 +171,7 @@ function MyVideos({ s }: { s: ReturnType<typeof useAll> }) {
                   onBlur={(e) => { if (e.target.value !== (v.stats.metrics[m.k] ?? "")) void put({ metrics: { [m.k]: e.target.value } }); }}
                   onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} /></label>
             ))}
-            <p className="note">TYPE THEM IN, OR DROP A SCREENSHOT OF THE STATS PAGE: {"YOUR AI"} READS IT.</p>
+            <p className="note">TYPE THEM IN, OR DROP A SCREENSHOT OF THE STATS PAGE: ADAM READS IT.</p>
           </div>
         </div>
         <div className="talk">
@@ -180,11 +180,11 @@ function MyVideos({ s }: { s: ReturnType<typeof useAll> }) {
             <textarea id="worked" key={v.name} defaultValue={v.stats.note} onBlur={(e) => { if (e.target.value !== v.stats.note) void put({ note: e.target.value }); }} />
           </div>
           <div className="chatbox">
-            <div className="chathead"><span>{"YOUR AI"} ON {v.name.toUpperCase()}</span><span className="mono">{ai.split(" · ")[1] ?? ""}</span></div>
+            <div className="chathead"><span>ADAM ON {v.name.toUpperCase()}</span><span className="mono">{ai.split(" · ")[1] ?? ""}</span></div>
             <div className="msgs" ref={box}>
               {v.stats.chat.length === 0 && <p className="note">ASK ABOUT THIS VIDEO: WHY PEOPLE LEFT, WHAT TO KEEP, WHAT TO TRY NEXT.</p>}
-              {v.stats.chat.map((m, i) => <div key={i} className={`msg ${m.who}`}><b>{m.who === "you" ? "YOU" : "YOUR AI"}</b>{m.text}</div>)}
-              {busy === "chat" && <div className="msg ai"><b>{"YOUR AI"}</b><i className="pulse" /></div>}
+              {v.stats.chat.map((m, i) => <div key={i} className={`msg ${m.who}`}><b>{m.who === "you" ? "YOU" : "ADAM"}</b>{m.text}</div>)}
+              {busy === "chat" && <div className="msg ai"><b>ADAM</b><i className="pulse" /></div>}
             </div>
             <div className="chatin">
               <input aria-label="Ask about this video" placeholder="Why did people leave at 0:05?" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void send(); }} />
@@ -194,8 +194,8 @@ function MyVideos({ s }: { s: ReturnType<typeof useAll> }) {
         </div>
       </section>
 
-      <aside aria-label="What your AI applies" className="status">
-        <div className="h">WHAT {"YOUR AI"} APPLIES</div>
+      <aside aria-label="What Adam applies" className="status">
+        <div className="h">WHAT ADAM APPLIES</div>
         {applied.length === 0 && <p className="note">NOTHING YET: RULES COME FROM YOUR FEEDBACK, YOUR REFERENCES AND YOUR NUMBERS.</p>}
         <div className="scroll">
           {applied.map((r) => (
@@ -204,7 +204,7 @@ function MyVideos({ s }: { s: ReturnType<typeof useAll> }) {
           ))}
         </div>
         <p className="note sepline">FILLED SQUARE: FROM YOUR NUMBERS · EMPTY: FROM YOUR FEEDBACK OR A REFERENCE</p>
-        <button type="button" className="act fill" disabled={Boolean(busy)} onClick={() => void strategy()}>{busy === "strategy" ? "THINKING…" : `ASK ${"YOUR AI"} FOR THE NEXT STRATEGY`}</button>
+        <button type="button" className="act fill" disabled={Boolean(busy)} onClick={() => void strategy()}>{busy === "strategy" ? "THINKING…" : `ASK $ADAM FOR THE NEXT STRATEGY`}</button>
       </aside>
     </div>
   );
@@ -288,7 +288,7 @@ function Learned({ s }: { s: ReturnType<typeof useAll> }) {
   const [adding, setAdding] = useState(false);
   const [say, setSay] = useState("");
   const [busy, setBusy] = useState(false);
-  const ai = "YOUR AI";
+  const ai = "ADAM";
   const rules = all.rules.filter((r) => r.topic === topic);
   const kind = (src: string) => (src === "YOU" ? "From you" : src === "YOUR NUMBERS" ? "From your numbers" : src.startsWith("REFERENCE") ? "From references" : `From ${ai.toLowerCase()}`);
   const sources = Object.entries(all.rules.reduce<Record<string, number>>((a, r) => ({ ...a, [kind(r.source)]: (a[kind(r.source)] ?? 0) + 1 }), {}));
@@ -321,7 +321,7 @@ function Learned({ s }: { s: ReturnType<typeof useAll> }) {
         <div className="h">WHERE IT COMES FROM</div>
         {sources.length === 0 && <p className="note">NO RULE YET.</p>}
         {sources.map(([k, n]) => <div key={k} className="kv"><span>{k}</span><b>{n}</b></div>)}
-        <p className="readme">Every rule that is on travels with each ask to your AI, in the steps it belongs to. Turn one off to stop it without losing it.</p>
+        <p className="readme">Every rule that is on travels with each ask to Adam, in the steps it belongs to. Turn one off to stop it without losing it.</p>
         {adding ? (
           <div className="addrule">
             <textarea aria-label={`New ${TOPIC_NAMES[topic]} rule`} placeholder={`A ${TOPIC_NAMES[topic]!.toLowerCase()} rule, in a sentence`} value={text} onChange={(e) => setText(e.target.value)} autoFocus />
@@ -343,7 +343,7 @@ export function Stats({ view = "videos" }: { view?: string }) {
   useLang();
   const s = useAll();
   const v: View = view === "refs" ? "refs" : view === "learned" ? "learned" : "videos";
-  const views: [View, string, string][] = [["videos", "My videos", "#/stats"], ["refs", "References & trends", "#/stats/refs"], ["learned", "What your AI learned", "#/stats/learned"]];
+  const views: [View, string, string][] = [["videos", "My videos", "#/stats"], ["refs", "References & trends", "#/stats/refs"], ["learned", "What Adam learned", "#/stats/learned"]];
   const foot = v === "videos" ? "Your numbers stay on this computer. The AI reads them when you ask." : v === "refs" ? "The AI watches each reference once and keeps what it saw." : "Rules learned from your feedback, your references and your numbers.";
   return (
     <>

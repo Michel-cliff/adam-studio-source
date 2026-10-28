@@ -73,10 +73,10 @@ export function ConnectorsPanel({ onClose, onCount }: { onClose: () => void; onC
     try { set(await api<Connector[]>(`/connectors/${enc(c.name)}`, { method: "DELETE" })); } catch (e) { setNote((e as Error).message); }
   };
   return (
-    <Term title="connectors" note={note || "CONNECTED TOOLS YOUR AI MAY USE IN THIS PROJECT."} onClose={onClose}>
+    <Term title="connectors" note={note || "CONNECTED TOOLS ADAM MAY USE IN THIS PROJECT."} onClose={onClose}>
       <div className="tiles">
         {list?.map((c) => <Tile key={c.name} name={c.name} on={c.enabled} onLabel="ON" onClick={() => void toggle(c)}
-          title={c.source === "added" ? "Added here. Right-click to remove." : c.source === "claude-code" ? "From your AI's settings" : "Built in"} />)}
+          title={c.source === "added" ? "Added here. Right-click to remove." : c.source === "claude-code" ? "From Claude Code's settings" : "Built in"} />)}
         {list && list.length === 0 && <p className="tnote">No MCP server yet. Add one below.</p>}
       </div>
       <div className="tadd">

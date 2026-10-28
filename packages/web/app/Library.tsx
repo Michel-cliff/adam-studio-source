@@ -153,7 +153,7 @@ export function Library() {
           <div className="h">{(cur?.title ?? "").toUpperCase()}</div>
           <div className="kv"><span>Files</span><b>{cur?.count ?? 0}</b></div>
           <div className="kv"><span>Folder</span><b>references/{folder}</b></div>
-          <div className="kv"><span>Your AI reads it</span><b>{READS[folder] ?? "as references"}</b></div>
+          <div className="kv"><span>Adam reads it</span><b>{READS[folder] ?? "as references"}</b></div>
           <label htmlFor="lib-q" className="h small">{t("SEARCH THIS FOLDER")}</label>
           <input id="lib-q" placeholder="yellow, grain, whoosh…" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void search(); }} />
           <div className="kv"><span>Kind</span><select aria-label="Kind" value={kind} onChange={(e) => setKind(e.target.value)}>{KINDS.map((k) => <option key={k} value={k}>{k || "any"}</option>)}</select></div>

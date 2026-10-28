@@ -134,7 +134,7 @@ export async function statsRoute(c: Ctx): Promise<boolean> {
       const image = isImage(file);
       let said: string;
       try { said = await ai({ prompt: importPrompt(readStats(dir), image ? null : readFileSync(file, "utf8")), images: image ? [file] : [] }); }
-      catch { throw new StatsError("your AI could not open this file. Try a screenshot (PNG or JPG) of the same stats page."); }
+      catch { throw new StatsError("Adam could not open this file. Try a screenshot (PNG or JPG) of the same stats page."); }
       const answer = jsonIn<ImportAnswer>(said);
       const done = answer ? applyImport(dir, answer) : null;
       if (!done?.videos.length) throw new StatsError("no video's numbers were found in this file. Drop the statistics page of a video (views, watch time, likes...), as exported by Instagram, TikTok or YouTube, or a screenshot of it.");

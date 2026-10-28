@@ -97,7 +97,7 @@ export function diagnose(c: Ctx): Check[] {
     tool("deno", "Deno (for yt-dlp)", "deno", ["--version"], (o) => o !== null, firstLine),
     { id: "analysis", label: "Analysis environment", need: "required", ok: deps, detail: deps ? "Whisper, matting, inpainting" : venv ? "packages missing" : "not created", fixable: true },
     { id: "models", label: "Analysis models", need: "required", ok: models, detail: models ? "Whisper large-v3-turbo, RobustVideoMatting" : "not downloaded (about 2 GB)", fixable: true },
-    { id: "ai", label: "Your AI (Claude Code or Codex)", need: "required", ok: claude !== null || codex !== null,
+    { id: "ai", label: "Adam's engine (Claude Code or Codex)", need: "required", ok: claude !== null || codex !== null,
       detail: [claude && "Claude Code", codex && "Codex"].filter(Boolean).join(" + ") || "none", fixable: true, hint: "then sign in once: claude, or codex" },
     { id: "skill", label: "adam-studio skill", need: "required", ok: p.exists(join(c.home, ".claude", "skills", "adam-studio", "SKILL.md")), detail: "", fixable: true },
     { id: "disk", label: "10 GB free", need: "required", ok: free === null || free >= 10, detail: free === null ? "" : `${Math.floor(free)} GB free`, fixable: false, hint: "free some space on this disk" },
