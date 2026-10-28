@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { Command } from "./actions";
 import { adamServer, askBrief, type AskExtras } from "./claude";
@@ -10,7 +10,14 @@ export function codexBin(): string {
   if (process.env.ADAM_CODEX) return process.env.ADAM_CODEX;
   const npm = process.env.APPDATA ? join(process.env.APPDATA, "npm", "node_modules", "@openai", "codex") : "";
   const exe = npm && ["win32-x64", "win32-arm64"].map((p) => join(npm, "node_modules", "@openai", `codex-${p}`, "vendor", p === "win32-x64" ? "x86_64-pc-windows-msvc" : "aarch64-pc-windows-msvc", "bin", "codex.exe")).find(existsSync);
-  return exe || "codex";
+  if (exe) return exe;
+  // The Codex desktop app ships its own CLI under %LOCALAPPDATA%/OpenAI/Codex/bin/<build>/codex.exe.
+  const app = process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, "OpenAI", "Codex", "bin") : "";
+  if (app && existsSync(app)) {
+    const found = readdirSync(app).map((d) => join(app, d, "codex.exe")).filter(existsSync).sort((x, y) => statSync(y).mtimeMs - statSync(x).mtimeMs)[0];
+    if (found) return found;
+  }
+  return "codex";
 }
 
 /** Whether a command can be started: an existing file, or a name the PATH resolves. */

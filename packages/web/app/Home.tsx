@@ -41,19 +41,29 @@ function Keys() {
 
 /** Use the creator's Claude subscription the allowed way: Adam Studio as a connector of their own Claude Desktop. */
 function Desktop() {
+  return (
+    <>
+      <div className="kv sep"><span>OR YOUR SUBSCRIPTION</span><b className="dim">IN THE AI'S OWN APP</b></div>
+      <Connect name="Claude Desktop" path="claude-desktop" install="https://claude.ai/download" />
+      <Connect name="Codex" path="codex" install="https://openai.com/codex/" />
+    </>
+  );
+}
+
+/** One AI app the studio can plug into as a connector: the creator works in that app, on their own subscription. */
+function Connect({ name, path, install }: { name: string; path: string; install: string }) {
   const [s, setS] = useState<{ app: boolean; connected: boolean } | null>(null);
   const [err, setErr] = useState("");
-  useEffect(() => { api<typeof s>("/connect/claude-desktop").then(setS, () => {}); }, []);
-  const connect = async () => { try { setS(await api<typeof s>("/connect/claude-desktop", { method: "POST" })); setErr(""); } catch (e) { setErr((e as Error).message); } };
+  useEffect(() => { api<typeof s>(`/connect/${path}`).then(setS, () => {}); }, []);
+  const connect = async () => { try { setS(await api<typeof s>(`/connect/${path}`, { method: "POST" })); setErr(""); } catch (e) { setErr((e as Error).message); } };
   if (!s) return null;
   return (
     <>
-      <div className="kv sep"><span>OR YOUR SUBSCRIPTION</span><b className="dim">IN CLAUDE DESKTOP</b></div>
       <div className="kv">
-        <span>Claude Desktop</span>
-        {s.connected ? <b className="ok" title="Quit and reopen Claude Desktop once, then ask it about your Adam Studio projects.">CONNECTED · RESTART IT</b>
+        <span>{name}</span>
+        {s.connected ? <b className="ok" title={`Quit and reopen ${name} once, then ask it about your Adam Studio projects.`}>CONNECTED · RESTART IT</b>
           : s.app ? <button type="button" className="link" onClick={() => void connect()}>connect</button>
-          : <a href="https://claude.ai/download" target="_blank" rel="noreferrer">install it</a>}
+          : <a href={install} target="_blank" rel="noreferrer">install it</a>}
       </div>
       {err && <p className="error">{err}</p>}
     </>

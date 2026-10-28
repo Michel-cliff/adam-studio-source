@@ -19,7 +19,7 @@ import { libraryRoute } from "./library-routes";
 import { aiRunner, type AskAI } from "./ai";
 import { learnedFor } from "./stats";
 import { aiEnv, keyStatus, setKey } from "./keys";
-import { claudeDesktopConfig, claudeDesktopStatus, connectClaudeDesktop } from "./desktop";
+import { claudeDesktopConfig, claudeDesktopStatus, codexConfig, codexStatus, connectClaudeDesktop, connectCodex } from "./desktop";
 import { adamServer } from "./claude";
 import { statsRoute } from "./stats-routes";
 import { draftScript, readScript, saveScript } from "./script";
@@ -117,6 +117,11 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     if (path === "/api/connect/claude-desktop" && method === "POST") {
       try { connectClaudeDesktop(claudeDesktopConfig(), adamServer()); } catch (e) { throw new HttpError(400, (e as Error).message); }
       return send(res, 200, claudeDesktopStatus());
+    }
+    if (path === "/api/connect/codex" && method === "GET") return send(res, 200, codexStatus());
+    if (path === "/api/connect/codex" && method === "POST") {
+      try { connectCodex(codexConfig(), adamServer()); } catch (e) { throw new HttpError(400, (e as Error).message); }
+      return send(res, 200, codexStatus());
     }
     if (path === "/api/keys" && method === "GET") return send(res, 200, keyStatus(dirname(settingsFile)));
     if (path === "/api/keys" && method === "PUT") {
