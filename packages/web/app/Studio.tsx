@@ -229,6 +229,14 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
   const chosenKey = pending && pick?.proposal === pending.id ? pick.key : pending?.variants[0]?.key ?? null;
   const chosen = pending?.variants.find((v) => v.key === chosenKey);
 
+  // A project being created: its analysis job writes project.json at the end. Show the job, then open the studio.
+  if (!view && jobId) return (
+    <div className="creating">
+      <Halftone fx="wave" step={6} className="creatingwave" />
+      <p className="mono">ANALYZING {name.toUpperCase()}: TAKES, TRANSCRIPT, CUT-OUT… A FEW MINUTES</p>
+      <JobLog id={jobId} onEnd={() => void load()} />
+    </div>
+  );
   if (!view) return <div className="center-msg">{error ? <p className="error">{error}</p> : <p className="mono">OPENING THE PROJECT</p>}</div>;
   const running = view.jobs.find((j) => j.state === "running");
   const claudeJob = view.jobs.find((j) => aiOf(j.label) && (j.state === "running" || Date.now() - (j.endedAt ?? 0) < 60_000) && groupOf(aiOf(j.label)!.step) === g);
