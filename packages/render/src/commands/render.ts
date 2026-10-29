@@ -6,6 +6,7 @@ import { analysisPython, ensureAnalysis } from "../analysis";
 import { bundleWithMedia, renderVideo } from "../engine";
 import { exportChecks } from "../lib/checks";
 import { confidenceWarnings, wordConfidence } from "../lib/confidence";
+import { applyAccent } from "../lib/accent";
 import { applyLegibility } from "../lib/legibility";
 import { audioGate, blackShare, measureLoudness, noiseFloor, normalizeLoudness, silenceShare } from "../lib/loudness";
 import { expandEnv, planMedia } from "../media";
@@ -72,7 +73,8 @@ export async function renderCommand(projectDir: string, opts: { out?: string; fr
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(join(dir, "renders", `${name}.timeline.json`), `${JSON.stringify(timeline, null, 2)}\n`);
   // Each caption's treatment and height, from the frames under it (cached until the edit changes).
-  const readable = applyLegibility(dir, timeline, analysisPython, true);
+  // The accent from the takes (untouched default style only), then each caption's treatment and height.
+  const readable = applyLegibility(dir, applyAccent(dir, timeline, project, analysisPython, true), analysisPython, true);
   // The edit's own checks come before the render: a refusal costs no rendering time.
   const checks = exportChecks(readable, project.transcript.words);
   checks.warnings.push(...confidenceWarnings(readable, wordConfidence(dir, [...new Set(readable.clips.map((c) => c.asset))])));

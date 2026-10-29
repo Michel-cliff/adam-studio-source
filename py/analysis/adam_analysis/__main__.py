@@ -17,10 +17,17 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--fps", type=int, default=30)
     r.add_argument("--lang")
     r.add_argument("--force", action="store_true")
+    acc = sub.add_parser("accent")
+    acc.add_argument("spec")
+    acc.add_argument("out")
     leg = sub.add_parser("legibility")
     leg.add_argument("spec")
     leg.add_argument("out")
     args = parser.parse_args(argv)
+    if args.command == "accent":
+        from .accent import run as accent
+        accent(args.spec, args.out)
+        return 0
     if args.command == "legibility":
         from .legibility import run as legibility
         legibility(args.spec, args.out)
