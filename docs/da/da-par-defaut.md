@@ -59,7 +59,7 @@ Ce sont des tests, pas des intentions : chaque point a sa ligne dans les tables 
 Toutes les durées de cette spec sont en millisecondes, et le moteur travaille en images. Règle : **arrondi à l'image
 la plus proche, jamais à zéro.** À 30 i/s, 60 ms font 2 images, 120 ms en font 4.
 
-## Couleur : dérivée du rush (à faire)
+## Couleur : dérivée du rush (en place)
 
 Deux neutres fixes, une couleur d'accent extraite de l'image.
 
@@ -78,11 +78,15 @@ Contraste encre / papier : 16,7:1. Jamais d'accent en corps de texte.
 4. Prendre le mode. Si le deuxième pèse plus de 80 % du premier, prendre le plus éloigné de la teinte de peau.
 5. Reconstruire : `oklch(0.74 0.15 H)` sur encre, `oklch(0.48 0.15 H)` sur papier.
 
-Pire cas mesuré sur 360° : 8,0:1 sur encre, 4,9:1 sur papier. Vérifié : `#FB817A` sur `#121212` donne 7,58:1.
+Pire cas mesuré sur 360° : 8,0:1 sur encre, 4,9:1 sur papier. Vérifié : `#FB817A` sur `#121212` donne 7,58:1 ; la
+conversion du moteur retrouve les 16 couleurs du tableau à 3 niveaux près, et 4,5:1 tient tous les 5°. Sur la prise de
+référence, l'affiche orange du décor donne la teinte 35°, soit `#FA8467`.
 
-**Repli** (pas de rush, rush monochrome, chroma dominant < 0,04) : `H = hash(id du projet) mod 360`, où l'id est
-**un identifiant stable écrit dans project.json à la création**, pas le nom du dossier : renommer un projet ne doit
-pas changer sa couleur.
+La dérivation ne s'applique qu'au style par défaut intact : un style choisi par le créateur, ou des couleurs qu'il a
+réglées, l'emportent. Elle remplace la couleur de surlignage et l'accent par une seule couleur.
+
+**Repli** (pas de rush, rush monochrome, chroma dominant < 0,04) : `H = hash(clé du projet) mod 360`, où la clé est
+faite des fichiers sources des prises, pas du nom du projet : renommer un projet ne change pas sa couleur.
 
 Règles d'emploi au run 1 : une seule teinte d'accent ; l'accent souligne un mot déjà lisible, il ne porte jamais
 l'information seul ; surface d'accent ≤ 8 % de l'image sur un plan ; aucun dégradé, aucune ombre colorée, aucun glow.
@@ -169,20 +173,27 @@ refonte d'app.
 
 | Paramètre | Valeur | État |
 |---|---|---|
-| Mots par carton | 3 à 5 | à faire (aujourd'hui : coupe au sens, aux pauses et à la longueur de ligne du style) |
-| Caractères par carton | 32 max | à faire |
+| Mots par carton | 3 à 5 | en place (premier jet) |
+| Caractères par carton | 32 max | en place (premier jet) |
 | Lignes | 2 max | en place |
-| Durée à l'écran | 0,8 s min, 3,5 s max | à faire |
-| Apparition | 60 ms avant le premier mot (2 images à 30 i/s) | à faire |
-| Disparition | 120 ms après le dernier mot (4 images) | à faire |
-| Silence > 1,2 s | zone vidée | à faire |
+| Durée à l'écran | 0,8 s min, 3,5 s max | en place ; un carton tenu sous 0,8 s par le suivant est fusionné au premier jet, nommé à l'export pour les anciens |
+| Apparition | 60 ms avant le premier mot (2 images à 30 i/s) | en place |
+| Disparition | 120 ms après le dernier mot (4 images) | en place |
+| Silence > 1,2 s | zone vidée | en place (le carton part 120 ms après son dernier mot) |
+
+La découpe ne finit jamais sur un article ou une préposition (il passe au carton suivant, avec son nom). Un carton
+coupé en deux par une coupe garde l'avance avant son premier morceau et la traîne après son dernier, rien à la coupe.
+Les élisions, les mots composés et les domaines que la transcription sépare sont recollés (« n'ai », « est-ce »,
+« jobless.fr »), y compris dans les sous-titres déjà écrits.
 
 Pas de fondu à l'apparition ni à la disparition. Le mot en cours passe en couleur d'accent, par simple changement de
 couleur : pas d'agrandissement, pas de rebond. Ponctuation : points finaux retirés, `?` et `!` gardés. Aucune
 reformulation : le sous-titre dit ce qui a été dit.
 
-**Confiance de transcription (à faire).** Whisper donne une probabilité par mot. ≥ 0,80 : normal ; 0,60 à 0,80 :
-listé dans le panneau de relecture ; < 0,60 : listé et compté, plus de 3 déclenchent un avertissement avant export.
+**Confiance de transcription (en place).** Whisper donne une probabilité par mot. ≥ 0,80 : normal ; 0,60 à 0,80 :
+souligné en orange dans la timeline, avec sa confiance au survol ; < 0,60 : souligné en rouge et compté, plus de 3
+déclenchent un avertissement à l'export qui nomme leurs timecodes. Une langue détectée sous 0,70 est signalée. Sur la
+prise de référence : 18 mots à revoir, dont 6 sous 0,60.
 
 ## Rythme
 
@@ -202,10 +213,13 @@ La coupe tombe au milieu du silence gardé : avec 0,25 s, 125 ms de chaque côt�
 
 C'est la variante A du premier jet ; la variante B (légère : hésitations et pauses de plus de 0,9 s) reste proposée.
 
-### Rythme visuel (à faire)
+### Rythme visuel
 
-Premier changement visuel avant 2,0 s. Poussée continue face caméra de 0,8 à 1,5 % par seconde, 8 % au plus par plan,
-1,12× au plus en cumulé, sens alterné d'un plan au suivant. Plan de 12 s au plus sans changement. Dernier plan coupé
+**En place :** poussée continue face caméra de 1,2 % par seconde sur les plans dont personne n'a réglé le zoom, sens
+alterné d'un plan au suivant (l'un pousse depuis 1,00, le suivant revient à 1,00), 8 % au plus par plan, donc 1,08× au
+plus. Le premier changement visuel après 2,0 s est signalé à l'export.
+
+**À faire :** Plan de 12 s au plus sans changement. Dernier plan coupé
 400 ms après le dernier mot, sans fondu au noir. Flou de périphérie couplé à la poussée (1,2 à 2,2 px, masque autour
 du visage, désactivé quand le visage dépasse 55 % de la hauteur) ; le texte est composité en dernier et jamais flouté.
 
@@ -280,15 +294,13 @@ Un export refusé est renommé `.refused.mp4` (il ne passe jamais pour une vidé
 | Crête vraie | ≤ −1,0 dBTP | en place |
 | Plancher de bruit (voix traitée, avant gain) | ≤ −35 dBFS | en place |
 | Silence total | ≤ 15 % de la durée | en place |
-| Texte hors de la zone sûre | x 72–900, y 269–1248, respiration 24 px | à faire |
+| Sous-titre hors de la zone sûre | x 72–900, y 269–1248, respiration 24 px | en place (sous-titres ; titres à faire) |
 | Texte sur les yeux ou la bouche | aucune image | placement en place, test à faire |
 | Contraste texte / fond réel | ≥ 4,5:1 | traitement en place, mesure du contraste rendu à faire |
-| Coupe à l'intérieur d'un mot | aucune | à faire |
-| Carton de sous-titre | ≥ 0,8 s | à faire |
-| Sous-titre sur plus de 2 lignes | aucun | à faire |
-| Image noire | aucune | à faire |
-| Couleurs d'accent | 1 | à faire |
-| Familles typographiques | ≤ 2 | à faire |
+| Coupe à l'intérieur d'un mot | aucune | en place : réparée avant le rendu (le clip qui tient la plus grande part du mot le garde entier) |
+| Sous-titre sur plus de 2 lignes | aucun | en place |
+| Image noire | aucune | en place |
+| Familles typographiques | ≤ 2 | en place |
 | Zones occupées en même temps, hors sous-titres | 1 | à faire |
 | Contraste d'échelle, mode texte seul | ≥ 2,5:1 par carton | à faire |
 
@@ -298,13 +310,16 @@ Un export refusé est renommé `.refused.mp4` (il ne passe jamais pour une vidé
 |---|---|---|---|
 | Plancher de bruit | −45 à −35 dBFS | le son restera moyen, et pourquoi | en place |
 | Pause très longue | > 3,0 s | nomme l'endroit à revoir | en place |
-| Mots de confiance < 0,60 | > 3 | nomme les timecodes à relire | à faire |
-| Premier changement visuel | après 2,0 s | démarrage lent | à faire |
+| Mots de confiance < 0,60 | > 3 | nomme les timecodes à relire | en place |
+| Langue détectée | < 0,70 | vérifier la langue | en place |
+| Carton de sous-titre | < 0,8 s | à fusionner avec son voisin | en place |
+| Deux couleurs d'accent | | une suffit | en place |
+| Premier changement visuel | après 2,0 s | démarrage lent | en place |
 | Surface d'accent | > 8 % d'un plan | l'accent devient un fond | à faire |
 | Rush plus court que le script | rush < 0,8 × durée parlée | il manquera de l'image | à faire |
-| Aucune musique fournie | | une fois, sans insister | à faire |
+| Aucune musique fournie | | une fois, sans insister | en place |
 
-## Contrôle à l'ingestion, avant tout calcul (à faire)
+## Contrôle à l'ingestion, avant tout calcul (en place, sauf la langue du script)
 
 Refuser tôt coûte trente secondes ; découvrir le même défaut au run 1 coûte un run complet.
 
