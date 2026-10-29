@@ -1,4 +1,5 @@
-"""python -m adam_analysis run <projectDir> --video c01=<path> [--video ...] --steps edit,proxy [--fps 30] [--lang fr] [--force]"""
+"""python -m adam_analysis run <projectDir> --video c01=<path> [--video ...] --steps edit,proxy [--fps 30] [--lang fr] [--force]
+python -m adam_analysis legibility <spec.json> <out.json>"""
 import argparse
 import sys
 
@@ -16,7 +17,14 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--fps", type=int, default=30)
     r.add_argument("--lang")
     r.add_argument("--force", action="store_true")
+    leg = sub.add_parser("legibility")
+    leg.add_argument("spec")
+    leg.add_argument("out")
     args = parser.parse_args(argv)
+    if args.command == "legibility":
+        from .legibility import run as legibility
+        legibility(args.spec, args.out)
+        return 0
     try:
         videos = dict(v.split("=", 1) for v in args.video)
         run(args.project_dir, videos, [s for s in args.steps.split(",") if s], fps=args.fps, lang=args.lang, force=args.force)

@@ -36,6 +36,16 @@ Read this first; do not re-explore what is written here. Keep replies short, no 
   (`createApp({ settingsFile })` on port 4399, `projectsRoot` in that ui.json) and `makeSynthetic` from
   `packages/render/tests/e2e/synthetic.ts`.
 
+## Default art direction
+
+- The spec is `docs/da/da-par-defaut.md` (v2): each section says what is in place and what is left. Taste lives in
+  style.json and looks; what is derived from the rush is computed and cached; levels, safe zone and thresholds are
+  engine constants, never exposed.
+- Sound: voice chain at analysis (edit v2), ducking and breaths from `timeline.speech`, loudness and the export gate in
+  `render/src/lib/loudness.ts` (a refused export is renamed `.refused.mp4`).
+- Captions: treatment and height from `py/analysis/adam_analysis/legibility.py`, called at render, cached in
+  `cache/legibility.json` (bump VERSION in `render/src/lib/legibility.ts` when the rules change).
+
 ## Language
 
 - The interface is translated by `app/translate.ts` from the dictionary `app/i18n-fr.ts` (exact texts + patterns):

@@ -1,6 +1,7 @@
 import { resolve, withVariant, withoutVariant, type Project } from "@adam-studio/model";
 import { planMedia } from "@adam-studio/render/src/media";
 import type { MediaFiles } from "@adam-studio/render/src/props";
+import { applyLegibility } from "@adam-studio/render/src/lib/legibility";
 import { load, ToolError } from "./store";
 
 const plans = new Map<string, Map<string, string>>(); // project dir -> public path -> file on disk
@@ -19,6 +20,8 @@ export function previewData(dir: string, name: string, apply?: { proposal: strin
   const project = apply ? applied(loaded.project, apply) : loaded.project;
   let timeline;
   try { timeline = resolve(loaded.project, style, apply ? { apply } : {}); } catch (e) { throw new ToolError((e as Error).message); }
+  // The captions' legibility as the last render worked it out (cache only: a preview never waits for the analysis).
+  timeline = applyLegibility(dir, timeline, null, false);
   let plan;
   let note: string | undefined;
   try { plan = planMedia(dir, project, timeline, { preview: true }); } catch (e) {

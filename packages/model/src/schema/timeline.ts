@@ -40,6 +40,8 @@ export const TimelineCaptionSchema = z.object({
   highlightRanges: z.array(z.tuple([Frame, Frame])),
   x: z.number(),
   y: z.number(),
+  /** The least that keeps it readable on the frames under it: 0 soft shadow, 1 stronger shadow, 2 outline, 3 plate. */
+  treatment: z.number().int().min(0).max(3).optional(),
 });
 
 export const TimelineBeatSchema = z.object({ role: z.string(), fromFrame: Frame, toFrame: Frame });

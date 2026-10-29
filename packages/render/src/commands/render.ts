@@ -2,8 +2,9 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve as resolvePath } from "node:path";
 import { lint, resolve, type Project, type Timeline } from "@adam-studio/model";
-import { ensureAnalysis } from "../analysis";
+import { analysisPython, ensureAnalysis } from "../analysis";
 import { bundleWithMedia, renderVideo } from "../engine";
+import { applyLegibility } from "../lib/legibility";
 import { audioGate, measureLoudness, noiseFloor, normalizeLoudness, silenceShare } from "../lib/loudness";
 import { expandEnv, planMedia } from "../media";
 import { CliError, loadProject } from "../project-io";
@@ -64,7 +65,9 @@ export async function renderCommand(projectDir: string, opts: { out?: string; fr
   const out = opts.out ? resolvePath(opts.out) : join(dir, "renders", scale > 1 ? `${name}@${scale}x.mp4` : `${name}.mp4`);
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(join(dir, "renders", `${name}.timeline.json`), `${JSON.stringify(timeline, null, 2)}\n`);
-  await renderVideo(serveUrl, { timeline, media: plan.media, fonts: plan.fonts }, out, parseFrames(opts.frames), { scale });
+  // Each caption's treatment and height, from the frames under it (cached until the edit changes).
+  const readable = applyLegibility(dir, timeline, analysisPython, true);
+  await renderVideo(serveUrl, { timeline: readable, media: plan.media, fonts: plan.fonts }, out, parseFrames(opts.frames), { scale });
   if (!opts.frames) finishSound(out);
   console.log(`wrote ${out}`);
   return out;
