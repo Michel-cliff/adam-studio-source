@@ -673,3 +673,6 @@ kbd { font: 600 11px var(--mono); padding: 2px 6px; border: 1px solid var(--crea
 .stage > *:not(.frame) { flex: none; }
 .stage .switchrow { justify-content: center; max-width: 100%; }
 .stage .switchrow .vchip { max-width: 260px; }
+/* Words heard with little confidence: underlined, to check (orange under 0.80, red under 0.60) */
+.word.doubt { text-decoration: underline wavy rgba(242,193,78,.85); text-underline-offset: 4px; }
+.word.doubt.low { text-decoration-color: #FF8A80; }

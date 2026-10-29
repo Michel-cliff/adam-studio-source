@@ -2,6 +2,7 @@ import { Player, type PlayerRef } from "@remotion/player";
 import { Edit } from "@adam-studio/render/edit";
 import type { RenderProps } from "@adam-studio/render/src/props";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { gluesToPrevious } from "@adam-studio/model";
 import { api, enc, go } from "./api";
 import { t as tr, useLang } from "./i18n";
 import { pack, stripSlots } from "./lanes";
@@ -243,7 +244,7 @@ function Inspector({ raw, props, selected, edit }: { raw: Raw; props: RenderProp
   );
 }
 
-function Words({ raw, props, frame, seek, edit, sel, setSel }: { raw: Raw; props: RenderProps; frame: number; seek: (f: number) => void; edit: (body: Raw) => Promise<boolean>; sel: WordSel; setSel: (s: WordSel) => void }) {
+function Words({ name, raw, props, frame, seek, edit, sel, setSel }: { name: string; raw: Raw; props: RenderProps; frame: number; seek: (f: number) => void; edit: (body: Raw) => Promise<boolean>; sel: WordSel; setSel: (s: WordSel) => void }) {
   const [minPause, setMinPause] = useState(600);
   const box = useRef<HTMLDivElement>(null);
   const words: Record<string, Word[]> = raw.transcript?.words ?? {};
@@ -263,6 +264,9 @@ function Words({ raw, props, frame, seek, edit, sel, setSel }: { raw: Raw; props
     return best?.id ?? null;
   }, [frame, raw, props]);
   useEffect(() => { box.current?.querySelector(".word.now")?.scrollIntoView({ block: "nearest" }); }, [now]);
+  // Words Adam heard with little confidence (under 0.80), underlined: three clicks to check them, not a full read.
+  const [doubts, setDoubts] = useState<Record<string, number>>({});
+  useEffect(() => { api<Record<string, number>>(`/projects/${enc(name)}/confidence`).then(setDoubts, () => setDoubts({})); }, [name]);
   const chosen = wordsIn(raw, sel);
   return (
     <section aria-label="Transcript" className="words-col">
@@ -274,13 +278,14 @@ function Words({ raw, props, frame, seek, edit, sel, setSel }: { raw: Raw; props
             {list.map((w, i) => {
               const inSel = sel?.asset === asset && i >= Math.min(sel.from, sel.to) && i <= Math.max(sel.from, sel.to);
               return (
-                <span key={w.id} className={`word${kept(asset, w) ? "" : " cut"}${inSel ? " sel" : ""}${w.id === now ? " now" : ""}`} title={`${w.id} ${(w.startMs / 1000).toFixed(2)} s`}
+                <span key={w.id} className={`word${kept(asset, w) ? "" : " cut"}${inSel ? " sel" : ""}${w.id === now ? " now" : ""}${doubts[w.id] !== undefined ? doubts[w.id]! < 0.6 ? " doubt low" : " doubt" : ""}`}
+                  title={doubts[w.id] !== undefined ? `Adam heard this word with ${Math.round(doubts[w.id]! * 100)} % confidence: check it` : `${w.id} ${(w.startMs / 1000).toFixed(2)} s`}
                   onClick={(e) => {
                     if (e.shiftKey && sel?.asset === asset) setSel({ ...sel, to: i });
                     else setSel({ asset, from: i, to: i });
                     const f = frameOf(asset, w.startMs);
                     if (f !== null) seek(f);
-                  }}>{w.text} </span>
+                  }}>{w.text}{list[i + 1] && gluesToPrevious(list[i + 1]!.text) ? "" : " "}</span>
               );
             })}
           </p>
@@ -397,7 +402,7 @@ export function Editor({ name }: { name: string }) {
                 <span>{clock(sec)}</span>
               </div>
             </div>
-            <Words raw={raw} props={props} frame={frame} seek={seek} edit={edit} sel={wordSel} setSel={setWordSel} />
+            <Words name={name} raw={raw} props={props} frame={frame} seek={seek} edit={edit} sel={wordSel} setSel={setWordSel} />
             <Inspector raw={raw} props={props} selected={selected} edit={edit} />
           </div>
           <Lanes props={props} raw={raw} frame={frame} selected={selected} select={setSelected} seek={seek}

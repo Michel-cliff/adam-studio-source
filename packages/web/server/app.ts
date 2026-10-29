@@ -21,6 +21,7 @@ import { aiRunner, type AskAI } from "./ai";
 import { learnedFor } from "./stats";
 import { Autopilot } from "./autopilot";
 import type { JobView } from "./types";
+import { wordConfidence } from "@adam-studio/render/src/lib/confidence";
 import { Doctor } from "./doctor-routes";
 import { keyStatus, PROVIDERS, setKey } from "./keys";
 import { claudeDesktopConfig, claudeDesktopStatus, codexConfig, codexStatus, connectClaudeDesktop, connectCodex } from "./desktop";
@@ -298,6 +299,13 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       if ((await body(req)).action === "stop") { autopilot.stop(name); return send(res, 200, autopilot.status(name)); }
       try { void autopilot.start(name, dir).then(() => notify(name)); } catch (e) { throw new HttpError(409, (e as Error).message); }
       return send(res, 202, autopilot.status(name));
+    }
+    // The words Adam heard with little confidence (under 0.80), for the timeline to underline.
+    if ((m = path.match(/^\/api\/projects\/([^/]+)\/confidence$/)) && method === "GET") {
+      const { dir } = existing(m[1]!);
+      const raw = loadRaw(dir) as { transcript?: { words?: Record<string, unknown> } };
+      const c = wordConfidence(dir, Object.keys(raw.transcript?.words ?? {}));
+      return send(res, 200, Object.fromEntries(Object.entries(c.words).filter(([, p]) => p < 0.8)));
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/thumb$/)) && method === "GET") {
       const { dir } = existing(m[1]!);

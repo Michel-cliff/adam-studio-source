@@ -5,6 +5,7 @@ import { lint, repairCuts, resolve, type Project, type Timeline } from "@adam-st
 import { analysisPython, ensureAnalysis } from "../analysis";
 import { bundleWithMedia, renderVideo } from "../engine";
 import { exportChecks } from "../lib/checks";
+import { confidenceWarnings, wordConfidence } from "../lib/confidence";
 import { applyLegibility } from "../lib/legibility";
 import { audioGate, blackShare, measureLoudness, noiseFloor, normalizeLoudness, silenceShare } from "../lib/loudness";
 import { expandEnv, planMedia } from "../media";
@@ -74,6 +75,7 @@ export async function renderCommand(projectDir: string, opts: { out?: string; fr
   const readable = applyLegibility(dir, timeline, analysisPython, true);
   // The edit's own checks come before the render: a refusal costs no rendering time.
   const checks = exportChecks(readable, project.transcript.words);
+  checks.warnings.push(...confidenceWarnings(readable, wordConfidence(dir, [...new Set(readable.clips.map((c) => c.asset))])));
   for (const w of checks.warnings) console.log(`warning: ${w}`);
   if (checks.blocking.length && !opts.frames) throw new CliError(`Export refused: ${checks.blocking.join("; ")}.`);
   await renderVideo(serveUrl, { timeline: readable, media: plan.media, fonts: plan.fonts }, out, parseFrames(opts.frames), { scale });

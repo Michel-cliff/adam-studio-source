@@ -42,6 +42,11 @@ export function normalizeWord(text: string): string {
 // A piece the transcript splits off a word: an elision ('ai, ’est), a hyphenated end (-ce, -entreprise), a domain (.fr).
 const GLUED = /^(['’]\p{L}|-\p{L}|\.\p{L})/u;
 
+/** Whether a transcript piece is written against the word before it (an elision, a hyphenated end, a domain). */
+export function gluesToPrevious(word: string): boolean {
+  return GLUED.test(word.trim());
+}
+
 /** The words of a passage as they are written: elisions, hyphenated words and domains glued back, the rest spaced. */
 export function joinWords(words: string[]): string {
   return words.map((w) => w.trim()).filter(Boolean).reduce((out, w) => (!out ? w : GLUED.test(w) ? out + w : `${out} ${w}`), "");
