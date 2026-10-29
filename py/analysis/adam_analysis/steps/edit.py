@@ -1,10 +1,11 @@
-"""edit.mp4: the take as the renderer reads it; proxy.mp4: half size for previews."""
+"""edit.mp4: the take as the renderer reads it, its voice cleaned once; proxy.mp4: half size for previews."""
+import re
 import subprocess
 from pathlib import Path
 
 from ..errors import AnalysisError
 
-VERSION = 1
+VERSION = 2  # 2: the voice chain of the default art direction
 LONG_SIDE = 1920
 
 
@@ -21,6 +22,29 @@ def ffmpeg(args: list[str], what: str) -> None:
         raise AnalysisError(f"{what} failed: {r.stderr.strip()[-400:]}")
 
 
+def noise_floor(src: Path) -> float:
+    """The take's noise floor in dBFS (the level of its quietest stretches); -120 when there is no sound."""
+    r = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", str(src), "-af", "astats=measure_perchannel=none:measure_overall=Noise_floor",
+                        "-f", "null", "-"], capture_output=True, text=True)
+    m = re.search(r"Noise floor dB: (-?[\d.]+)", r.stderr)
+    return float(m.group(1)) if m else -120.0
+
+
+def voice_filter(floor: float) -> str:
+    """The voice chain of the default art direction, applied once to the take.
+
+    A low-cut at 80 Hz (12 dB per octave: handling and table rumble); noise reduction only when the room is loud
+    (floor above -50 dBFS), capped at 8 dB, since stronger reduction is heard more than the noise it removes; a light
+    de-esser (sibilants around 5 to 8 kHz); compression 3:1 from -18 dB, 10 ms attack, 100 ms release. The final level
+    is set on the finished video (-14 LUFS), not here.
+    """
+    chain = ["highpass=f=80:poles=2"]
+    if floor > -50:
+        chain.append(f"afftdn=nr=8:nf={round(max(-80.0, min(-20.0, floor)))}")
+    chain += ["deesser=i=0.4:m=0.5:f=0.5", "acompressor=threshold=-18dB:ratio=3:attack=10:release=100"]
+    return ",".join(chain)
+
+
 def encode(fps: int, audio_kbps: int) -> list[str]:
     return ["-r", str(fps), "-c:v", "libx264", "-crf", "18", "-preset", "medium", "-g", str(fps), "-bf", "0",
             "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", f"{audio_kbps}k"]
@@ -32,7 +56,9 @@ def make_edit(src: Path, dst: Path, fps: int) -> None:
     info = probe(src)
     w, h = edit_size(info["width"], info["height"])
     # ffmpeg applies the rotation flag itself; no -shortest, so the video keeps its last partial frame.
-    ffmpeg(["-i", str(src), "-vf", f"scale={w}:{h}:flags=lanczos", *encode(fps, 192), str(dst)], f"edit.mp4 from {src}")
+    # The voice is mono at 48 kHz: a phone's stereo voice is correlated noise, not space.
+    voice = ["-af", voice_filter(noise_floor(src)), "-ac", "1", "-ar", "48000"] if info["hasAudio"] else []
+    ffmpeg(["-i", str(src), "-vf", f"scale={w}:{h}:flags=lanczos", *voice, *encode(fps, 192), str(dst)], f"edit.mp4 from {src}")
 
 
 def make_proxy(edit: Path, dst: Path, fps: int) -> None:

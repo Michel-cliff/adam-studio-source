@@ -63,7 +63,8 @@ Sound, rules:
 - Speech first; silence is valid. Effects follow visible events: click for a UI action, pop for an element arriving, whoosh for a motivated move, impact for a reveal, tick for a step.
 - Put each sound on the first frame that shows its event; struck sounds on their attack, whooshes peak on the move. Merge cues closer than about 6 frames.
 - Density: about 6 to 12 subtle sounds per minute on graphics, none on bare cuts, never on a spoken word; a meme sound at most 1 to 3 per minute, in the pause after the punchline, never twice the same.
-- Layer only the two or three biggest moments (riser into an impact on the reveal). Duck everything under the voice.
+- Layer only the two or three biggest moments (riser into an impact on the reveal). The studio ducks music beds 12 dB under the voice by itself: do not lower them by hand.
+- A music bed starts after the hook, never on the first sentence (the viewer is deciding whether to stay): at the first pause after the hook, rising over 0.6 s, and ends with a 0.8 s fall before the last frame. No music is better than music that fights the voice.
 
 Type and look, rules:
 - One coherent type hierarchy: one display face, one caption face, real bold weights. Colors that work with the real footage; light accents need dark text.

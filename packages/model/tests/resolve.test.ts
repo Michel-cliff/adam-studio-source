@@ -104,3 +104,17 @@ describe("resolve: audio and style", () => {
     expect(tl.style.colors).toEqual({ text: "#FFFFFF", highlight: "#00FF00", accent: "#FF6B35", ink: "#0E0C0A" });
   });
 });
+
+describe("speech spans", () => {
+  it("lists when words are said in the edit, sorted, merged, inside the video", () => {
+    const t = resolve(makeProject(), makeStyle());
+    expect(t.speech.length).toBeGreaterThan(0);
+    const end = (t.durationFrames * 1000) / t.fps;
+    t.speech.forEach(([a, b], i) => {
+      expect(a).toBeLessThan(b);
+      expect(a).toBeGreaterThanOrEqual(0);
+      expect(b).toBeLessThanOrEqual(end + 1);
+      if (i) expect(a).toBeGreaterThan(t.speech[i - 1]![1]);
+    });
+  });
+});

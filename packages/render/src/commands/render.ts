@@ -1,9 +1,10 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve as resolvePath } from "node:path";
 import { lint, resolve, type Project, type Timeline } from "@adam-studio/model";
 import { ensureAnalysis } from "../analysis";
 import { bundleWithMedia, renderVideo } from "../engine";
+import { audioGate, measureLoudness, noiseFloor, normalizeLoudness, silenceShare } from "../lib/loudness";
 import { expandEnv, planMedia } from "../media";
 import { CliError, loadProject } from "../project-io";
 
@@ -64,6 +65,34 @@ export async function renderCommand(projectDir: string, opts: { out?: string; fr
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(join(dir, "renders", `${name}.timeline.json`), `${JSON.stringify(timeline, null, 2)}\n`);
   await renderVideo(serveUrl, { timeline, media: plan.media, fonts: plan.fonts }, out, parseFrames(opts.frames), { scale });
+  if (!opts.frames) finishSound(out);
   console.log(`wrote ${out}`);
   return out;
+}
+
+const hasSound = (file: string) => {
+  try { return execFileSync("ffprobe", ["-v", "error", "-select_streams", "a", "-show_entries", "stream=index", "-of", "csv=p=0", file], { encoding: "utf8" }).trim() !== ""; }
+  catch { return false; }
+};
+
+/**
+ * The finished sound, as the default art direction fixes it: normalised to -14 LUFS (true peak -1.5 dBTP), then
+ * checked. A failed check refuses the export: the file is renamed .refused.mp4, so it never passes for a finished
+ * video, and the reasons are given.
+ */
+export function finishSound(out: string): void {
+  if (!hasSound(out)) return;
+  // The noise floor is judged on the processed voice, before the final gain lifts everything (+10 dB on a real take).
+  const floor = noiseFloor(out);
+  const before = normalizeLoudness(out);
+  const after = measureLoudness(out);
+  console.log(`sound: ${before.i.toFixed(1)} -> ${after.i.toFixed(1)} LUFS, true peak ${after.tp.toFixed(1)} dBTP, noise floor ${floor.toFixed(0)} dBFS`);
+  const issues = audioGate(after);
+  if (floor > -35) issues.push(`the background noise is at ${floor.toFixed(0)} dBFS: no setting saves this take, record again closer to the mic`);
+  else if (floor > -45) console.log(`warning: the background noise is at ${floor.toFixed(0)} dBFS, the sound will stay average (a quieter room or a closer mic helps)`);
+  const silent = silenceShare(out);
+  if (silent > 0.15) issues.push(`${Math.round(silent * 100)} % of the video is total silence (more than 15 %)`);
+  if (!issues.length) return;
+  renameSync(out, out.replace(/\.mp4$/i, ".refused.mp4"));
+  throw new CliError(`Export refused: ${issues.join("; ")}.`);
 }

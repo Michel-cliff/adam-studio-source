@@ -6,7 +6,7 @@ const lintRules = { minDurationMs: 0, maxDurationMs: 60000, maxPauseMs: 350 };
 export const EMPTY_PROPS: RenderProps = {
   timeline: {
     format: "9:16", width: 1080, height: 1920, fps: 30, durationFrames: 1,
-    clips: [], elements: [], captions: [], beats: [], audio: [], orphans: [], warnings: [],
+    clips: [], elements: [], captions: [], beats: [], audio: [], speech: [], orphans: [], warnings: [],
     style: {
       name: "empty",
       fonts: { caption: { family: "sans-serif", file: "none" }, title: { family: "sans-serif", file: "none" } },

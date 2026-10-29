@@ -16,6 +16,18 @@ export interface ResolveOptions {
   apply?: { proposal: string; variant: VariantKey };
 }
 
+/** The edit's speech: each kept word where it lands, merged when they touch. */
+function speechSpans(ctx: ReturnType<typeof createContext>): [number, number][] {
+  const spans = [...ctx.words.keys()].flatMap((id) => { const w = ctx.wordOut(id); return w && w.endMs > w.startMs ? [[w.startMs, w.endMs] as [number, number]] : []; })
+    .sort((a, b) => a[0] - b[0]);
+  const out: [number, number][] = [];
+  for (const [a, b] of spans) {
+    const last = out[out.length - 1];
+    if (last && a <= last[1]) last[1] = Math.max(last[1], b); else out.push([a, b]);
+  }
+  return out;
+}
+
 export function resolve(projectIn: Project, styleIn: Style, options: ResolveOptions = {}): Timeline {
   let project = projectIn;
   if (options.apply) {
@@ -57,6 +69,7 @@ export function resolve(projectIn: Project, styleIn: Style, options: ResolveOpti
     captions,
     beats,
     audio: [...resolveClipAudio(ctx), ...sfx],
+    speech: speechSpans(ctx),
     orphans: ctx.orphans,
     warnings: ctx.warnings,
     style,

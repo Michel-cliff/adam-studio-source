@@ -16,15 +16,15 @@ export const AudioLayer: FC<{ timeline: Timeline; media: Record<string, MediaFil
         if (!src || a.durationFrames < 1) return null;
         return (
           <Sequence key={a.id} from={a.fromFrame} durationInFrames={a.durationFrames} layout="none">
-            <AudioItem src={src} item={a} />
+            <AudioItem src={src} item={a} speech={timeline.speech ?? []} />
           </Sequence>
         );
       })}
   </>
 );
 
-const AudioItem: FC<{ src: string; item: TimelineAudio }> = ({ src, item }) => {
+const AudioItem: FC<{ src: string; item: TimelineAudio; speech: [number, number][] }> = ({ src, item, speech }) => {
   const { fps } = useVideoConfig();
   // The volume callback receives the frame counted from the start of this audio, as audioVolume expects.
-  return <Html5Audio src={mediaSrc(src)} trimBefore={Math.round((item.sourceInMs * fps) / 1000)} volume={(f) => audioVolume(item, f, fps)} />;
+  return <Html5Audio src={mediaSrc(src)} trimBefore={Math.round((item.sourceInMs * fps) / 1000)} volume={(f) => audioVolume(item, f, fps, speech)} />;
 };

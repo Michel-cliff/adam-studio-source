@@ -66,6 +66,8 @@ export const TimelineSchema = z.object({
   captions: z.array(TimelineCaptionSchema),
   beats: z.array(TimelineBeatSchema),
   audio: z.array(TimelineAudioSchema),
+  /** When words are said in the edit, [from, to] in ms from its start: music ducks under them, breaths between them go down. */
+  speech: z.array(z.tuple([Ms, Ms])).default([]),
   orphans: z.array(z.string()),
   warnings: z.array(z.string()),
   style: StyleSchema,
