@@ -1,11 +1,12 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve as resolvePath } from "node:path";
-import { lint, resolve, type Project, type Timeline } from "@adam-studio/model";
+import { lint, repairCuts, resolve, type Project, type Timeline } from "@adam-studio/model";
 import { analysisPython, ensureAnalysis } from "../analysis";
 import { bundleWithMedia, renderVideo } from "../engine";
+import { exportChecks } from "../lib/checks";
 import { applyLegibility } from "../lib/legibility";
-import { audioGate, measureLoudness, noiseFloor, normalizeLoudness, silenceShare } from "../lib/loudness";
+import { audioGate, blackShare, measureLoudness, noiseFloor, normalizeLoudness, silenceShare } from "../lib/loudness";
 import { expandEnv, planMedia } from "../media";
 import { CliError, loadProject } from "../project-io";
 
@@ -53,7 +54,11 @@ export function ensureScaledTakes(dir: string, project: Project, timeline: Timel
 }
 
 export async function renderCommand(projectDir: string, opts: { out?: string; frames?: string; force: boolean; analyze?: boolean; scale?: number }): Promise<string> {
-  const { dir, project, style } = loadProject(projectDir);
+  const loaded = loadProject(projectDir);
+  const { dir, style } = loaded;
+  // Never a cut inside a word: an edge that falls in one moves out of it before anything is computed.
+  const { project, moved } = repairCuts(loaded.project);
+  for (const m of moved) console.log(`repaired: ${m}`);
   const timeline = resolve(project, style);
   ensureAnalysis(dir, project, timeline, { analyze: opts.analyze ?? true });
   lintGate(project, timeline, dir, opts.force, "render");
@@ -67,6 +72,10 @@ export async function renderCommand(projectDir: string, opts: { out?: string; fr
   writeFileSync(join(dir, "renders", `${name}.timeline.json`), `${JSON.stringify(timeline, null, 2)}\n`);
   // Each caption's treatment and height, from the frames under it (cached until the edit changes).
   const readable = applyLegibility(dir, timeline, analysisPython, true);
+  // The edit's own checks come before the render: a refusal costs no rendering time.
+  const checks = exportChecks(readable, project.transcript.words);
+  for (const w of checks.warnings) console.log(`warning: ${w}`);
+  if (checks.blocking.length && !opts.frames) throw new CliError(`Export refused: ${checks.blocking.join("; ")}.`);
   await renderVideo(serveUrl, { timeline: readable, media: plan.media, fonts: plan.fonts }, out, parseFrames(opts.frames), { scale });
   if (!opts.frames) finishSound(out);
   console.log(`wrote ${out}`);
@@ -93,6 +102,8 @@ export function finishSound(out: string): void {
   const issues = audioGate(after);
   if (floor > -35) issues.push(`the background noise is at ${floor.toFixed(0)} dBFS: no setting saves this take, record again closer to the mic`);
   else if (floor > -45) console.log(`warning: the background noise is at ${floor.toFixed(0)} dBFS, the sound will stay average (a quieter room or a closer mic helps)`);
+  const black = blackShare(out);
+  if (black > 0) issues.push(`${black.toFixed(1)} s of black picture`);
   const silent = silenceShare(out);
   if (silent > 0.15) issues.push(`${Math.round(silent * 100)} % of the video is total silence (more than 15 %)`);
   if (!issues.length) return;

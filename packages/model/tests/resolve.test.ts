@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { repairCuts } from "../src/cutrepair";
 import { resolve } from "../src/resolve";
 import { TimelineSchema } from "../src/schema/timeline";
 import type { ElementInput } from "../src/schema/project";
@@ -116,5 +117,24 @@ describe("speech spans", () => {
       expect(b).toBeLessThanOrEqual(end + 1);
       if (i) expect(a).toBeGreaterThan(t.speech[i - 1]![1]);
     });
+  });
+});
+
+describe("cuts inside a word", () => {
+  // Words a.w0 = 1000-1500, a.w1 = 1800-2300, a.w2 = 2600-3100 (helpers).
+  const spans = (story: { id: string; asset: string; inMs: number; outMs: number }[]) => {
+    const r = repairCuts(makeProject({ story }));
+    return { clips: r.project.story.map((c) => [c.inMs, c.outMs]), moved: r.moved };
+  };
+
+  it("gives a word cut in two to the clip that holds most of it, and moves the other edge out of it", () => {
+    // "un" (1800-2300) split at 1900: the second clip holds 400 of its 500 ms.
+    const r = spans([{ id: "c1", asset: "a", inMs: 0, outMs: 1900 }, { id: "c2", asset: "a", inMs: 1900, outMs: 4000 }]);
+    expect(r.clips).toEqual([[0, 1760], [1760, 4000]]);
+    expect(r.moved).toHaveLength(2);
+  });
+
+  it("never plays a word twice and leaves clean cuts alone", () => {
+    expect(spans([{ id: "c1", asset: "a", inMs: 0, outMs: 1650 }, { id: "c2", asset: "a", inMs: 2450, outMs: 4000 }]).moved).toEqual([]);
   });
 });

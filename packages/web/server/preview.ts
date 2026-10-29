@@ -1,4 +1,4 @@
-import { resolve, withVariant, withoutVariant, type Project } from "@adam-studio/model";
+import { repairCuts, resolve, withVariant, withoutVariant, type Project } from "@adam-studio/model";
 import { planMedia } from "@adam-studio/render/src/media";
 import type { MediaFiles } from "@adam-studio/render/src/props";
 import { applyLegibility } from "@adam-studio/render/src/lib/legibility";
@@ -15,7 +15,9 @@ function applied(project: Project, apply: { proposal: string; variant: "A" | "B"
 export function previewData(dir: string, name: string, apply?: { proposal: string; variant: "A" | "B" | "C" }, without?: string) {
   const raw = load(dir);
   // Without a choice: the edit as it was before a decided proposal, the base its variants are compared with.
-  const loaded = without ? { ...raw, project: withoutVariant(raw.project, without) } : raw;
+  const chosen = without ? { ...raw, project: withoutVariant(raw.project, without) } : raw;
+  // As the render does: no cut inside a word.
+  const loaded = { ...chosen, project: repairCuts(chosen.project).project };
   const style = loaded.style;
   const project = apply ? applied(loaded.project, apply) : loaded.project;
   let timeline;

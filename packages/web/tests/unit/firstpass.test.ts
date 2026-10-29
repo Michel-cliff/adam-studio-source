@@ -141,3 +141,13 @@ describe("caption density, as the default art direction sets it", () => {
     }
   });
 });
+
+describe("captions long enough to read", () => {
+  it("merges a chunk under 0.8 s on screen with its neighbour when they fit together", () => {
+    // "Oui." alone lasts 0.25 s + 0.18 s of lead and tail: it joins the next words.
+    const ws = [{ id: "e.w0", text: "Oui.", startMs: 0, endMs: 250 }, { id: "e.w1", text: "je", startMs: 300, endMs: 450 },
+      { id: "e.w2", text: "viens", startMs: 500, endMs: 800 }, { id: "e.w3", text: "demain.", startMs: 850, endMs: 1300 }];
+    const chunks = captionChunks(ws, 32, true, 5);
+    expect(chunks.map((c) => c.text)).toEqual(["Oui. je viens demain."]);
+  });
+});

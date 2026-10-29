@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { audioGate, measureLoudness, noiseFloor, normalizeLoudness, parseLoudnorm, peakTrim, silenceShare } from "../../src/lib/loudness";
+import { audioGate, blackShare, measureLoudness, noiseFloor, normalizeLoudness, parseLoudnorm, peakTrim, silenceShare } from "../../src/lib/loudness";
 
 describe("the loudness of a finished video", () => {
   it("reads ffmpeg's loudnorm report out of its log", () => {
@@ -76,5 +76,16 @@ describe("real takes", () => {
     const floor = noiseFloor(make("anoisesrc=d=8:c=white:a=0.01,volume='if(lt(t,4),1,0)':eval=frame"));
     expect(floor).toBeGreaterThan(-60);
     expect(floor).toBeLessThan(-35);
+  }, 60_000);
+});
+
+describe("black picture", () => {
+  it("measures the seconds of black in a video", () => {
+    const dir = mkdtempSync(join(tmpdir(), "adam black-"));
+    const file = join(dir, "b.mp4");
+    // 1 s of grey, 0.5 s of black, 1 s of grey.
+    execFileSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "color=c=gray:s=160x284:r=30:d=1", "-f", "lavfi", "-i", "color=c=black:s=160x284:r=30:d=0.5",
+      "-f", "lavfi", "-i", "color=c=gray:s=160x284:r=30:d=1", "-filter_complex", "[0][1][2]concat=n=3:v=1:a=0", "-c:v", "libx264", file]);
+    expect(blackShare(file)).toBeCloseTo(0.5, 1);
   }, 60_000);
 });

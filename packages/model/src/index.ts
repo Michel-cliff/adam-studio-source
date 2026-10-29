@@ -17,3 +17,4 @@ export * from "./workflow";
 export * from "./lint";
 export * from "./jsonschema";
 export * from "./series";
+export { repairCuts } from "./cutrepair";

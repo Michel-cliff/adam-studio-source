@@ -71,13 +71,10 @@ const DANGLING = new Set(["le", "la", "les", "l'", "un", "une", "des", "du", "de
 
 /** Captions: chunks of the edit's words, broken at punctuation, pauses, the length and the word count. */
 export function captionChunks(words: Word[], maxChars: number, highlight: boolean, maxWords = Infinity) {
-  const chunks: { words: [string, string]; text: string; highlight: string[] }[] = [];
+  const groups: Word[][] = [];
   let cur: Word[] = [];
   const flush = () => {
-    if (!cur.length) return;
-    const text = joinWords(cur.map((w) => w.text));
-    const longest = [...cur].map((w) => w.text.replace(/[^\p{L}\p{N}'-]/gu, "")).sort((a, b) => b.length - a.length)[0] ?? "";
-    chunks.push({ words: [cur[0]!.id, cur[cur.length - 1]!.id], text, highlight: highlight && longest.length >= 6 ? [longest] : [] });
+    if (cur.length) groups.push(cur);
     cur = [];
   };
   for (let i = 0; i < words.length; i++) {
@@ -98,7 +95,20 @@ export function captionChunks(words: Word[], maxChars: number, highlight: boolea
     if (/[.!?…,;:]$/.test(w.text.trim()) || pause > 300 || pause < 0 || otherTake) flush();
   }
   flush();
-  return chunks;
+  // A caption on screen under 0.8 s (its words, plus 60 ms before and 120 ms after) cannot be read: it joins its
+  // neighbour in the same take, the next one first, when the two fit the limits together.
+  const take = (w: Word) => w.id.slice(0, w.id.lastIndexOf(".w"));
+  const fits = (a: Word[], b: Word[]) => take(a[0]!) === take(b[0]!) && a.length + b.length <= maxWords && joinWords([...a, ...b].map((w) => w.text)).length <= maxChars;
+  const onScreen = (g: Word[]) => g[g.length - 1]!.endMs - g[0]!.startMs + 180;
+  for (let i = 0; i < groups.length; i++) {
+    if (onScreen(groups[i]!) >= 800) continue;
+    if (i + 1 < groups.length && fits(groups[i]!, groups[i + 1]!)) { groups.splice(i, 2, [...groups[i]!, ...groups[i + 1]!]); i--; }
+    else if (i > 0 && fits(groups[i - 1]!, groups[i]!)) { groups.splice(i - 1, 2, [...groups[i - 1]!, ...groups[i]!]); i -= 2; }
+  }
+  return groups.map((g) => {
+    const longest = g.map((w) => w.text.replace(/[^\p{L}\p{N}'-]/gu, "")).sort((a, b) => b.length - a.length)[0] ?? "";
+    return { words: [g[0]!.id, g[g.length - 1]!.id] as [string, string], text: joinWords(g.map((w) => w.text)), highlight: highlight && longest.length >= 6 ? [longest] : [] };
+  });
 }
 
 export type FirstPassSummary = {
