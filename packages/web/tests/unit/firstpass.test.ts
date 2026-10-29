@@ -129,3 +129,15 @@ describe("pauses and stutters, as the default art direction asks", () => {
     expect(findStutters([{ id: "b.w0", text: "très", startMs: 0, endMs: 300 }, { id: "b.w1", text: "très", startMs: 900, endMs: 1200 }])).toEqual([]);
   });
 });
+
+describe("caption density, as the default art direction sets it", () => {
+  const w = (texts: string[]) => texts.map((t, i) => ({ id: `d.w${i}`, text: t, startMs: i * 300, endMs: i * 300 + 250 }));
+  it("keeps 5 words at most, 32 characters at most, and never ends on an article or a preposition", () => {
+    const chunks = captionChunks(w(["je", "travaille", "sur", "le", "développement", "de", "leurs", "produits", "digitaux", "depuis", "longtemps"]), 32, true, 5);
+    for (const c of chunks) {
+      expect(c.text.split(" ").length).toBeLessThanOrEqual(5);
+      expect(c.text.length).toBeLessThanOrEqual(32);
+      expect(c.text).not.toMatch(/\b(le|la|les|de|du|des|un|une|sur|à|et)$/);
+    }
+  });
+});

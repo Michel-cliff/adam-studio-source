@@ -65,8 +65,12 @@ export function editTimes(p: Project): Map<string, number> {
   return out;
 }
 
-/** Captions: chunks of the edit's words, broken at punctuation, pauses and the line length. */
-export function captionChunks(words: Word[], maxChars: number, highlight: boolean) {
+// Words a chunk never ends on: an article or a preposition left alone at the end of a caption reads as a typo.
+const DANGLING = new Set(["le", "la", "les", "l'", "un", "une", "des", "du", "de", "d'", "à", "au", "aux", "en", "et", "ou", "sur", "dans", "par", "pour",
+  "avec", "sans", "ma", "mon", "mes", "ta", "ton", "tes", "sa", "son", "ses", "ce", "cet", "cette", "the", "a", "an", "of", "to", "in", "on", "and", "or", "for", "with", "my", "your"]);
+
+/** Captions: chunks of the edit's words, broken at punctuation, pauses, the length and the word count. */
+export function captionChunks(words: Word[], maxChars: number, highlight: boolean, maxWords = Infinity) {
   const chunks: { words: [string, string]; text: string; highlight: string[] }[] = [];
   let cur: Word[] = [];
   const flush = () => {
@@ -80,7 +84,13 @@ export function captionChunks(words: Word[], maxChars: number, highlight: boolea
     const w = words[i]!;
     const next = words[i + 1];
     const length = joinWords([...cur, w].map((x) => x.text)).length;
-    if (cur.length && length > maxChars) flush();
+    if (cur.length && (length > maxChars || cur.length >= maxWords)) {
+      // The dangling article or preposition goes with the next caption, with the noun it belongs to.
+      const carry: Word[] = [];
+      while (cur.length > 1 && DANGLING.has(cur[cur.length - 1]!.text.toLowerCase().replace(/[^\p{L}']/gu, ""))) carry.unshift(cur.pop()!);
+      flush();
+      cur = carry;
+    }
     cur.push(w);
     const pause = next ? next.startMs - w.endMs : Infinity;
     // A caption stays inside one take and one stretch of it: break at a take change or a jump back in time.
@@ -176,7 +186,8 @@ export function firstPass(input: Project, style: Style, lang: "en" | "fr" = "en"
 
   if (p.captions.length === 0 && words.length) {
     const max = style.caption.maxCharsPerLine;
-    const two = captionChunks(words, max * 2, true);
+    // The default art direction: 3 to 5 words, 32 characters at most per caption (two lines).
+    const two = captionChunks(words, 32, true, 5);
     const one = captionChunks(words, max, false);
     summary.captions = two.length;
     put("auto.captions", "captions", w.captions, [
