@@ -150,6 +150,20 @@ function Rushes({ name, view, run, firstPass }: { name: string; view: ProjectVie
   );
 }
 
+/** After a video: the guided art direction path, offered until three videos go by without a step taken. */
+function DaOffer({ name }: { name: string }) {
+  const [offer, setOffer] = useState(false);
+  useEffect(() => { api<{ offer: boolean }>("/da/offer", { method: "POST", body: { project: name } }).then((r) => setOffer(r.offer), () => {}); }, [name]);
+  if (!offer) return null;
+  return (
+    <div className="da-offer">
+      <div className="h">{t("YOUR ART DIRECTION")}</div>
+      <p>{t("You have seen your video: six quick choices, each played on it, make the next ones yours.")}</p>
+      <a className="act fill" href={`#/p/${enc(name)}/da`}><span>{t("START")}</span><span>→</span></a>
+    </div>
+  );
+}
+
 function Wrap({ name, view, run }: { name: string; view: ProjectView; run: (action: string, options?: Record<string, unknown>) => void }) {
   const [format, setFormat] = useState<"mp4" | "capcut">("mp4");
   const latest = view.renders[0];
@@ -172,6 +186,7 @@ function Wrap({ name, view, run }: { name: string; view: ProjectView; run: (acti
         {job ? <p className="mono">{job.label.toUpperCase()} · RUNNING</p>
           : <button type="button" className="act fill big" onClick={() => run(format === "mp4" ? "render" : "capcut", format === "capcut" ? { name } : {})}>{t("EXPORT")} {format === "mp4" ? "MP4" : "CAPCUT"}</button>}
         {latest && <p className="mono note">LAST · {new Date(latest.mtime).toLocaleString()} · <a href={fileUrl(name, latest.file)} download>DOWNLOAD</a></p>}
+        {latest && <DaOffer name={name} />}
         <p className="mono note">{format === "mp4" ? "SAVED TO renders/ IN THE PROJECT FOLDER" : "NATIVE CLIPS, EDITABLE TITLES AND CAPTIONS. EXPERIMENTAL."}</p>
       </div>
     </section>

@@ -21,5 +21,7 @@ export type RenderProps = {
 };
 
 export const COMPOSITION_ID = "AdamEdit";
-export const CAPTION_FONT = "AdamCaption";
-export const TITLE_FONT = "AdamTitle";
+// Each edit sets these variables to the families its own font files were loaded under (see fonts.ts): several
+// previews side by side, each with other fonts, do not share one family name.
+export const CAPTION_FONT = "var(--adam-caption, AdamCaption)";
+export const TITLE_FONT = "var(--adam-title, AdamTitle)";

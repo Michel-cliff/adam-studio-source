@@ -7,8 +7,20 @@ import { LibraryKeys } from "./Setup";
 import { GROUPS, openGroup } from "./steps";
 
 /** The library keys, then the AI apps the studio plugs into. */
-function Keys() {
-  return <div className="keysbox"><LibraryKeys /><Desktop /></div>;
+function Keys({ project }: { project?: string }) {
+  return <div className="keysbox"><DaLine project={project} /><LibraryKeys /><Desktop /></div>;
+}
+
+/** The creator's art direction: how many of its six lines they set; the path opens on the picked video. */
+function DaLine({ project }: { project?: string }) {
+  const [set, setSet] = useState<number | null>(null);
+  useEffect(() => { api<{ status: { set: boolean }[] }>("/da").then((r) => setSet(r.status.filter((x) => x.set).length), () => {}); }, []);
+  if (set === null) return null;
+  return (
+    <div className="kv sep"><span>ART DIRECTION</span>
+      {project ? <a className="link" href={`#/p/${enc(project)}/da`}>{set} / 6 · OPEN</a> : <b className="dim">{set} / 6</b>}
+    </div>
+  );
 }
 
 /** Use the creator's Claude subscription the allowed way: Adam Studio as a connector of their own Claude Desktop. */
@@ -153,7 +165,7 @@ export function Home() {
               </select>
             </label>
           )}
-          <Keys />
+          <Keys project={p?.name} />
           <div className="synced">● SYNCED</div>
         </aside>
       </div>

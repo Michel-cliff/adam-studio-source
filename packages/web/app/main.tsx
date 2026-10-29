@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { DaPath } from "./DaPath";
 import { SetupNote } from "./Setup";
 import { createRoot } from "react-dom/client";
 import { Editor } from "./Editor";
@@ -29,6 +30,8 @@ function App() {
   else if (page === "stats") body = <Stats view={name} />;
   else if (page === "p" && name && sub === "add") body = <NewProject addTo={name} />;
   else if (page === "p" && name && sub === "edit") body = <Editor key={name} name={name} />;
+  // The guided art direction path opens over the studio of the video it is played on.
+  else if (page === "p" && name && sub === "da") body = <><Studio key={name} name={name} /><DaPath name={name} /></>;
   else if (page === "p" && name) body = <Studio key={name} name={name} jobId={sub === "job" ? id : undefined} />;
   else body = <Home />;
   const tab = page === "p" ? "studio" : page === "library" ? "library" : page === "stats" ? "stats" : "projects";

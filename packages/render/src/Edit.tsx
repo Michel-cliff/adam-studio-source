@@ -14,14 +14,15 @@ import { slideWindows, subjectWindows } from "./lib/subject";
 import type { RenderProps } from "./props";
 
 export const Edit: FC<RenderProps> = (props) => {
-  ensureFonts(props.fonts);
+  const families = ensureFonts(props.fonts);
+  const fontVars = { "--adam-caption": families.caption, "--adam-title": families.title } as React.CSSProperties;
   const frame = useCurrentFrame();
   const { timeline, media } = props;
   const mode = props.mode ?? { kind: "full" };
   if (mode.kind === "overlay") {
     // Transparent background, only the listed front elements: a CapCut overlay.
     return (
-      <AbsoluteFill>
+      <AbsoluteFill style={fontVars}>
         <ElementLayer timeline={timeline} media={media} layer="front" only={mode.elements} />
       </AbsoluteFill>
     );
@@ -36,7 +37,7 @@ export const Edit: FC<RenderProps> = (props) => {
   const win = windowAt(timeline, frame);
   const fx = timeline.style.fx;
   return (
-    <AbsoluteFill style={{ backgroundColor: "black" }}>
+    <AbsoluteFill style={{ backgroundColor: "black", ...fontVars }}>
       <svg width={0} height={0} style={{ position: "absolute" }}>
         <filter id={GRADE_FILTER_ID} colorInterpolationFilters="sRGB">
           <feColorMatrix type="matrix" values={warmthMatrix(grade.warmth).join(" ")} />

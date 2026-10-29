@@ -676,3 +676,23 @@ kbd { font: 600 11px var(--mono); padding: 2px 6px; border: 1px solid var(--crea
 /* Words heard with little confidence: underlined, to check (orange under 0.80, red under 0.60) */
 .word.doubt { text-decoration: underline wavy rgba(242,193,78,.85); text-underline-offset: 4px; }
 .word.doubt.low { text-decoration-color: #FF8A80; }
+
+/* The guided art direction path: a fixed-size window over the studio */
+.da-veil { position: fixed; inset: 0; z-index: 60; background: rgba(10,10,10,.72); display: grid; place-items: center; }
+.da-box { width: min(1180px, 94vw); height: min(720px, 88vh); background: var(--page); border: 1.5px solid var(--cream); display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; padding: 22px 26px; overflow: hidden; }
+.da-steps { display: flex; flex-direction: column; gap: 2px; min-height: 0; }
+.da-steps .note { margin-top: auto; }
+.da-main { display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; }
+.da-say { margin: 0; font-size: 15px; line-height: 1.45; max-width: 760px; }
+.da-tries { flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 16px; }
+.da-try { display: flex; flex-direction: column; gap: 8px; min-height: 0; border: 0; background: none; color: inherit; padding: 0; cursor: pointer; text-align: left; }
+.da-shot { flex: 1 1 0; min-height: 0; aspect-ratio: 9 / 16; max-width: 100%; align-self: center; border: 1.5px solid rgba(237,229,200,.35); overflow: hidden; }
+.da-try.on .da-shot { border-color: var(--glow); box-shadow: 0 0 0 2px var(--glow); }
+.da-try .vlabel { display: flex; align-items: center; gap: 8px; flex: none; }
+.da-swatch { width: 14px; height: 14px; border-radius: 50%; display: inline-block; flex: none; }
+.loading-shot { width: 100%; height: 100%; background: var(--field); }
+.da-donts { flex: 1 1 0; min-height: 0; resize: none; font: 15px/1.5 inherit; background: var(--field); color: var(--cream); border: 1px solid rgba(237,229,200,.35); padding: 12px; }
+.da-acts { display: flex; align-items: center; gap: 12px; flex: none; }
+.da-hex { width: 120px; min-height: 40px; font: 13px var(--mono); }
+.da-offer { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(237,229,200,.25); max-width: 460px; }
+.da-offer p { margin: 0; }
