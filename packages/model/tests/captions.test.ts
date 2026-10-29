@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolve } from "../src/resolve";
-import { findHighlights, normalizeWord, wrapCaption } from "../src/text";
+import { findHighlights, joinWords, normalizeWord, tidyText, wrapCaption } from "../src/text";
 import { makeProject, makeStyle } from "./helpers";
 
 const style = makeStyle();
@@ -70,5 +70,19 @@ describe("resolve: beats", () => {
     }), style);
     expect(tl.beats).toEqual([{ role: "obstacle", fromFrame: 60, toFrame: 99 }]);
     expect(tl.orphans).toEqual(["beat:situation"]);
+  });
+});
+
+describe("words joined back as they are written", () => {
+  it("glues elisions, hyphenated words and domains the transcript splits", () => {
+    expect(joinWords(["je", "n", "'ai", "pas"])).toBe("je n'ai pas");
+    expect(joinWords(["est", "-ce", "que", "j", "’utilise"])).toBe("est-ce que j’utilise");
+    expect(joinWords(["ma", "micro", "-entreprise"])).toBe("ma micro-entreprise");
+    expect(joinWords(["jobless", ".fr,", "ma"])).toBe("jobless.fr, ma");
+    expect(joinWords(["24", "-", "25"])).toBe("24 - 25");
+  });
+  it("tidies a caption already written with those spaces", () => {
+    expect(tidyText("est -ce que j 'utilise jobless .fr dans ma")).toBe("est-ce que j'utilise jobless.fr dans ma");
+    expect(tidyText("bon - ok")).toBe("bon - ok");
   });
 });

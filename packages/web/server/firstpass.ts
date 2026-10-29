@@ -1,4 +1,4 @@
-import { newWorkflow, parseProject, type Project, type Style, type Word } from "@adam-studio/model";
+import { joinWords, newWorkflow, parseProject, type Project, type Style, type Word } from "@adam-studio/model";
 import { cutWords, tightenPauses } from "./cuts";
 
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\p{L}\p{N}' ]/gu, "").trim();
@@ -71,7 +71,7 @@ export function captionChunks(words: Word[], maxChars: number, highlight: boolea
   let cur: Word[] = [];
   const flush = () => {
     if (!cur.length) return;
-    const text = cur.map((w) => w.text.trim()).join(" ");
+    const text = joinWords(cur.map((w) => w.text));
     const longest = [...cur].map((w) => w.text.replace(/[^\p{L}\p{N}'-]/gu, "")).sort((a, b) => b.length - a.length)[0] ?? "";
     chunks.push({ words: [cur[0]!.id, cur[cur.length - 1]!.id], text, highlight: highlight && longest.length >= 6 ? [longest] : [] });
     cur = [];
@@ -79,7 +79,7 @@ export function captionChunks(words: Word[], maxChars: number, highlight: boolea
   for (let i = 0; i < words.length; i++) {
     const w = words[i]!;
     const next = words[i + 1];
-    const length = [...cur, w].map((x) => x.text.trim()).join(" ").length;
+    const length = joinWords([...cur, w].map((x) => x.text)).length;
     if (cur.length && length > maxChars) flush();
     cur.push(w);
     const pause = next ? next.startMs - w.endMs : Infinity;

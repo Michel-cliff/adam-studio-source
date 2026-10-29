@@ -1,6 +1,6 @@
 import { ResolveError, type ResolveContext } from "./context";
 import type { TimelineBeat, TimelineCaption } from "./schema/timeline";
-import { findHighlights, wrapCaption } from "./text";
+import { findHighlights, wrapCaption, tidyText } from "./text";
 
 /** Pieces shorter than this after a cut are dropped. */
 const MIN_PIECE_MS = 50;
@@ -23,7 +23,8 @@ export function resolveCaptions(ctx: ResolveContext): TimelineCaption[] {
       ctx.orphans.push(`caption:${i}`);
       return;
     }
-    const text = wrapCaption(c.text, ctx.style.caption.maxCharsPerLine);
+    // Captions written before joinWords carry the transcript's split pieces ("n 'ai", "jobless .fr"): tidied here.
+    const text = wrapCaption(tidyText(c.text), ctx.style.caption.maxCharsPerLine);
     if (text.split("\n").some((line) => line.length > ctx.style.caption.maxCharsPerLine * 1.25)) {
       ctx.warnings.push(`caption ${i}: too long for two lines of ${ctx.style.caption.maxCharsPerLine} characters ("${c.text.slice(0, 40)}..."): split it`);
     }

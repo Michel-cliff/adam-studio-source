@@ -38,3 +38,16 @@ export function findHighlights(text: string, phrases: string[]): { ranges: [numb
 export function normalizeWord(text: string): string {
   return text.toLowerCase().replace(/[.,!?;:…"«»()]/g, "").trim();
 }
+
+// A piece the transcript splits off a word: an elision ('ai, ’est), a hyphenated end (-ce, -entreprise), a domain (.fr).
+const GLUED = /^(['’]\p{L}|-\p{L}|\.\p{L})/u;
+
+/** The words of a passage as they are written: elisions, hyphenated words and domains glued back, the rest spaced. */
+export function joinWords(words: string[]): string {
+  return words.map((w) => w.trim()).filter(Boolean).reduce((out, w) => (!out ? w : GLUED.test(w) ? out + w : `${out} ${w}`), "");
+}
+
+/** The same, for a text already joined with spaces (captions written before joinWords). */
+export function tidyText(text: string): string {
+  return text.replace(/ +(?=['’]\p{L}|-\p{L}|\.\p{L})/gu, "");
+}
