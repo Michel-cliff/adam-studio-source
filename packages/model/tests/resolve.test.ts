@@ -138,3 +138,22 @@ describe("cuts inside a word", () => {
     expect(spans([{ id: "c1", asset: "a", inMs: 0, outMs: 1650 }, { id: "c2", asset: "a", inMs: 2450, outMs: 4000 }]).moved).toEqual([]);
   });
 });
+
+describe("the default push", () => {
+  const shots = (story: { id: string; asset: string; inMs: number; outMs: number; zoom?: { base: number; driftPerSec: number } }[]) =>
+    resolve(makeProject({ story }), makeStyle()).clips.map((c) => c.zoom);
+
+  it("pushes slowly, one shot in, the next back out, never past 8 % in a shot", () => {
+    const [a, b, c] = shots([{ id: "c1", asset: "a", inMs: 0, outMs: 4000 }, { id: "c2", asset: "a", inMs: 4000, outMs: 8000 }, { id: "c3", asset: "a", inMs: 8000, outMs: 9500 }]);
+    expect(a).toEqual({ base: 1, driftPerSec: 0.012 });
+    expect(b!.base).toBeCloseTo(1.048, 6);
+    expect(b!.driftPerSec).toBeCloseTo(-0.012, 6);
+    expect(c!.driftPerSec).toBeCloseTo(0.012, 6);
+    const [long] = shots([{ id: "c1", asset: "a", inMs: 0, outMs: 9900 }]);
+    expect(long!.base + long!.driftPerSec * 9.9).toBeLessThanOrEqual(1.08 + 1e-9);
+  });
+
+  it("leaves a zoom the creator or Adam set alone", () => {
+    expect(shots([{ id: "c1", asset: "a", inMs: 0, outMs: 4000, zoom: { base: 1.3, driftPerSec: 0 } }])[0]).toEqual({ base: 1.3, driftPerSec: 0 });
+  });
+});

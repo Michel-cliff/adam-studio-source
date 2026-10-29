@@ -28,6 +28,17 @@ function speechSpans(ctx: ReturnType<typeof createContext>): [number, number][] 
   return out;
 }
 
+// The default push (default art direction): a face-camera shot whose zoom nobody set moves slowly, 1.2 % a second,
+// one shot in and the next back out (the same way three shots running reads as an effect), at most 8 % in a shot, so
+// the scale never passes 1.08. The eye does not see it move, but it does not drop off.
+const PUSH_PER_SEC = 0.012, PUSH_MAX = 0.08;
+function defaultPush(zoom: { base: number; driftPerSec: number }, index: number, durationMs: number) {
+  if (zoom.base !== 1 || zoom.driftPerSec !== 0 || durationMs <= 0) return zoom;
+  const total = Math.min(PUSH_MAX, PUSH_PER_SEC * (durationMs / 1000));
+  const drift = total / (durationMs / 1000);
+  return index % 2 === 0 ? { base: 1, driftPerSec: drift } : { base: 1 + total, driftPerSec: -drift };
+}
+
 export function resolve(projectIn: Project, styleIn: Style, options: ResolveOptions = {}): Timeline {
   let project = projectIn;
   if (options.apply) {
@@ -50,7 +61,7 @@ export function resolve(projectIn: Project, styleIn: Style, options: ResolveOpti
     sourceInMs: l.clip.inMs,
     sourceOutMs: l.clip.outMs,
     framing: l.clip.framing,
-    zoom: l.clip.zoom,
+    zoom: defaultPush(l.clip.zoom, ctx.clips.indexOf(l), l.outEndMs - l.outStartMs),
     transitionOut: l.clip.transitionOut,
     volume: l.clip.volume,
   }];
