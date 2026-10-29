@@ -7,6 +7,7 @@ from typing import Callable
 from . import manifest
 from .errors import AnalysisError
 from .probe import probe
+from .ingest import ingest_checks
 from .steps import edit as edit_step
 from .steps import matting as matting_step
 from .steps import silences as silences_step
@@ -16,10 +17,14 @@ Ctx = dict  # {"fps": int, "lang": str | None}
 
 
 def _edit(cache: Path, source: Path, ctx: Ctx) -> None:
+    # The take's checks before any work: a refusal raises here, warnings go to the log and into probe.json.
+    warnings = ingest_checks(source)
+    for w in warnings:
+        print(f"warning: {w}", flush=True)
     tmp = cache / "tmp-edit.mp4"
     edit_step.make_edit(source, tmp, ctx["fps"])
     tmp.replace(cache / "edit.mp4")
-    info = probe(cache / "edit.mp4") | {"sourceHasAudio": probe(source)["hasAudio"]}
+    info = probe(cache / "edit.mp4") | {"sourceHasAudio": probe(source)["hasAudio"], "ingest": warnings}
     tmp_probe = cache / "tmp-probe.json"
     tmp_probe.write_text(json.dumps(info, indent=2) + "\n", encoding="utf-8")
     tmp_probe.replace(cache / "probe.json")

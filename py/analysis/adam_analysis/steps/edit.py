@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 
 from ..errors import AnalysisError
+from ..ingest import FIRST_SECONDS, noise_floor
 
 VERSION = 2  # 2: the voice chain of the default art direction
 LONG_SIDE = 1920
@@ -20,14 +21,6 @@ def ffmpeg(args: list[str], what: str) -> None:
     r = subprocess.run(["ffmpeg", "-v", "error", "-y", *args], capture_output=True, text=True)
     if r.returncode != 0:
         raise AnalysisError(f"{what} failed: {r.stderr.strip()[-400:]}")
-
-
-def noise_floor(src: Path) -> float:
-    """The take's noise floor in dBFS (the level of its quietest stretches); -120 when there is no sound."""
-    r = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", str(src), "-af", "astats=measure_perchannel=none:measure_overall=Noise_floor",
-                        "-f", "null", "-"], capture_output=True, text=True)
-    m = re.search(r"Noise floor dB: (-?[\d.]+)", r.stderr)
-    return float(m.group(1)) if m else -120.0
 
 
 def voice_filter(floor: float) -> str:
@@ -57,7 +50,7 @@ def make_edit(src: Path, dst: Path, fps: int) -> None:
     w, h = edit_size(info["width"], info["height"])
     # ffmpeg applies the rotation flag itself; no -shortest, so the video keeps its last partial frame.
     # The voice is mono at 48 kHz: a phone's stereo voice is correlated noise, not space.
-    voice = ["-af", voice_filter(noise_floor(src)), "-ac", "1", "-ar", "48000"] if info["hasAudio"] else []
+    voice = ["-af", voice_filter(noise_floor(src, FIRST_SECONDS)), "-ac", "1", "-ar", "48000"] if info["hasAudio"] else []
     ffmpeg(["-i", str(src), "-vf", f"scale={w}:{h}:flags=lanczos", *voice, *encode(fps, 192), str(dst)], f"edit.mp4 from {src}")
 
 

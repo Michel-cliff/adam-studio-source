@@ -10,6 +10,7 @@ def ffmpeg(*args: str) -> None:
 def color_video(path: Path, size: str, seconds: float, fps: int = 30, audio: bool = True, color: str = "gray") -> Path:
     inputs = ["-f", "lavfi", "-i", f"color=c={color}:s={size}:r={fps}:d={seconds}"]
     if audio:
-        inputs += ["-f", "lavfi", "-i", f"sine=frequency=440:duration={seconds}"]
+        # Like speech: a voice 60 % of the time, a quiet room in between (the ingest checks measure the floor there).
+        inputs += ["-f", "lavfi", "-i", f"sine=frequency=440:duration={seconds},volume='if(lt(mod(t,1),0.6),0.5,0.003)':eval=frame"]
     ffmpeg(*inputs, "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", *(["-c:a", "aac"] if audio else []), str(path))
     return path
