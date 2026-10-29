@@ -6,7 +6,9 @@ import { analysisPython, ensureAnalysis } from "../analysis";
 import { bundleWithMedia, renderVideo } from "../engine";
 import { exportChecks } from "../lib/checks";
 import { confidenceWarnings, wordConfidence } from "../lib/confidence";
+import { homedir } from "node:os";
 import { applyAccent } from "../lib/accent";
+import { readDA, withDA } from "../lib/da";
 import { applyLegibility } from "../lib/legibility";
 import { audioGate, blackShare, measureLoudness, noiseFloor, normalizeLoudness, silenceShare } from "../lib/loudness";
 import { expandEnv, planMedia } from "../media";
@@ -59,7 +61,8 @@ export async function renderCommand(projectDir: string, opts: { out?: string; fr
   const loaded = loadProject(projectDir);
   const { dir, style } = loaded;
   // Never a cut inside a word: an edge that falls in one moves out of it before anything is computed.
-  const { project, moved } = repairCuts(loaded.project);
+  // The creator's art direction under the video's own settings, and never a cut inside a word.
+  const { project, moved } = repairCuts(withDA(loaded.project, readDA(join(homedir(), ".adam-studio"))));
   for (const m of moved) console.log(`repaired: ${m}`);
   const timeline = resolve(project, style);
   ensureAnalysis(dir, project, timeline, { analyze: opts.analyze ?? true });

@@ -157,3 +157,11 @@ describe("the default push", () => {
     expect(shots([{ id: "c1", asset: "a", inMs: 0, outMs: 4000, zoom: { base: 1.3, driftPerSec: 0 } }])[0]).toEqual({ base: 1.3, driftPerSec: 0 });
   });
 });
+
+describe("the push as a style setting", () => {
+  const story = [{ id: "c1", asset: "a", inMs: 0, outMs: 4000 }];
+  it("follows the style's motion.push, and none at all at 0", () => {
+    expect(resolve(makeProject({ story, styleOverrides: { motion: { push: 0.006 } } }), makeStyle()).clips[0]!.zoom).toEqual({ base: 1, driftPerSec: 0.006 });
+    expect(resolve(makeProject({ story, styleOverrides: { motion: { push: 0 } } }), makeStyle()).clips[0]!.zoom).toEqual({ base: 1, driftPerSec: 0 });
+  });
+});

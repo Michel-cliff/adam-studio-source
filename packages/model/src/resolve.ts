@@ -32,9 +32,9 @@ function speechSpans(ctx: ReturnType<typeof createContext>): [number, number][] 
 // one shot in and the next back out (the same way three shots running reads as an effect), at most 8 % in a shot, so
 // the scale never passes 1.08. The eye does not see it move, but it does not drop off.
 const PUSH_PER_SEC = 0.012, PUSH_MAX = 0.08;
-function defaultPush(zoom: { base: number; driftPerSec: number }, index: number, durationMs: number) {
-  if (zoom.base !== 1 || zoom.driftPerSec !== 0 || durationMs <= 0) return zoom;
-  const total = Math.min(PUSH_MAX, PUSH_PER_SEC * (durationMs / 1000));
+function defaultPush(zoom: { base: number; driftPerSec: number }, index: number, durationMs: number, rate: number) {
+  if (zoom.base !== 1 || zoom.driftPerSec !== 0 || durationMs <= 0 || rate <= 0) return zoom;
+  const total = Math.min(PUSH_MAX, rate * (durationMs / 1000));
   const drift = total / (durationMs / 1000);
   return index % 2 === 0 ? { base: 1, driftPerSec: drift } : { base: 1 + total, driftPerSec: -drift };
 }
@@ -61,7 +61,7 @@ export function resolve(projectIn: Project, styleIn: Style, options: ResolveOpti
     sourceInMs: l.clip.inMs,
     sourceOutMs: l.clip.outMs,
     framing: l.clip.framing,
-    zoom: defaultPush(l.clip.zoom, ctx.clips.indexOf(l), l.outEndMs - l.outStartMs),
+    zoom: defaultPush(l.clip.zoom, ctx.clips.indexOf(l), l.outEndMs - l.outStartMs, style.motion.push ?? PUSH_PER_SEC),
     transitionOut: l.clip.transitionOut,
     volume: l.clip.volume,
   }];

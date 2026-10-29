@@ -66,7 +66,11 @@ export const StyleSchema = z.strictObject({
     intro: z.string().default("miniZoom"),
   }),
   /** Animation speed of every effect: 1 as designed, below 1 slower (0.7 = 30% slower), above 1 faster. */
-  motion: z.strictObject({ speed: z.number().min(0.25).max(3).default(1) }).default({ speed: 1 }),
+  motion: z.strictObject({
+    speed: z.number().min(0.25).max(3).default(1),
+    // The default push of face-camera shots, per second (0.012 when not set, 0 for none).
+    push: z.number().min(0).max(0.03).optional(),
+  }).default({ speed: 1 }),
   /** Filler words checked by lint, by transcript language. */
   fillers: z.record(z.string(), z.array(z.string())).default(FILLERS),
   slots: z.record(FormatSchema, z.record(z.string(), Point)),

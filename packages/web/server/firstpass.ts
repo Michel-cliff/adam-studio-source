@@ -145,18 +145,22 @@ export function findStutters(words: Word[]): string[] {
 /** The first pass's labels, in the creator's language (their interface when they ran it). */
 const WORDS = {
   en: {
-    tight: (f: number, r: number) => `tight: ${f} fillers, ${r} retakes, pauses over 0.6 s cut to 0.25 s`, light: (f: number) => `light: ${f} fillers, pauses over 0.9 s`,
+    tight: (f: number, r: number, o = 0.6, k = 0.25) => `tight: ${f} fillers, ${r} retakes, pauses over ${o} s cut to ${k} s`, light: (f: number) => `light: ${f} fillers, pauses over 0.9 s`,
     two: (n: number) => `${n} captions, two lines, one word highlighted`, one: (n: number) => `${n} captions, one line, no highlight`,
     cuts: "First pass: fillers, failed takes and dead air", captions: "First pass: captions from the transcript",
   },
   fr: {
-    tight: (f: number, r: number) => `serré : ${f} hésitations, ${r} reprises, pauses de plus de 0,6 s ramenées à 0,25 s`, light: (f: number) => `léger : ${f} hésitations, pauses de plus de 0,9 s`,
+    tight: (f: number, r: number, o = 0.6, k = 0.25) => `serré : ${f} hésitations, ${r} reprises, pauses de plus de ${String(o).replace(".", ",")} s ramenées à ${String(k).replace(".", ",")} s`, light: (f: number) => `léger : ${f} hésitations, pauses de plus de 0,9 s`,
     two: (n: number) => `${n} sous-titres, deux lignes, un mot en couleur`, one: (n: number) => `${n} sous-titres, une ligne, sans couleur`,
     cuts: "Premier jet : hésitations, reprises et temps morts", captions: "Premier jet : sous-titres depuis la transcription",
   },
 };
 
-export function firstPass(input: Project, style: Style, lang: "en" | "fr" = "en"): { project: Project; summary: FirstPassSummary } {
+/** What the creator's art direction sets in the first pass (its rhythm's pauses, its captions' density). */
+export type FirstPassParams = { pauseOverMs: number; pauseKeepMs: number; maxWords: number; maxChars: number };
+const DEFAULT_PARAMS: FirstPassParams = { pauseOverMs: PAUSE_OVER_MS, pauseKeepMs: PAUSE_KEEP_MS, maxWords: 5, maxChars: 32 };
+
+export function firstPass(input: Project, style: Style, lang: "en" | "fr" = "en", params: FirstPassParams = DEFAULT_PARAMS): { project: Project; summary: FirstPassSummary } {
   const w = WORDS[lang];
   let p: Project = { ...input, workflow: input.workflow ?? newWorkflow() };
   const words = keptWords(p);
@@ -183,11 +187,11 @@ export function firstPass(input: Project, style: Style, lang: "en" | "fr" = "en"
   };
 
   const safeCut = (ids: string[]) => { try { return ids.length ? cutWords(p, ids) : p; } catch { return p; } };
-  const tight = tightenPauses(safeCut([...new Set([...fillers, ...stutters, ...retakes.flatMap((r) => r.ids)])]), PAUSE_OVER_MS, PAUSE_KEEP_MS);
+  const tight = tightenPauses(safeCut([...new Set([...fillers, ...stutters, ...retakes.flatMap((r) => r.ids)])]), params.pauseOverMs, params.pauseKeepMs);
   const light = tightenPauses(safeCut(fillers), 900, 300);
   const same = (a: Project) => JSON.stringify(a.story) === JSON.stringify(p.story);
   const cutVariants: { key: "A" | "B"; label: string; patch: Record<string, unknown> }[] = [];
-  if (!same(tight)) cutVariants.push({ key: "A", label: w.tight(fillers.length, retakes.length), patch: { setStory: tight.story } });
+  if (!same(tight)) cutVariants.push({ key: "A", label: w.tight(fillers.length, retakes.length, params.pauseOverMs / 1000, params.pauseKeepMs / 1000), patch: { setStory: tight.story } });
   if (!same(light) && JSON.stringify(light.story) !== JSON.stringify(tight.story)) {
     cutVariants.push({ key: cutVariants.length ? "B" : "A", label: w.light(fillers.length), patch: { setStory: light.story } });
   }
@@ -197,7 +201,7 @@ export function firstPass(input: Project, style: Style, lang: "en" | "fr" = "en"
   if (p.captions.length === 0 && words.length) {
     const max = style.caption.maxCharsPerLine;
     // The default art direction: 3 to 5 words, 32 characters at most per caption (two lines).
-    const two = captionChunks(words, 32, true, 5);
+    const two = captionChunks(words, params.maxChars, true, params.maxWords);
     const one = captionChunks(words, max, false);
     summary.captions = two.length;
     put("auto.captions", "captions", w.captions, [

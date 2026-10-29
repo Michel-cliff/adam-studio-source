@@ -22,10 +22,12 @@ import { learnedFor } from "./stats";
 import { Autopilot } from "./autopilot";
 import type { JobView } from "./types";
 import { wordConfidence } from "@adam-studio/render/src/lib/confidence";
+import { daFirstPass, readDA, type DaStep } from "@adam-studio/render/src/lib/da";
 import { Doctor } from "./doctor-routes";
 import { keyStatus, PROVIDERS, setKey } from "./keys";
 import { claudeDesktopConfig, claudeDesktopStatus, codexConfig, codexStatus, connectClaudeDesktop, connectCodex } from "./desktop";
 import { adamServer } from "./claude";
+import { daRoute } from "./da-routes";
 import { statsRoute } from "./stats-routes";
 import { draftScript, readScript, saveScript } from "./script";
 import { mediaFile, previewData } from "./preview";
@@ -110,7 +112,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
   const ended = (start: (done: (j: JobView) => void) => void) => new Promise<JobView>((done) => start(done));
   const autopilot = new Autopilot({
     load: (dir) => loadRaw(dir) as never,
-    firstPass: (dir) => { firstPassIn(dir, uiLang(settingsFile)); },
+    firstPass: (dir) => { firstPassIn(dir, uiLang(settingsFile), daFirstPass(readDA(dirname(settingsFile)))); },
     decide: (dir, id, d) => { decideProposal(dir, id, d as "A"); },
     close: (dir) => { closeCurrentStep(dir); },
     ask: async (name, dir, step, prompt) => { await ended((done) => askJob(name, dir, step, prompt, "propose", [], done)); },
@@ -139,6 +141,11 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     if (path === "/api/ping") return send(res, 200, { app: "adam-studio" });
     if (path.startsWith("/api/stats")) {
       const handled = await statsRoute({ req, res, url, method, dir: dirname(settingsFile), root: projectsRoot(settingsFile), ai, send: (s, b) => send(res, s, b), body: () => body(req) });
+      if (handled) return;
+    }
+    if (path.startsWith("/api/da") || /^\/api\/projects\/[^/]+\/da\//.test(path)) {
+      const handled = await daRoute({ method, path, daDir: dirname(settingsFile), lang: uiLang(settingsFile), projectDir: (n) => existing(encodeURIComponent(n)).dir,
+        send: (s, b) => send(res, s, b), body: () => body(req) });
       if (handled) return;
     }
     if (path.startsWith("/api/library/")) {
@@ -279,7 +286,11 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const proposal = url.searchParams.get("proposal");
       const variant = url.searchParams.get("variant");
       if (proposal && variant && !["A", "B", "C"].includes(variant)) throw new HttpError(400, "variant must be A, B or C");
-      return send(res, 200, previewData(dir, name, proposal && variant ? { proposal, variant: variant as "A" | "B" | "C" } : undefined, url.searchParams.get("without") ?? undefined));
+      // The creator's art direction always; with ?da=<step>:<value>, one step tried in the guided path.
+      const tryDa = url.searchParams.get("da");
+      const [daStep, ...daValue] = (tryDa ?? "").split(":");
+      return send(res, 200, previewData(dir, name, proposal && variant ? { proposal, variant: variant as "A" | "B" | "C" } : undefined, url.searchParams.get("without") ?? undefined,
+        { daDir: dirname(settingsFile), ...(tryDa ? { step: daStep as DaStep, value: daValue.join(":") } : {}) }));
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/media\/(.+)$/)) && (method === "GET" || method === "HEAD")) {
       const { name, dir } = existing(m[1]!);
@@ -337,7 +348,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
         case "cut_words": return send(res, 200, cutWordsIn(dir, Array.isArray(b.words) ? b.words.map(String) : []));
         case "tighten": return send(res, 200, tightenIn(dir, Number(b.minPauseMs ?? 600), Number(b.keepMs ?? 200)));
         case "undo": return send(res, 200, { message: undo(dir) });
-        case "first_pass": return send(res, 200, firstPassIn(dir, uiLang(settingsFile)));
+        case "first_pass": return send(res, 200, firstPassIn(dir, uiLang(settingsFile), daFirstPass(readDA(dirname(settingsFile)))));
         case "decide": {
           const d = String(b.decision);
           if (!["A", "B", "C", "reject", "more"].includes(d)) throw new HttpError(400, "decision must be A, B, C, reject or more");

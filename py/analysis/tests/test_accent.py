@@ -21,3 +21,13 @@ def test_the_hue_of_the_set_wins_the_skin_is_masked():
 
 def test_a_grey_rush_gives_no_hue():
     assert dominant_hue([frame((128, 128, 128))], [None]) is None
+
+
+def test_three_distinct_hues_of_the_set_for_the_guided_path():
+    from adam_analysis.accent import top_hues
+    f = frame((200, 120, 40))           # blue wall
+    f[0:120, :] = (40, 160, 60)          # green plant band
+    f[400:480, :] = (40, 90, 230)        # orange poster band
+    hues = top_hues([f], [None], 3)
+    assert len(hues) == 3
+    assert all(abs(((a - b + 180) % 360) - 180) >= 30 for i, a in enumerate(hues) for b in hues[i + 1:])

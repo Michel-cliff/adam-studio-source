@@ -1,3 +1,6 @@
+import { homedir } from "node:os";
+import { repairCuts } from "@adam-studio/model";
+import { readDA, withDA } from "../lib/da";
 import { writeFileSync } from "node:fs";
 import { join, resolve as resolvePath } from "node:path";
 import { resolve } from "@adam-studio/model";
@@ -30,7 +33,10 @@ export function capcutSources(plan: MediaPlan): Record<string, Source> {
 
 /** Renders what CapCut cannot do natively and writes the plan the Python exporter reads. */
 export async function capcutPrepCommand(projectDir: string, opts: { out?: string; force: boolean; nativeKinds?: string[]; analyze?: boolean }): Promise<string> {
-  const { dir, project, style } = loadProject(projectDir);
+  const loaded = loadProject(projectDir);
+  const { dir, style } = loaded;
+  // As the render: the creator's art direction under the video's own settings, no cut inside a word.
+  const project = repairCuts(withDA(loaded.project, readDA(join(homedir(), ".adam-studio")))).project;
   const timeline = resolve(project, style);
   ensureAnalysis(dir, project, timeline, { analyze: opts.analyze ?? true });
   lintGate(project, timeline, dir, opts.force, "export");

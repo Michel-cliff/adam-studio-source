@@ -8,7 +8,7 @@ import { applySeries } from "@adam-studio/model";
 import { listSeries, loadSeries } from "@adam-studio/render/src/series";
 import { cutWords, tightenPauses } from "./cuts";
 import { moveCaption, moveElement, moveStory, resizeElement } from "./moves";
-import { firstPass, type FirstPassSummary } from "./firstpass";
+import { firstPass, type FirstPassParams, type FirstPassSummary } from "./firstpass";
 import { safeName } from "./guards";
 
 export class ToolError extends Error {}
@@ -229,11 +229,11 @@ export function removeAssetIn(dir: string, id: string): { trashed: string | null
 }
 
 /** The mechanical first pass (cuts and captions proposals), validated and backed up like every write. */
-export function firstPassIn(dir: string, lang: "en" | "fr" = "en"): { summary: FirstPassSummary; lint: string[]; durationMs: number } {
+export function firstPassIn(dir: string, lang: "en" | "fr" = "en", params?: FirstPassParams): { summary: FirstPassSummary; lint: string[]; durationMs: number } {
   const { project, style } = load(dir);
   let summary!: FirstPassSummary;
   const r = edit(dir, () => {
-    try { const out = firstPass(project, style, lang); summary = out.summary; return out.project; } catch (e) { throw new ToolError((e as Error).message); }
+    try { const out = firstPass(project, style, lang, params); summary = out.summary; return out.project; } catch (e) { throw new ToolError((e as Error).message); }
   });
   return { summary, ...r };
 }

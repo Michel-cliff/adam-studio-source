@@ -906,6 +906,11 @@
               "type": "number",
               "minimum": 0.25,
               "maximum": 3
+            },
+            "push": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.03
             }
           },
           "required": [

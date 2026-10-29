@@ -27,6 +27,37 @@ def oklch(bgr: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return lab[..., 0], c, h
 
 
+def _histogram(frames: list[np.ndarray], faces: list[tuple[int, int, int, int] | None]) -> tuple[np.ndarray, list[float]]:
+    hist = np.zeros(360 // BIN)
+    skin: list[float] = []
+    for f, face in zip(frames, faces):
+        _, c, h = oklch(f)
+        keep = c >= MIN_CHROMA
+        if face is not None:
+            x, y, w, hh = face
+            dx, dy = int(w * 0.2), int(hh * 0.2)
+            region = (slice(max(0, y - dy), y + hh + dy), slice(max(0, x - dx), x + w + dx))
+            face_h = h[region][c[region] >= MIN_CHROMA]
+            if face_h.size:
+                skin.append(float(np.median(face_h)))
+            keep[region] = False
+        hist += np.bincount((h[keep] // BIN).astype(int), weights=c[keep], minlength=hist.size)[: hist.size]
+    return hist, skin
+
+
+def top_hues(frames: list[np.ndarray], faces: list[tuple[int, int, int, int] | None], n: int = 3, min_gap: float = 30) -> list[float]:
+    """The n hues that come back most in the set, at least 30 degrees apart (the guided path offers them)."""
+    hist, _ = _histogram(frames, faces)
+    out: list[float] = []
+    for b in np.argsort(hist)[::-1]:
+        if hist[b] <= 0 or len(out) == n:
+            break
+        h = float(b * BIN + BIN / 2)
+        if all(abs(((h - o + 180) % 360) - 180) >= min_gap for o in out):
+            out.append(h)
+    return out
+
+
 def dominant_hue(frames: list[np.ndarray], faces: list[tuple[int, int, int, int] | None]) -> float | None:
     """The mode of the hue histogram (10 degree bins, weighted by chroma over the area), skin and greys left out; when
     the second mode weighs over 80 % of the first, the one farthest from the skin. None when the rush has no colour."""
@@ -76,4 +107,5 @@ def run(spec_path: str, out_path: str) -> None:
             t += spec.get("every_ms", 2000)
         cap.release()
     hue = dominant_hue(frames, faces) if frames else None
-    Path(out_path).write_text(json.dumps({"hue": hue}), encoding="utf-8")
+    hues = top_hues(frames, faces) if frames else []
+    Path(out_path).write_text(json.dumps({"hue": hue, "hues": hues}), encoding="utf-8")

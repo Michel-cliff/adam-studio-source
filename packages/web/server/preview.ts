@@ -2,7 +2,9 @@ import { repairCuts, resolve, withVariant, withoutVariant, type Project } from "
 import { planMedia } from "@adam-studio/render/src/media";
 import type { MediaFiles } from "@adam-studio/render/src/props";
 import { applyAccent } from "@adam-studio/render/src/lib/accent";
+import { daFirstPass, readDA, withDA, type CreatorDA, type DaStep } from "@adam-studio/render/src/lib/da";
 import { applyLegibility } from "@adam-studio/render/src/lib/legibility";
+import { tightenPauses } from "./cuts";
 import { load, ToolError } from "./store";
 
 const plans = new Map<string, Map<string, string>>(); // project dir -> public path -> file on disk
@@ -13,12 +15,29 @@ function applied(project: Project, apply: { proposal: string; variant: "A" | "B"
 }
 
 /** What the live preview needs: the timeline, and media and fonts as URLs served by the panel. */
-export function previewData(dir: string, name: string, apply?: { proposal: string; variant: "A" | "B" | "C" }, without?: string) {
+/** An art direction step being tried in the guided path: the creator's art direction with this one choice. */
+export type DaTry = { daDir: string; step?: DaStep; value?: string };
+
+export function previewData(dir: string, name: string, apply?: { proposal: string; variant: "A" | "B" | "C" }, without?: string, daTry?: DaTry) {
   const raw = load(dir);
   // Without a choice: the edit as it was before a decided proposal, the base its variants are compared with.
   const chosen = without ? { ...raw, project: withoutVariant(raw.project, without) } : raw;
   // As the render does: no cut inside a word.
-  const loaded = { ...chosen, project: repairCuts(chosen.project).project };
+  let project0 = repairCuts(chosen.project).project;
+  if (daTry) {
+    const da = { ...readDA(daTry.daDir), ...(daTry.step && daTry.step !== "donts" ? { [daTry.step]: daTry.value } : {}) } as CreatorDA;
+    // The rhythm is heard on the take itself: recut with its pauses (the edit's story is already cut).
+    if (daTry.step === "rhythm") {
+      const fp = daFirstPass(da);
+      const whole = project0.story.length ? [...new Set(project0.story.map((c) => c.asset))].map((asset, i) => {
+        const ws = project0.transcript.words[asset] ?? [];
+        return { ...project0.story.find((c) => c.asset === asset)!, id: `r${i}`, inMs: Math.max(0, (ws[0]?.startMs ?? 0) - 300), outMs: (ws[ws.length - 1]?.endMs ?? 0) + 400 };
+      }) : project0.story;
+      project0 = tightenPauses({ ...project0, story: whole }, fp.pauseOverMs, fp.pauseKeepMs);
+    }
+    project0 = withDA(project0, da);
+  }
+  const loaded = { ...chosen, project: project0 };
   const style = loaded.style;
   const project = apply ? applied(loaded.project, apply) : loaded.project;
   let timeline;
