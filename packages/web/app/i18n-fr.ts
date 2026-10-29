@@ -237,6 +237,8 @@ export const FR: Record<string, string> = {
 };
 
 export const PATTERNS: [RegExp, string][] = [
+  [/^First pass: (\d+) fillers, (\d+) stutters, (\d+) failed takes, (\d+) captions · (\d+) pauses over 3 s to check$/, "Premier jet : $1 hésitations, $2 bégaiements, $3 reprises ratées, $4 sous-titres · $5 pauses de plus de 3 s à vérifier"],
+  [/^First pass: (\d+) fillers, (\d+) stutters, (\d+) failed takes, (\d+) captions$/, "Premier jet : $1 hésitations, $2 bégaiements, $3 reprises ratées, $4 sous-titres"],
   [/^Play (drone|pop|tick|whoosh|.+)$/, "Écouter $1"],
   [/^Remove the (.+) key$/, "Retirer la clé $1"],
   [/^(.+) · change$/, "$1 · changer"],

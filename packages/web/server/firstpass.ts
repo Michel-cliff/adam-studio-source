@@ -91,22 +91,46 @@ export function captionChunks(words: Word[], maxChars: number, highlight: boolea
   return chunks;
 }
 
-export type FirstPassSummary = { fillers: number; retakes: { from: string; to: string; words: number }[]; captions: number; proposals: string[]; skipped: string[] };
+export type FirstPassSummary = {
+  fillers: number; stutters: number; retakes: { from: string; to: string; words: number }[]; captions: number; proposals: string[]; skipped: string[];
+  /** Pauses over 3 s: brought down like the others, and named, since they are often a failed take to look at. */
+  longPauses: { afterWord: string; ms: number }[];
+};
+
+// The default art direction's pauses: a breath (up to 0.6 s) stays whole, a longer pause keeps 0.25 s, never zero, so a
+// cut reads as a pause and not as two sentences glued together. Cut points fall in the middle of the silence.
+export const PAUSE_OVER_MS = 600;
+export const PAUSE_KEEP_MS = 250;
+const LONG_PAUSE_MS = 3000;
+const STUTTER_MS = 400;
+
+const bare = (t: string) => t.toLowerCase().replace(/[^\p{L}\p{N}']/gu, "");
+
+/** Stutters: the same word said again within 0.4 s; every occurrence but the last goes. */
+export function findStutters(words: Word[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i + 1 < words.length; i++) {
+    const a = words[i]!, b = words[i + 1]!;
+    const take = (w: Word) => w.id.slice(0, w.id.lastIndexOf(".w"));
+    if (take(a) === take(b) && bare(a.text) && bare(a.text) === bare(b.text) && b.startMs - a.endMs < STUTTER_MS) out.push(a.id);
+  }
+  return out;
+}
 
 /**
  * The mechanical part of a first pass, as proposals of the guided workflow (nothing is applied until decided):
- * cuts (A tight: fillers, retakes and long pauses; B light: fillers and very long pauses) and captions (A two lines
+ * cuts (A tight: fillers, stutters, retakes, pauses over 0.6 s kept at 0.25 s; B light: fillers and very long pauses) and captions (A two lines
  * with a highlighted word, B one line). Re-running replaces its own pending proposals and leaves decided ones alone.
  */
 /** The first pass's labels, in the creator's language (their interface when they ran it). */
 const WORDS = {
   en: {
-    tight: (f: number, r: number) => `tight: ${f} fillers, ${r} retakes, pauses over 0.4 s`, light: (f: number) => `light: ${f} fillers, pauses over 0.9 s`,
+    tight: (f: number, r: number) => `tight: ${f} fillers, ${r} retakes, pauses over 0.6 s cut to 0.25 s`, light: (f: number) => `light: ${f} fillers, pauses over 0.9 s`,
     two: (n: number) => `${n} captions, two lines, one word highlighted`, one: (n: number) => `${n} captions, one line, no highlight`,
     cuts: "First pass: fillers, failed takes and dead air", captions: "First pass: captions from the transcript",
   },
   fr: {
-    tight: (f: number, r: number) => `serré : ${f} hésitations, ${r} reprises, pauses de plus de 0,4 s`, light: (f: number) => `léger : ${f} hésitations, pauses de plus de 0,9 s`,
+    tight: (f: number, r: number) => `serré : ${f} hésitations, ${r} reprises, pauses de plus de 0,6 s ramenées à 0,25 s`, light: (f: number) => `léger : ${f} hésitations, pauses de plus de 0,9 s`,
     two: (n: number) => `${n} sous-titres, deux lignes, un mot en couleur`, one: (n: number) => `${n} sous-titres, une ligne, sans couleur`,
     cuts: "Premier jet : hésitations, reprises et temps morts", captions: "Premier jet : sous-titres depuis la transcription",
   },
@@ -120,7 +144,15 @@ export function firstPass(input: Project, style: Style, lang: "en" | "fr" = "en"
   const fillers = findFillers(words, fillerList);
   const times = editTimes(p);
   const retakes = findRetakes(words, (w) => times.get(w.id) ?? w.startMs);
-  const summary: FirstPassSummary = { fillers: fillers.length, retakes: retakes.map((r) => ({ from: r.from, to: r.to, words: r.ids.length })), captions: 0, proposals: [], skipped: [] };
+  const stutters = findStutters(words);
+  const longPauses = words.slice(0, -1).flatMap((x, i) => {
+    const next = words[i + 1]!, gap = next.startMs - x.endMs;
+    return x.id.slice(0, x.id.lastIndexOf(".w")) === next.id.slice(0, next.id.lastIndexOf(".w")) && gap > LONG_PAUSE_MS ? [{ afterWord: x.id, ms: gap }] : [];
+  });
+  const summary: FirstPassSummary = {
+    fillers: fillers.length, stutters: stutters.length, retakes: retakes.map((r) => ({ from: r.from, to: r.to, words: r.ids.length })),
+    captions: 0, proposals: [], skipped: [], longPauses,
+  };
 
   const put = (id: string, step: Project["proposals"][number]["step"], reason: string, variants: { key: "A" | "B"; label: string; patch: Record<string, unknown> }[]) => {
     const old = p.proposals.find((x) => x.id === id);
@@ -131,7 +163,7 @@ export function firstPass(input: Project, style: Style, lang: "en" | "fr" = "en"
   };
 
   const safeCut = (ids: string[]) => { try { return ids.length ? cutWords(p, ids) : p; } catch { return p; } };
-  const tight = tightenPauses(safeCut([...new Set([...fillers, ...retakes.flatMap((r) => r.ids)])]), 400, 200);
+  const tight = tightenPauses(safeCut([...new Set([...fillers, ...stutters, ...retakes.flatMap((r) => r.ids)])]), PAUSE_OVER_MS, PAUSE_KEEP_MS);
   const light = tightenPauses(safeCut(fillers), 900, 300);
   const same = (a: Project) => JSON.stringify(a.story) === JSON.stringify(p.story);
   const cutVariants: { key: "A" | "B"; label: string; patch: Record<string, unknown> }[] = [];

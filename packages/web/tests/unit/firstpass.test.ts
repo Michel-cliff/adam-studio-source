@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseProject, parseStyle, resolve } from "@adam-studio/model";
-import { captionChunks, findFillers, findRetakes, firstPass, keptWords } from "../../server/firstpass";
+import { captionChunks, findFillers, findRetakes, findStutters, firstPass, keptWords } from "../../server/firstpass";
 import { projectInput, styleInput } from "../../../model/tests/helpers";
 
 /** "Alors euh je voulais vous dire je voulais vous parler du projet. Ben voilà." with a long pause before "Ben". */
@@ -92,5 +92,40 @@ describe("firstPass", () => {
     const r = firstPass(decided, style);
     expect(r.summary.skipped.join()).toMatch(/auto.cuts/);
     expect(r.project.proposals.find((p) => p.id === "auto.cuts")!.status).toEqual({ accepted: "A" });
+  });
+});
+
+describe("pauses and stutters, as the default art direction asks", () => {
+  // Gaps between words: 0.5 s (breath, kept), 1.0 s (cut to 0.25 s), 3.5 s (cut to 0.25 s and flagged).
+  const at = [[0, 400], [900, 1300], [2300, 2700], [6200, 6600], [6700, 6900], [7000, 7400]];
+  const text = ["un", "deux", "trois", "quatre", "je", "je"];
+  const ws = text.map((t, i) => ({ id: `a.w${i}`, text: t, startMs: at[i]![0]!, endMs: at[i]![1]! }));
+  const proj = () => {
+    const p = parseProject({ ...projectInput(), transcript: { lang: "fr", words: { a: ws } }, story: [{ id: "c1", asset: "a", inMs: 0, outMs: 7600 }] });
+    const s = parseStyle(styleInput);
+    if (!p.ok || !s.ok) throw new Error("bad fixture");
+    return { project: p.value, style: s.value };
+  };
+  /** Where a source moment lands in the edit made of these clips. */
+  const out = (story: { inMs: number; outMs: number }[], ms: number) => {
+    let t = 0;
+    for (const c of story) { if (ms >= c.inMs && ms <= c.outMs) return t + ms - c.inMs; t += c.outMs - c.inMs; }
+    return NaN;
+  };
+
+  it("keeps breaths, brings long pauses down to 0.25 s, never to zero, and flags the very long ones", () => {
+    const { project, style } = proj();
+    const { project: o, summary } = firstPass(project, style);
+    const story = o.proposals.find((p) => p.id === "auto.cuts")!.variants[0]!.patch.setStory!;
+    const gap = (i: number) => out(story, ws[i + 1]!.startMs) - out(story, ws[i]!.endMs);
+    expect(gap(0)).toBe(500);
+    expect(gap(1)).toBe(250);
+    expect(gap(2)).toBe(250);
+    expect(summary.longPauses).toEqual([{ afterWord: "a.w2", ms: 3500 }]);
+  });
+
+  it("cuts a stutter (the same word again within 0.4 s) and keeps the last one", () => {
+    expect(findStutters(ws)).toEqual(["a.w4"]);
+    expect(findStutters([{ id: "b.w0", text: "très", startMs: 0, endMs: 300 }, { id: "b.w1", text: "très", startMs: 900, endMs: 1200 }])).toEqual([]);
   });
 });

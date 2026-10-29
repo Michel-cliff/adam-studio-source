@@ -273,8 +273,9 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
   };
   const firstPass = async () => {
     try {
-      const r = await api<{ summary: { fillers: number; retakes: unknown[]; captions: number } }>(`/projects/${enc(name)}/edit`, { method: "POST", body: { op: "first_pass" } });
-      setToast(`First pass: ${r.summary.fillers} fillers, ${r.summary.retakes.length} failed takes, ${r.summary.captions} captions`);
+      const r = await api<{ summary: { fillers: number; stutters?: number; retakes: unknown[]; captions: number; longPauses?: unknown[] } }>(`/projects/${enc(name)}/edit`, { method: "POST", body: { op: "first_pass" } });
+      const long = r.summary.longPauses?.length ?? 0;
+      setToast(`First pass: ${r.summary.fillers} fillers, ${r.summary.stutters ?? 0} stutters, ${r.summary.retakes.length} failed takes, ${r.summary.captions} captions${long ? ` · ${long} pauses over 3 s to check` : ""}`);
       await load();
     } catch (e) { setError((e as Error).message); }
   };
