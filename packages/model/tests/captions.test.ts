@@ -34,9 +34,9 @@ describe("normalizeWord", () => {
 });
 
 describe("resolve: captions", () => {
-  it("splits a caption that straddles a cut into one piece per kept range", () => {
+  it("splits a caption that straddles a cut into one piece per kept range (lead before the first, tail after the last)", () => {
     const tl = resolve(makeProject({ ...cut, captions: [{ words: ["a.w1", "a.w5"], text: "un deux trois quatre cinq" }] }), style);
-    expect(tl.captions.map((c) => [c.id, c.fromFrame, c.durationFrames])).toEqual([["cap0.0", 54, 6], ["cap0.1", 60, 15]]);
+    expect(tl.captions.map((c) => [c.id, c.fromFrame, c.durationFrames])).toEqual([["cap0.0", 52, 8], ["cap0.1", 60, 19]]);
   });
 
   it("orphans a caption whose words were all cut", () => {
@@ -84,5 +84,28 @@ describe("words joined back as they are written", () => {
   it("tidies a caption already written with those spaces", () => {
     expect(tidyText("est -ce que j 'utilise jobless .fr dans ma")).toBe("est-ce que j'utilise jobless.fr dans ma");
     expect(tidyText("bon - ok")).toBe("bon - ok");
+  });
+});
+
+describe("caption timing, as the default art direction sets it", () => {
+  // Words a.w0 = 1000-1500, a.w1 = 1800-2300, a.w2 = 2600-3100 ... (800 ms apart, 500 ms long), 30 fps, story 0-10 s.
+  const at = (captions: { words: [string, string]; text: string }[]) => resolve(makeProject({ captions }), makeStyle()).captions;
+
+  it("appears 60 ms before the first word and leaves 120 ms after the last", () => {
+    const [c] = at([{ words: ["a.w1", "a.w2"], text: "un deux" }]);
+    expect(c!.fromFrame).toBe(Math.round((1800 - 60) * 0.03));
+    expect(c!.fromFrame + c!.durationFrames).toBe(Math.round((3100 + 120) * 0.03));
+  });
+  it("stays at least 0.8 s, never over the next caption, and at most 3.5 s", () => {
+    const [a, b] = at([{ words: ["a.w0", "a.w0"], text: "zéro" }, { words: ["a.w1", "a.w1"], text: "un" }]);
+    expect(a!.fromFrame + a!.durationFrames).toBeLessThanOrEqual(b!.fromFrame);
+    const [one] = at([{ words: ["a.w5", "a.w5"], text: "cinq" }]);
+    expect(one!.durationFrames).toBe(24);
+    const [long] = at([{ words: ["a.w0", "a.w5"], text: "zéro un deux trois quatre cinq" }]);
+    expect(long!.durationFrames).toBe(105);
+  });
+  it("drops the final period, keeps question and exclamation marks", () => {
+    expect(at([{ words: ["a.w1", "a.w2"], text: "un deux." }])[0]!.text).toBe("un deux");
+    expect(at([{ words: ["a.w1", "a.w2"], text: "un deux ?" }])[0]!.text).toBe("un deux ?");
   });
 });
