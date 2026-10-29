@@ -17,6 +17,8 @@ export const TimelineClipSchema = z.object({
   zoom: ZoomSchema,
   transitionOut: TransitionOutSchema,
   volume: z.number().min(0),
+  /** The face found in the middle of the shot, as shares of the frame [x, y, w, h] (edge blur, placement). */
+  face: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional(),
 });
 
 export const TimelineElementSchema = z.object({

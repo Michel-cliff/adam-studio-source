@@ -153,6 +153,15 @@ def run(spec_path: str, out_path: str) -> None:
     for v in out.values():
         if above and v["y"] < band[0]:
             v["y"] = min(above)
+    # The face of each shot, in its middle: the edge blur of the default art direction is shaped around it.
+    shots: dict[str, list[int] | None] = {}
+    for shot in spec.get("shots", []):
+        cap = caps.get(shot["take"])
+        frame = _frame(cap, shot["ms"]) if cap is not None else None
+        face = face_box(cv2.resize(frame, (spec["width"], spec["height"]))) if frame is not None else None
+        shots[shot["id"]] = list(face) if face else None
+    if spec.get("shots") is not None:
+        out["_shots"] = shots
     for cap in caps.values():
         cap.release()
     Path(out_path).write_text(json.dumps(out), encoding="utf-8")

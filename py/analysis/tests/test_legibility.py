@@ -68,3 +68,15 @@ def test_the_face_wins_over_the_hands_and_a_full_band_sends_the_caption_above_th
     # Framed high, the band free under the mouth: the hands send the caption up, to a free spot.
     high = (398, 300, 472, 472)  # eyes-to-mouth band: 418 to 687
     assert place(1152, half, high, 0.24, BAND) == BAND[0] + half
+
+
+def test_each_shot_gets_the_face_found_in_its_middle(tmp_path, monkeypatch):
+    import json
+    from adam_analysis import legibility
+    from media import color_video
+    clip = color_video(tmp_path / "t.mp4", "1080x1920", 2)
+    monkeypatch.setattr(legibility, "face_box", lambda f: (100, 200, 300, 400))
+    spec = {"width": 1080, "height": 1920, "band": [950, 1248], "takes": {"c01": str(clip)}, "items": [], "shots": [{"id": "c1", "take": "c01", "ms": 1000}]}
+    (tmp_path / "s.json").write_text(json.dumps(spec))
+    legibility.run(str(tmp_path / "s.json"), str(tmp_path / "o.json"))
+    assert json.loads((tmp_path / "o.json").read_text())["_shots"] == {"c1": [100, 200, 300, 400]}

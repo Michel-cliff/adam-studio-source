@@ -219,6 +219,12 @@ C'est la variante A du premier jet ; la variante B (légère : hésitations et p
 alterné d'un plan au suivant (l'un pousse depuis 1,00, le suivant revient à 1,00), 8 % au plus par plan, donc 1,08× au
 plus. Le premier changement visuel après 2,0 s est signalé à l'export.
 
+**En place : le flou de périphérie.** Un calque au-dessus de la vidéo décodée (`backdrop-filter`, masque en ellipse
+autour du visage à 1,35×, fondu de 180 px), sous tous les textes : la vidéo n'est pas décodée deux fois. Rayon de
+1,2 px au repos à 2,2 px à la poussée de 1,2 %/s. Désactivé quand le visage dépasse 55 % de la hauteur, et sur un plan
+où aucun visage n'est trouvé. Mesuré sur la prise de référence : le même temps de rendu avec et sans (21 s pour 6 s de
+vidéo), les bords perdent 40 % de netteté, le visage n'en perd aucune.
+
 **À faire :** Plan de 12 s au plus sans changement. Dernier plan coupé
 400 ms après le dernier mot, sans fondu au noir. Flou de périphérie couplé à la poussée (1,2 à 2,2 px, masque autour
 du visage, désactivé quand le visage dépasse 55 % de la hauteur) ; le texte est composité en dernier et jamais flouté.
@@ -338,12 +344,18 @@ Les trois formats (face caméra, motion design, tuto), les six archétypes de ca
 règles anti-diaporama sont repris de la v1 sans changement. Le tuto garde 0,40 s de silence au lieu de 0,25 s ; le
 projet devra porter son format pour que le moteur le sache.
 
-## Définir sa propre DA : le parcours guidé (à faire)
+## Définir sa propre DA : le parcours guidé (en place)
 
-Repris de la v1 sans changement : rien avant le run 1 ; trois variantes jouées sur le rush du créateur, 6 s chacune ;
-le moteur annonce ce qu'il a dérivé avant de demander ; six étapes dans l'ordre d'impact (accent, sous-titres, rythme,
-mouvement, typographie, interdits) ; enregistrement après chaque étape ; arrêt de la proposition après trois vidéos
-sans étape franchie.
+Rien avant le run 1 : le parcours est proposé dans Livraison, après un export. Six étapes dans l'ordre d'impact
+(accent, sous-titres, rythme, mouvement, typographie, interdits). À chaque étape, le moteur dit ce qu'il a dérivé et
+pourquoi (« J'ai pris ce corail parce qu'il revient le plus dans ton décor »), puis trois options jouées 6 s sur la
+vidéo du créateur ; l'accent accepte aussi une couleur libre. Chaque choix est enregistré tout de suite ; passer garde
+le défaut. Plus proposé après trois vidéos sans étape franchie ; toujours accessible depuis la page Projets, qui
+affiche les six lignes « dérivé » ou « défini par toi ».
+
+La DA du créateur est une couche de style entre les défauts dérivés (dessous) et les réglages propres d'une vidéo
+(dessus, ils l'emportent), plus les réglages du premier jet (pauses du rythme, densité des sous-titres). Les interdits
+vont dans les règles qu'Adam apprend déjà.
 
 ADAM a déjà deux mécanismes de goût, le dossier Inspiration et ses looks, et les règles apprises (Statistiques). Le
 parcours guidé doit écrire dans les mêmes : un look pour l'accent, la typographie et le mouvement, des règles pour les

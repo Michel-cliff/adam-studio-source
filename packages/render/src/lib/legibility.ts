@@ -8,14 +8,15 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Timeline } from "@adam-studio/model";
 
-const VERSION = 4; // 2: the face wins over the hands; 3: above the head when the face fills the band; 4: one height above the head
+const VERSION = 5; // 2: the face wins over the hands; 3: above the head when the face fills the band; 4: one height above the head
 const LINE_HEIGHT = 1.15;
 
 export type LegibilitySpec = {
   width: number; height: number; band: [number, number]; safeTop: number; takes: Record<string, string>;
+  shots: { id: string; take: string; ms: number }[];
   items: { id: string; box: [number, number, number, number]; samples: { take: string; ms: number }[] }[];
 };
-export type LegibilityResult = Record<string, { treatment: number; y: number; burnt: number }>;
+export type LegibilityResult = Record<string, { treatment: number; y: number; burnt: number }> & { _shots?: Record<string, [number, number, number, number] | null> };
 
 /** Where an output frame is in the takes: the clip holding it, and the source time (clips may be sped up). */
 function sourceAt(tl: Timeline, frame: number): { take: string; ms: number } | null {
@@ -37,12 +38,22 @@ export function legibilitySpec(tl: Timeline, takes: Record<string, string>): Leg
     return { id: c.id, box: [Math.round(cx - 360 * k), y0, Math.round(cx + 360 * k), y0 + h] as [number, number, number, number], samples };
   });
   const safeTop = tl.format === "9:16" ? Math.round(269 * tl.height / 1920) : Math.round(tl.height * 0.08);
-  return { width: tl.width, height: tl.height, band, safeTop, takes, items };
+  // The middle of each shot, for the face its edge blur is shaped around.
+  const shots = tl.clips.filter((c) => c.asset in takes).map((c) => ({ id: c.id, take: c.asset, ms: Math.round((c.sourceInMs + c.sourceOutMs) / 2) }));
+  return { width: tl.width, height: tl.height, band, safeTop, takes, items, shots };
 }
 
 /** The timeline with each answered caption's treatment and height. */
 export function mergeLegibility(tl: Timeline, r: LegibilityResult): Timeline {
-  return { ...tl, captions: tl.captions.map((c) => (r[c.id] ? { ...c, treatment: r[c.id]!.treatment, y: r[c.id]!.y / tl.height } : c)) };
+  const faces = r._shots ?? {};
+  return {
+    ...tl,
+    captions: tl.captions.map((c) => (r[c.id] ? { ...c, treatment: r[c.id]!.treatment, y: r[c.id]!.y / tl.height } : c)),
+    clips: tl.clips.map((c) => {
+      const f = faces[c.id];
+      return f ? { ...c, face: [f[0] / tl.width, f[1] / tl.height, f[2] / tl.width, f[3] / tl.height] as [number, number, number, number] } : c;
+    }),
+  };
 }
 
 /**
