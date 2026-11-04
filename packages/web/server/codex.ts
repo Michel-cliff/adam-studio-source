@@ -8,6 +8,11 @@ import type { Usage } from "./usage";
 /** Codex CLI's executable: ADAM_CODEX, the npm install's codex.exe on Windows, or `codex` on the PATH. */
 export function codexBin(): string {
   if (process.env.ADAM_CODEX) return process.env.ADAM_CODEX;
+  const tools = process.env.ADAM_TOOLS;
+  if (tools) {
+    const custom = ["win32-x64", "win32-arm64"].map(p => join(tools, "node_modules", "@openai", "codex", "node_modules", "@openai", `codex-${p}`, "vendor", p === "win32-x64" ? "x86_64-pc-windows-msvc" : "aarch64-pc-windows-msvc", "bin", "codex.exe")).find(existsSync);
+    if (custom) return custom;
+  }
   const npm = process.env.APPDATA ? join(process.env.APPDATA, "npm", "node_modules", "@openai", "codex") : "";
   const exe = npm && ["win32-x64", "win32-arm64"].map((p) => join(npm, "node_modules", "@openai", `codex-${p}`, "vendor", p === "win32-x64" ? "x86_64-pc-windows-msvc" : "aarch64-pc-windows-msvc", "bin", "codex.exe")).find(existsSync);
   if (exe) return exe;

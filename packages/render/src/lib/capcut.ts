@@ -49,7 +49,7 @@ export function planCapcut(timeline: Timeline, nativeKinds: ReadonlySet<string> 
       entries.push({ id: e.id, kind: e.kind, status: "baked", reason: "screen zoom, baked into the main track" });
     } else if (e.kind === "camera.window") {
       entries.push({ id: e.id, kind: e.kind, status: "baked", reason: "4:3 window move, baked into the main track (captions stay in place in CapCut)" });
-    } else if (!nativeKinds.has(e.kind)) {
+    } else if (!nativeKinds.has(e.kind) || (e.scale ?? 1) !== 1 || (e.rotation ?? 0) !== 0 || (e.opacity ?? 1) !== 1 || (e.kind === "title" && Boolean((e.props as { connector?: string }).connector))) {
       overlays.push({ elementId: e.id, fromFrame: e.fromFrame, durationFrames: e.durationFrames });
       entries.push({ id: e.id, kind: e.kind, status: "baked", reason: "no native CapCut equivalent: transparent overlay (MOV ProRes 4444)" });
     }

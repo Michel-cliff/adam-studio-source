@@ -36,3 +36,21 @@ def test_no_sound_and_a_loud_room_are_refused(tmp_path):
 def test_the_noise_floor_ignores_digital_silence(tmp_path):
     clip = _clip(tmp_path / "gap.mp4", audio="anoisesrc=d=3:c=white:a=0.01,volume='if(lt(t,1.5),1,0)':eval=frame")
     assert -60 < noise_floor(clip) < -35
+
+
+def test_noise_check_reuses_audio_only_measurement_until_source_changes(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from adam_analysis import ingest
+    ingest._noise_floor_cached.cache_clear()
+    source = tmp_path / "take.mp4"
+    source.write_bytes(b"first recording")
+    calls = []
+    def fake_run(args, **kwargs):
+        calls.append(args)
+        return SimpleNamespace(stdout="RMS_level=-52\nRMS_level=-48\n")
+    monkeypatch.setattr(ingest.subprocess, "run", fake_run)
+    assert ingest.noise_floor(source, 10) == ingest.noise_floor(source, 10) == -52
+    assert len(calls) == 1 and "-vn" in calls[0]
+    source.write_bytes(b"a new recording with a different size")
+    ingest.noise_floor(source, 10)
+    assert len(calls) == 2

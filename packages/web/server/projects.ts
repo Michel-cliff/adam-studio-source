@@ -85,7 +85,7 @@ export function projectView(root: string, name: string): Omit<ProjectView, "jobs
   const { raw, error } = readProject(dir);
   const assets: Raw[] = Array.isArray(raw?.assets) ? raw.assets.filter((a: Raw) => a.kind === "video") : [];
   return {
-    name, ok: !error, ...(error ? { error } : {}), format: raw?.canvas?.format, modified: statSync(join(dir, "project.json")).mtimeMs,
+    name, ok: !error, ...(error ? { error } : {}), format: raw?.canvas?.format, video: raw?.format ?? "facecam", modified: statSync(join(dir, "project.json")).mtimeMs,
     takes: raw ? assets.map((a) => take(dir, raw, a)) : [],
     renders: renders(dir),
     proposals: Array.isArray(raw?.proposals) ? raw.proposals.map((p: Raw) => proposal(dir, p)) : [],
@@ -94,4 +94,11 @@ export function projectView(root: string, name: string): Omit<ProjectView, "jobs
     assets: Array.isArray(raw?.assets) ? raw.assets.filter((a: Raw) => String(a.path).startsWith("assets/")).map((a: Raw) => ({ id: a.id, kind: a.kind, path: a.path })) : [],
     durationMs: Array.isArray(raw?.story) ? raw.story.reduce((s: number, c: Raw) => s + (c.outMs - c.inMs), 0) : null,
   };
+}
+
+/** Imports exist as jobs before analysis can write a valid project.json. */
+export function pendingProject(name: string, jobs: import("./types").JobView[]): ProjectView | null {
+ const job = jobs.find(j => j.label === "New project" || j.label === "Lay out the cards");
+ if (!job) return null;
+ return { name, ok: true, importing: true, modified: job.startedAt, takes: [], renders: [], proposals: [], jobs, workflow: null, durationMs: null, assets: [] };
 }

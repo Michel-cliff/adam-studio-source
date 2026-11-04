@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { makeSynthetic } from "../../../render/tests/e2e/synthetic";
 import { createApp } from "../../server/app";
 import { stepContext } from "../../server/context";
-import { readScript, saveScript } from "../../server/script";
+import { draftScript, readScript, saveScript } from "../../server/script";
 import { setProjectsRoot } from "../../server/settings";
 
 let server: Server; let base: string; let root: string;
@@ -50,4 +50,16 @@ describe("the script of a video", () => {
     writeFileSync(join(root, "ep", "script.json"), JSON.stringify({ text: "HOOK\nThe result first.", by: "you", at: 1 }));
     expect(stepContext(join(root, "ep"), "structure")).toMatch(/## The creator's script\nHOOK\nThe result first\./);
   });
+});
+
+it("never overwrites the saved script with a late answer after cancellation", async () => {
+  const dir = join(root, "ep");
+  const before = readScript(dir);
+  const controller = new AbortController();
+  await expect(draftScript(dir, async ({ signal }) => {
+    expect(signal).toBe(controller.signal);
+    controller.abort();
+    return "A late answer";
+  }, controller.signal)).rejects.toBeDefined();
+  expect(readScript(dir)).toEqual(before);
 });

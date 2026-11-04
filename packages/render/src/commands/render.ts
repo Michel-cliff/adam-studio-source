@@ -8,7 +8,7 @@ import { exportChecks } from "../lib/checks";
 import { confidenceWarnings, wordConfidence } from "../lib/confidence";
 import { homedir } from "node:os";
 import { applyAccent } from "../lib/accent";
-import { readDA, withDA } from "../lib/da";
+import { withVideoDA } from "../lib/da";
 import { applyLegibility } from "../lib/legibility";
 import { audioGate, blackShare, measureLoudness, noiseFloor, normalizeLoudness, silenceShare } from "../lib/loudness";
 import { expandEnv, planMedia } from "../media";
@@ -62,7 +62,7 @@ export async function renderCommand(projectDir: string, opts: { out?: string; fr
   const { dir, style } = loaded;
   // Never a cut inside a word: an edge that falls in one moves out of it before anything is computed.
   // The creator's art direction under the video's own settings, and never a cut inside a word.
-  const { project, moved } = repairCuts(withDA(loaded.project, readDA(join(homedir(), ".adam-studio"))));
+  const { project, moved } = repairCuts(withVideoDA(loaded.project, join(homedir(), ".adam-studio")));
   for (const m of moved) console.log(`repaired: ${m}`);
   const timeline = resolve(project, style);
   ensureAnalysis(dir, project, timeline, { analyze: opts.analyze ?? true });
@@ -84,7 +84,8 @@ export async function renderCommand(projectDir: string, opts: { out?: string; fr
   for (const w of checks.warnings) console.log(`warning: ${w}`);
   if (checks.blocking.length && !opts.frames) throw new CliError(`Export refused: ${checks.blocking.join("; ")}.`);
   await renderVideo(serveUrl, { timeline: readable, media: plan.media, fonts: plan.fonts }, out, parseFrames(opts.frames), { scale });
-  if (!opts.frames) finishSound(out);
+  // A text-only video sits on its ink background on purpose: no black-picture check for it.
+  if (!opts.frames) finishSound(out, { picture: project.format !== "text" });
   console.log(`wrote ${out}`);
   return out;
 }
@@ -99,7 +100,7 @@ const hasSound = (file: string) => {
  * checked. A failed check refuses the export: the file is renamed .refused.mp4, so it never passes for a finished
  * video, and the reasons are given.
  */
-export function finishSound(out: string): void {
+export function finishSound(out: string, opts: { picture?: boolean } = {}): void {
   if (!hasSound(out)) return;
   // The noise floor is judged on the processed voice, before the final gain lifts everything (+10 dB on a real take).
   const floor = noiseFloor(out);
@@ -109,7 +110,7 @@ export function finishSound(out: string): void {
   const issues = audioGate(after);
   if (floor > -35) issues.push(`the background noise is at ${floor.toFixed(0)} dBFS: no setting saves this take, record again closer to the mic`);
   else if (floor > -45) console.log(`warning: the background noise is at ${floor.toFixed(0)} dBFS, the sound will stay average (a quieter room or a closer mic helps)`);
-  const black = blackShare(out);
+  const black = opts.picture === false ? 0 : blackShare(out);
   if (black > 0) issues.push(`${black.toFixed(1)} s of black picture`);
   const silent = silenceShare(out);
   if (silent > 0.15) issues.push(`${Math.round(silent * 100)} % of the video is total silence (more than 15 %)`);

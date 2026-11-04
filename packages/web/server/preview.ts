@@ -1,10 +1,9 @@
-import { repairCuts, resolve, withVariant, withoutVariant, type Project } from "@adam-studio/model";
+import { deepMerge, repairCuts, resolve, withVariant, withoutVariant, type Plain, type Project } from "@adam-studio/model";
 import { planMedia } from "@adam-studio/render/src/media";
 import type { MediaFiles } from "@adam-studio/render/src/props";
 import { applyAccent } from "@adam-studio/render/src/lib/accent";
-import { daFirstPass, readDA, withDA, type CreatorDA, type DaStep } from "@adam-studio/render/src/lib/da";
+import { readDA, videoColor, withDA, type CreatorDA, type DaStep } from "@adam-studio/render/src/lib/da";
 import { applyLegibility } from "@adam-studio/render/src/lib/legibility";
-import { tightenPauses } from "./cuts";
 import { load, ToolError } from "./store";
 
 const plans = new Map<string, Map<string, string>>(); // project dir -> public path -> file on disk
@@ -26,16 +25,12 @@ export function previewData(dir: string, name: string, apply?: { proposal: strin
   let project0 = repairCuts(chosen.project).project;
   if (daTry) {
     const da = { ...readDA(daTry.daDir), ...(daTry.step && daTry.step !== "donts" ? { [daTry.step]: daTry.value } : {}) } as CreatorDA;
-    // The rhythm is heard on the take itself: recut with its pauses (the edit's story is already cut).
-    if (daTry.step === "rhythm") {
-      const fp = daFirstPass(da);
-      const whole = project0.story.length ? [...new Set(project0.story.map((c) => c.asset))].map((asset, i) => {
-        const ws = project0.transcript.words[asset] ?? [];
-        return { ...project0.story.find((c) => c.asset === asset)!, id: `r${i}`, inMs: Math.max(0, (ws[0]?.startMs ?? 0) - 300), outMs: (ws[ws.length - 1]?.endMs ?? 0) + 400 };
-      }) : project0.story;
-      project0 = tightenPauses({ ...project0, story: whole }, fp.pauseOverMs, fp.pauseKeepMs);
-    }
     project0 = withDA(project0, da);
+    // One colour per video when the creator rotates: the same one the render gives it.
+    if (da.rotate && !da.accent) {
+      const c = videoColor(daTry.daDir, project0.name);
+      project0 = { ...project0, styleOverrides: deepMerge({ colors: { highlight: c, accent: c } }, project0.styleOverrides as Plain) as typeof project0.styleOverrides };
+    }
   }
   const loaded = { ...chosen, project: project0 };
   const style = loaded.style;

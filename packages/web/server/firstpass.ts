@@ -1,5 +1,4 @@
 import { joinWords, newWorkflow, parseProject, type Project, type Style, type Word } from "@adam-studio/model";
-import { cutWords, tightenPauses } from "./cuts";
 
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\p{L}\p{N}' ]/gu, "").trim();
 
@@ -117,10 +116,6 @@ export type FirstPassSummary = {
   longPauses: { afterWord: string; ms: number }[];
 };
 
-// The default art direction's pauses: a breath (up to 0.6 s) stays whole, a longer pause keeps 0.25 s, never zero, so a
-// cut reads as a pause and not as two sentences glued together. Cut points fall in the middle of the silence.
-export const PAUSE_OVER_MS = 600;
-export const PAUSE_KEEP_MS = 250;
 const LONG_PAUSE_MS = 3000;
 const STUTTER_MS = 400;
 
@@ -138,29 +133,29 @@ export function findStutters(words: Word[]): string[] {
 }
 
 /**
- * The mechanical part of a first pass, as proposals of the guided workflow (nothing is applied until decided):
- * cuts (A tight: fillers, stutters, retakes, pauses over 0.6 s kept at 0.25 s; B light: fillers and very long pauses) and captions (A two lines
- * with a highlighted word, B one line). Re-running replaces its own pending proposals and leaves decided ones alone.
+ * The mechanical part of a first pass, as proposals of the guided workflow (nothing is applied until decided): captions
+ * (A two lines with a highlighted word, B one line). Never a cut: the footage comes already cut. What it finds
+ * (fillers, restarts, stutters, very long pauses) is reported only. Re-running replaces its own pending proposals and
+ * leaves decided ones alone.
  */
 /** The first pass's labels, in the creator's language (their interface when they ran it). */
 const WORDS = {
   en: {
-    tight: (f: number, r: number, o = 0.6, k = 0.25) => `tight: ${f} fillers, ${r} retakes, pauses over ${o} s cut to ${k} s`, light: (f: number) => `light: ${f} fillers, pauses over 0.9 s`,
     two: (n: number) => `${n} captions, two lines, one word highlighted`, one: (n: number) => `${n} captions, one line, no highlight`,
-    cuts: "First pass: fillers, failed takes and dead air", captions: "First pass: captions from the transcript",
+    captions: "First pass: captions from the transcript",
   },
   fr: {
-    tight: (f: number, r: number, o = 0.6, k = 0.25) => `serré : ${f} hésitations, ${r} reprises, pauses de plus de ${String(o).replace(".", ",")} s ramenées à ${String(k).replace(".", ",")} s`, light: (f: number) => `léger : ${f} hésitations, pauses de plus de 0,9 s`,
     two: (n: number) => `${n} sous-titres, deux lignes, un mot en couleur`, one: (n: number) => `${n} sous-titres, une ligne, sans couleur`,
-    cuts: "Premier jet : hésitations, reprises et temps morts", captions: "Premier jet : sous-titres depuis la transcription",
+    captions: "Premier jet : sous-titres depuis la transcription",
   },
 };
 
-/** What the creator's art direction sets in the first pass (its rhythm's pauses, its captions' density). */
-export type FirstPassParams = { pauseOverMs: number; pauseKeepMs: number; maxWords: number; maxChars: number };
-const DEFAULT_PARAMS: FirstPassParams = { pauseOverMs: PAUSE_OVER_MS, pauseKeepMs: PAUSE_KEEP_MS, maxWords: 5, maxChars: 32 };
+/** What the creator's art direction sets in the first pass: its captions' density. */
+export type FirstPassParams = { maxWords: number; maxChars: number };
+const DEFAULT_PARAMS: FirstPassParams = { maxWords: 5, maxChars: 32 };
 
 export function firstPass(input: Project, style: Style, lang: "en" | "fr" = "en", params: FirstPassParams = DEFAULT_PARAMS): { project: Project; summary: FirstPassSummary } {
+  if (input.format === "text") throw new Error("a text-only video has no speech to cut: its cards come from its script");
   const w = WORDS[lang];
   let p: Project = { ...input, workflow: input.workflow ?? newWorkflow() };
   const words = keptWords(p);
@@ -186,18 +181,8 @@ export function firstPass(input: Project, style: Style, lang: "en" | "fr" = "en"
     summary.proposals.push(id);
   };
 
-  const safeCut = (ids: string[]) => { try { return ids.length ? cutWords(p, ids) : p; } catch { return p; } };
-  const tight = tightenPauses(safeCut([...new Set([...fillers, ...stutters, ...retakes.flatMap((r) => r.ids)])]), params.pauseOverMs, params.pauseKeepMs);
-  const light = tightenPauses(safeCut(fillers), 900, 300);
-  const same = (a: Project) => JSON.stringify(a.story) === JSON.stringify(p.story);
-  const cutVariants: { key: "A" | "B"; label: string; patch: Record<string, unknown> }[] = [];
-  if (!same(tight)) cutVariants.push({ key: "A", label: w.tight(fillers.length, retakes.length, params.pauseOverMs / 1000, params.pauseKeepMs / 1000), patch: { setStory: tight.story } });
-  if (!same(light) && JSON.stringify(light.story) !== JSON.stringify(tight.story)) {
-    cutVariants.push({ key: cutVariants.length ? "B" : "A", label: w.light(fillers.length), patch: { setStory: light.story } });
-  }
-  if (cutVariants.length) put("auto.cuts", "cuts", w.cuts, cutVariants);
-  else summary.skipped.push("auto.cuts (nothing to cut)");
-
+  // Never a cut: the creator brings footage already cut, Adam does the edit on it. What it finds (fillers, restarts,
+  // stutters, very long pauses) is only reported, for the creator to fix in their own cut if they want.
   if (p.captions.length === 0 && words.length) {
     const max = style.caption.maxCharsPerLine;
     // The default art direction: 3 to 5 words, 32 characters at most per caption (two lines).

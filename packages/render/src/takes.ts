@@ -1,4 +1,6 @@
 import { existsSync } from "node:fs";
+import { fontsDir } from "./lib/da";
+import { join } from "node:path";
 import type { ProjectInput } from "@adam-studio/model";
 
 export type Take = {
@@ -45,16 +47,22 @@ export function findSystemFont(): string {
   return f;
 }
 
-export function defaultStyle(fontFile: string) {
-  const font = { family: "Default", file: fontFile };
-  const slots = { caption: { x: 0.5, y: 0.76 }, title: { x: 0.5, y: 0.31 }, center: { x: 0.5, y: 0.5 } };
+export function defaultStyle(fontFile: string, houseFonts = fontsDir()) {
+  const fallback = { family: "Default", file: fontFile };
+  const titleFile = join(houseFonts, "Anton-Regular.ttf"), captionFile = join(houseFonts, "Manrope-Variable.ttf");
+  const title = existsSync(titleFile) ? { family: "Anton", file: titleFile } : fallback;
+  const caption = existsSync(captionFile) ? { family: "Manrope", file: captionFile } : fallback;
+  const slots = { caption: { x: 0.5, y: 0.76 }, title: { x: 0.5, y: 0.15 }, center: { x: 0.5, y: 0.43 } };
   return {
     name: "Default",
-    fonts: { caption: font, title: font },
-    colors: { text: "#FFFFFF", highlight: "#FFD100", accent: "#FF6B35", ink: "#0E0C0A" },
+    textLayout: "thirds" as const,
+    fonts: { caption, title },
+    colors: { text: "#F4F2ED", highlight: "#88B4C8", accent: "#88B4C8", ink: "#121212" },
+    motion: { speed: 0.8, stable: true },
+    fx: { grain: 0, scanlines: { window: 0, burst: 0, burstFrames: 3 }, zoomBlur: 8 },
     grade: { warmth: 0, contrast: 0, saturation: 0, brightness: 0, vignette: 0 },
     inserts: { bw: 0, grain: 0, bloom: 0 },
-    caption: { size: 0.0525, stroke: 0.08, shadow: true, maxCharsPerLine: 22, intro: "miniZoom" },
+    caption: { size: 0.0445, stroke: 0.06, shadow: true, maxCharsPerLine: 32, intro: "none" },
     slots: { "9:16": slots, "16:9": { caption: { x: 0.5, y: 0.86 }, title: { x: 0.5, y: 0.22 }, center: { x: 0.5, y: 0.5 } } },
     lint: { "9:16": { minDurationMs: 0, maxDurationMs: 90000 }, "16:9": { minDurationMs: 0, maxDurationMs: 1200000 } },
   };

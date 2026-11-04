@@ -11,7 +11,8 @@ from PIL import Image
 from ..errors import AnalysisError
 from ..probe import probe
 
-VERSION = 1
+from .versions import MATTING_VERSION
+VERSION = MATTING_VERSION
 torch.set_num_threads(6)  # lab measurement: 6 threads about 5x faster than 12 on this CPU (oversubscription)
 _rvm = None
 

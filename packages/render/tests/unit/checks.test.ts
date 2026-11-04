@@ -47,4 +47,19 @@ describe("the export checks of the default art direction", () => {
     expect(w).toMatch(/two accent colours/);
     expect(w).toMatch(/no music/);
   });
+  it("runs the text-only rules on the cards, in their order", () => {
+    const card = (id: string, fromFrame: number, props: Record<string, unknown>) => ({ id, kind: "card", layer: "front", fromFrame, durationFrames: 50, trimStartMs: 0, x: 0.5, y: 0.5, props });
+    const r = exportChecks(base({ elements: [
+      card("k2", 50, { archetype: "statement", text: "deux" }),
+      card("k1", 0, { archetype: "number", text: "1 234 567 890 123 456", label: "a long label" }),
+      card("k3", 100, { archetype: "statement", text: "trois" }),
+    ] }), words);
+    expect(r.blocking.join(" | ")).toMatch(/card 1 .*2\.5:1/);
+    expect(r.warnings.join(" | ")).toMatch(/cards 2 and 3/);
+  });
+});
+
+it("allows a default lower-third caption after an explicit manual transform switches the project to free layout", () => {
+  const tl = base(); tl.style.textLayout = "free"; tl.captions[0]!.y = .76;
+  expect(exportChecks(tl, words).blocking).toEqual([]);
 });

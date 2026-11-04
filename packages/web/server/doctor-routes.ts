@@ -21,7 +21,7 @@ export class Doctor {
     p.stdout.on("data", (d) => { out += d; });
     p.on("close", () => {
       this.loading = false;
-      try { this.checks = JSON.parse(out) as Check[]; } catch { /* keep the last checks */ }
+      try { this.checks = JSON.parse(out) as Check[]; if (this.fixing?.state === "failed" && this.checks.some(c => c.id === this.fixing!.id && c.ok)) this.fixing = null; } catch { /* keep the last checks */ }
     });
   }
 

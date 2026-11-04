@@ -1,3 +1,4 @@
+import { t as uiText } from "./i18n";
 import type { RenderProps } from "@adam-studio/render/src/props";
 import { useEffect, useRef, useState } from "react";
 import type { ProposalView } from "../server/types";
@@ -8,18 +9,20 @@ import { Wave } from "./wave";
 export { PRESETS } from "../server/presets";
 
 /** The script panel of the story: written by the creator, or drafted by the AI from the transcript, always editable. */
-export function ScriptPanel({ name, aiName }: { name: string; aiName: string }) {
+/** The video's script; for a text-only video (onLayOut), the lines its cards come from, laid out again on demand. */
+export function ScriptPanel({ name, aiName, onLayOut, busy: laying = false, onReadyChange }: { onReadyChange?: (ready: boolean) => void; name: string; aiName: string; onLayOut?: () => Promise<void>; busy?: boolean }) {
   const [s, setS] = useState<{ text: string; by: string } | null>(null);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => { api<{ text: string; by: string }>(`/projects/${enc(name)}/script`).then((x) => { setS(x); setText(x.text); }, (e) => setError(e.message)); }, [name]);
+  useEffect(() => { onReadyChange?.(!!text.trim() && text.trim() === s?.text && !busy && !error); }, [text, s, busy, error, onReadyChange]);
   const save = async () => {
-    if (!s || text === s.text) return;
-    try { const x = await api<{ text: string; by: string }>(`/projects/${enc(name)}/script`, { method: "PUT", body: { text } }); setS(x); setError(""); } catch (e) { setError((e as Error).message); }
+    if (!s || text === s.text) return true;
+    try { const x = await api<{ text: string; by: string }>(`/projects/${enc(name)}/script`, { method: "PUT", body: { text } }); setS(x); setError(""); return true; } catch (e) { setError((e as Error).message); return false; }
   };
   const draft = async () => {
-    if (s?.text && !confirm("Replace your script with one written from the transcript?")) return;
+    if (s?.text && !confirm(uiText("Replace your script with one written from the transcript?"))) return;
     setBusy(true);
     try { const x = await api<{ text: string; by: string }>(`/projects/${enc(name)}/script/draft`, { method: "POST" }); setS(x); setText(x.text); setError(""); } catch (e) { setError((e as Error).message); }
     setBusy(false);
@@ -28,13 +31,20 @@ export function ScriptPanel({ name, aiName }: { name: string; aiName: string }) 
     <div className="script">
       <div className="chathead"><span>SCRIPT</span><span className="mono">{busy ? `${aiName} IS WRITING…` : s?.by === "ai" ? `DRAFTED BY ${aiName} · EDIT IT` : s?.by === "you" ? "YOURS" : "EMPTY"}</span></div>
       <textarea aria-label="Script" value={text} onChange={(e) => setText(e.target.value)} onBlur={() => void save()} disabled={busy}
-        placeholder={"Paste your script here, part by part:\n\nHOOK\n…\n\nPROBLEM\n…\n\nor let the AI write it from what you say."} />
-      <div className="scriptacts">
-        <button type="button" className={`act${s?.text ? "" : " fill"}`} disabled={busy} onClick={() => void draft()}>
-          {busy ? "WRITING…" : s?.text ? "REWRITE FROM MY TRANSCRIPT" : "WRITE IT FROM MY TRANSCRIPT"}
-        </button>
-        <span className="mono dim">SENT WITH EVERY ASK</span>
-      </div>
+        placeholder={onLayOut ? "One line, one card. A number, a « quote », A vs B, a list with - , one word: each line's shape picks its card." : "Paste your script here, part by part:\n\nHOOK\n…\n\nPROBLEM\n…\n\nor let the AI write it from what you say."} />
+      {onLayOut ? (
+        <div className="scriptacts">
+          <button type="button" className="act fill" disabled={laying || !text.trim()} onClick={async () => { if (await save()) await onLayOut(); }}>{laying ? "LAYING OUT…" : "LAY OUT THE CARDS"}</button>
+          <span className="mono dim">YOUR WORDS ARE NEVER CHANGED</span>
+        </div>
+      ) : (
+        <div className="scriptacts">
+          <button type="button" className={`act${s?.text ? "" : " fill"}`} disabled={busy} onClick={() => void draft()}>
+            {busy ? "WRITING…" : s?.text ? "REWRITE FROM MY TRANSCRIPT" : "WRITE IT FROM MY TRANSCRIPT"}
+          </button>
+          <span className="mono dim">SENT WITH EVERY ASK</span>
+        </div>
+      )}
       {error && <p className="error">{error}</p>}
     </div>
   );

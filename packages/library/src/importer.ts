@@ -1,10 +1,12 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, extname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { kindOf, type LibraryKind } from "./local";
 
-export type ImportSource = { path?: string; url?: string; kind?: LibraryKind; title?: string; license?: string; creator?: string; page?: string };
+// cutout: an image comes in as a paper cut-out (its background removed on this machine, py/cutout), a transparent PNG.
+export type ImportSource = { path?: string; url?: string; kind?: LibraryKind; title?: string; license?: string; creator?: string; page?: string; cutout?: boolean };
 export type Imported = { id: string; kind: LibraryKind; path: string; file: string };
 
 const slug = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 40) || "asset";
@@ -37,7 +39,22 @@ export async function importAsset(projectDir: string, src: ImportSource, id?: st
     if (!existsSync(credits)) writeFileSync(credits, "# Credits\n\n");
     appendFileSync(credits, `- ${basename(file)}: "${src.title ?? name}" by ${src.creator || "unknown"}, ${src.license ?? "license unknown"}${src.page ? `, ${src.page}` : ""}\n`);
   }
+  if (src.cutout && kind === "image") {
+    const png = join(folder, `${assetId}.png`);
+    const r = spawnSync(cutoutPython(), ["-m", "adam_cutout", file, png], { encoding: "utf8", windowsHide: true });
+    if (r.status !== 0) throw new Error(`the cut-out failed: ${(r.stderr || r.stdout).trim().split(/\r?\n/).pop()}`);
+    if (png !== file) rmSync(file);
+    return { id: assetId, kind, path: `assets/${basename(png)}`, file: png };
+  }
   return { id: assetId, kind, path: `assets/${basename(file)}`, file };
+}
+
+/** The Python of the cut-out environment (py/cutout/.venv, its own: rembg needs numpy 2). */
+function cutoutPython(): string {
+  const root = fileURLToPath(new URL("../../../py/cutout/.venv/", import.meta.url));
+  const py = process.platform === "win32" ? join(root, "Scripts", "python.exe") : join(root, "bin", "python");
+  if (!existsSync(py)) throw new Error("the cut-out environment is missing: python -m venv py/cutout/.venv, then py/cutout/.venv/Scripts/python -m pip install -e py/cutout");
+  return py;
 }
 
 /**

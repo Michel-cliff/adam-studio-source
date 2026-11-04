@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "label": {
+      "type": "string"
+    },
+    "color": {
+      "default": "accent",
+      "type": "string"
+    },
+    "labelColor": {
+      "type": "string"
+    },
+    "labelStyle": {
+      "default": "plain",
+      "type": "string",
+      "enum": [
+        "plain",
+        "pill"
+      ]
+    },
+    "outline": {
+      "default": "text",
+      "type": "string"
+    },
+    "font": {
+      "default": "caption",
+      "type": "string",
+      "enum": [
+        "caption",
+        "title"
+      ]
+    },
+    "atoms": {
+      "default": 0,
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4
+    },
+    "atomColor": {
+      "default": "highlight",
+      "type": "string"
+    },
+    "sizeScale": {
+      "default": 1,
+      "type": "number",
+      "exclusiveMinimum": 0
+    }
+  },
+  "required": [
+    "text"
+  ],
+  "additionalProperties": false
+}

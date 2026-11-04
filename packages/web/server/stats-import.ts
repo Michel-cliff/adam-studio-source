@@ -38,13 +38,14 @@ export function importPrompt(s: Stats, text: string | null, lang: "en" | "fr" = 
 }
 
 /** Saves what the AI read: the videos (marked imported, the advice in their chat), the new rules, the rules turned off. */
-export function applyImport(dir: string, a: ImportAnswer): { say: string; videos: string[]; added: string[]; off: string[] } {
+export function applyImport(dir: string, a: ImportAnswer, target?: string): { say: string; videos: string[]; added: string[]; off: string[] } {
+  if (target && a.videos?.length !== 1) throw new Error("Import statistics for one video at a time when a project is selected.");
   const videos: string[] = [];
   for (const v of a.videos ?? []) {
-    const name = String(v.name ?? "").replace(/[\r\n]+/g, " ").trim().slice(0, 80);
+    const name = target ?? String(v.name ?? "").replace(/[\r\n]+/g, " ").trim().slice(0, 80);
     if (!name) continue;
     const metrics = Object.fromEntries(Object.entries(v.metrics ?? {}).filter(([k, x]) => METRICS.includes(k as Metric) && x !== null && String(x).trim()));
-    saveVideo(dir, name, { metrics, source: "IMPORTED" });
+    saveVideo(dir, name, { metrics, ...(target ? {} : { source: "IMPORTED" }) });
     if (v.advice) addChat(dir, name, { who: "ai", text: String(v.advice).slice(0, 1200) });
     videos.push(name);
   }

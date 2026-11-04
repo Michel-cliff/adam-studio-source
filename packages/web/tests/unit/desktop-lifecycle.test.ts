@@ -1,0 +1,21 @@
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, expect, it } from "vitest";
+import { realCtx, runFix } from "../../server/doctor";
+const previous = process.env.ADAM_PACKAGED;
+afterEach(() => { if(previous === undefined) delete process.env.ADAM_PACKAGED; else process.env.ADAM_PACKAGED=previous; });
+it("copies the packaged skill without replacing a creator's existing skill", async () => {
+  process.env.ADAM_PACKAGED="1";
+  const root=mkdtempSync(join(tmpdir(),"adam-installed-skill-"));
+  const repo=join(root,"app"), home=join(root,"user");
+  mkdirSync(join(repo,"skills","adam-studio"),{recursive:true});
+  writeFileSync(join(repo,"skills","adam-studio","SKILL.md"),"bundled skill");
+  const ctx={...realCtx(join(root,"settings")),repo,home,platform:"linux" as const};
+  await runFix(ctx,"skill");
+  const target=join(home,".claude","skills","adam-studio","SKILL.md");
+  expect(readFileSync(target,"utf8")).toBe("bundled skill");
+  writeFileSync(target,"my custom instructions");
+  await runFix(ctx,"skill");
+  expect(readFileSync(target,"utf8")).toBe("my custom instructions");
+});

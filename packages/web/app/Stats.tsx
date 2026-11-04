@@ -1,3 +1,4 @@
+import { t as uiText } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { api, enc } from "./api";
 import { t, useLang } from "./i18n";
@@ -9,7 +10,7 @@ type Ref = { id: string; name: string; source: string; status: "watching" | "wat
   saw: { k: string; v: string }[]; beats: { label: string; weight: number; kind: string }[]; shot?: string };
 type Rule = { id: string; topic: string; text: string; source: string; on: boolean };
 type All = { videos: Video[]; refs: Ref[]; rules: Rule[]; trends: { trait: string; count: number; of: number }[]; metrics: { k: string; label: string }[] };
-type View = "videos" | "refs" | "learned";
+type View = "videos" | "other" | "refs" | "learned";
 
 const TOPIC_NAMES: Record<string, string> = { hook: "Hook", captions: "Captions", visuals: "Visuals", sound: "Sound", look: "Look", donts: "Don'ts" };
 const TOPIC_COLORS: Record<string, string> = { hook: "var(--mustard)", captions: "var(--teal)", visuals: "var(--green)", sound: "var(--red)", look: "var(--mustard)", donts: "var(--red)" };
@@ -54,9 +55,10 @@ async function upload(path: string, file: File) {
 }
 
 /** A drop zone: one file to onFile, or every matching file to onFiles. */
-function Drop({ label, accept, onFile, onFiles }: { label: React.ReactNode; accept: RegExp; onFile?: (f: File) => void; onFiles?: (fs: File[]) => void }) {
+function Drop({ label, accept, onFile, onFiles, disabled = false }: { label: React.ReactNode; accept: RegExp; onFile?: (f: File) => void; onFiles?: (fs: File[]) => void; disabled?: boolean }) {
   const [over, setOver] = useState(false);
   const take = (list: FileList | null | undefined) => {
+    if (disabled) return;
     const fs = [...(list ?? [])].filter((x) => accept.test(x.name));
     if (onFiles) { if (fs.length) onFiles(fs); } else if (fs[0]) onFile?.(fs[0]);
   };
@@ -64,7 +66,7 @@ function Drop({ label, accept, onFile, onFiles }: { label: React.ReactNode; acce
     <div className={`statdrop mono${over ? " over" : ""}`} onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); setOver(true); } }}
       onDragLeave={() => setOver(false)} onDrop={(e) => { e.preventDefault(); setOver(false); take(e.dataTransfer.files); }}>
       <span>{label}</span>
-      <label className="link">browse<input type="file" hidden multiple={!!onFiles} onChange={(e) => { take(e.target.files); e.target.value = ""; }} /></label>
+      <label className="link">browse<input type="file" disabled={disabled} hidden multiple={!!onFiles} onChange={(e) => { take(e.target.files); e.target.value = ""; }} /></label>
     </div>
   );
 }
@@ -72,55 +74,60 @@ function Drop({ label, accept, onFile, onFiles }: { label: React.ReactNode; acce
 type Imported = { say: string; videos: string[]; added: string[]; off: string[] };
 
 /** The stats of other videos, dropped as screenshots or exports: the AI reads them, advises each video, updates the rules. */
-function ImportStats({ s, onPick }: { s: ReturnType<typeof useAll>; onPick: (name: string) => void }) {
+function ImportStats({ s, onPick, video, own = false }: { s: ReturnType<typeof useAll>; onPick: (name: string) => void; video?: string; own?: boolean }) {
   const [busy, setBusy] = useState("");
   const [done, setDone] = useState<Imported | null>(null);
+  const running = useRef(false);
   const run = async (files: File[]) => {
+    if (running.current || (own && !video)) return;
+    running.current = true;
     const sum: Imported = { say: "", videos: [], added: [], off: [] };
     for (const [i, f] of files.entries()) {
       setBusy(`${files.length > 1 ? `READING ${i + 1} OF ${files.length}` : "ADAM READS THE NUMBERS"} · ABOUT 20 S…`);
       try {
-        const j = await upload("/stats/import", f) as All & { imported: Imported };
+        const j = await upload(`/stats/import${video ? `?video=${enc(video)}` : ""}`, f) as All & { imported: Imported };
         s.setAll(j); s.setError("");
         sum.say = j.imported.say || sum.say;
         sum.videos.push(...j.imported.videos); sum.added.push(...j.imported.added); sum.off.push(...j.imported.off);
       } catch (e) { s.setError(`${f.name}: ${(e as Error).message}`); }
     }
-    setBusy("");
+    running.current = false; setBusy("");
     if (sum.videos.length) { setDone(sum); onPick(sum.videos[0]!); }
   };
   const n = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many}`;
   return (
     <div className="importbox">
-      <div className="h small">STATS OF OTHER VIDEOS</div>
-      <Drop accept={/\.(png|jpe?g|webp|pdf|csv|tsv|txt|json)$/i} onFiles={(fs) => void run(fs)}
+      <div className="h small">{own ? t("IMPORT VIDEO STATISTICS") : t("STATS OF OTHER VIDEOS")}</div>
+      {own && <p className="note">{video ? `${t("Selected video")} : ${video}` : t("Export a project, then select it here to import its statistics.")}</p>}
+      <Drop disabled={Boolean(busy) || (own && !video)} accept={/\.(png|jpe?g|webp|pdf|csv|tsv|txt|json)$/i} onFiles={(fs) => void run(fs)}
         label={busy || <>DROP THE STATS OF ANY VIDEO<br />PNG · JPG · PDF · CSV</>} />
       {done && <div className="importdone">
         <span className="mono ok">{[n(done.videos.length, "VIDEO", "VIDEOS"), n(done.added.length, "NEW RULE", "NEW RULES"), done.off.length ? n(done.off.length, "RULE OFF", "RULES OFF") : ""].filter(Boolean).join(" · ")}</span>
         {done.say && <p>{done.say}</p>}
       </div>}
-      {!done && !busy && <p className="note">THE STATS PAGE OF A VIDEO, AS EXPORTED BY INSTAGRAM, TIKTOK OR YOUTUBE, OR A SCREENSHOT OF IT. ADAM READS VIEWS, WATCH TIME, LIKES, SHARES, ADVISES THE VIDEO AND UPDATES YOUR DOS AND DON'TS.</p>}
+      {!done && !busy && <p className="note">DROP AN EXPORT OR SCREENSHOT. ADAM ANALYSES YOUR STATS AND ADVISES YOUR NEXT VIDEOS.</p>}
     </div>
   );
 }
 
-function MyVideos({ s }: { s: ReturnType<typeof useAll> }) {
+function MyVideos({ s, other = false }: { s: ReturnType<typeof useAll>; other?: boolean }) {
   const all = s.all!;
-  const [pick, setPick] = useState(all.videos[0]?.name ?? "");
+  const videos = all.videos.filter(v => other ? !v.exported && v.stats.source === "IMPORTED" : v.exported || v.stats.source !== "IMPORTED");
+  const [pick, setPick] = useState(videos[0]?.name ?? "");
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState("");
   const [link, setLink] = useState("");
   const ai = useAiName();
   const box = useRef<HTMLDivElement>(null);
-  const v = all.videos.find((x) => x.name === pick) ?? all.videos[0];
+  const v = videos.find((x) => x.name === pick) ?? videos[0];
   useEffect(() => { box.current?.scrollTo(0, box.current.scrollHeight); }, [v?.stats.chat.length, busy]);
   if (!v) return (
     <div className="cols stats-cols">
-      <section className="list"><div className="row-item dummyrow"><span>Your exported video</span><span className="mono">TT · IG</span></div><ImportStats s={s} onPick={setPick} /></section>
+      <section className="list stats-video-sidebar"><div className="stats-import-dock"><ImportStats s={s} onPick={setPick} own={!other} /></div></section>
       <section className="center">
-        <div className="head"><h1>YOUR VIDEO, ONCE EXPORTED</h1></div>
+        <div className="head"><h1>{other ? t("OTHER VIDEOS") : t("YOUR VIDEO, ONCE EXPORTED")}</h1></div>
         <div className="perf"><div className="frame dummyframe" /><div className="metrics">{all.metrics.map((m) => <div key={m.k} className="kv"><span>{m.label}</span><b className="dim">—</b></div>)}</div></div>
-        <p className="note">EXPORT A VIDEO FROM THE STUDIO (WRAP), PUBLISH IT, THEN COME BACK WITH ITS NUMBERS: ADAM TELLS YOU WHAT WORKED.</p>
+        <p className="note">{other ? t("Import statistics from a screenshot or export to compare other videos and learn from them.") : t("EXPORT A VIDEO FROM THE STUDIO (WRAP), PUBLISH IT, THEN COME BACK WITH ITS NUMBERS: ADAM TELLS YOU WHAT WORKED.")}</p>
       </section>
       <aside className="status"><div className="h">WHAT ADAM APPLIES</div><p className="note">RULES APPEAR HERE AS ADAM LEARNS FROM YOUR VIDEOS.</p></aside>
     </div>
@@ -133,30 +140,28 @@ function MyVideos({ s }: { s: ReturnType<typeof useAll> }) {
     if (!(await s.call(`/stats/videos/${enc(v.name)}/chat`, "POST", { text }))) await s.load();
     setBusy("");
   };
-  const shot = async (f: File) => {
-    setBusy("shot");
-    try { s.setAll(await upload(`/stats/videos/${enc(v.name)}/screenshot`, f)); s.setError(""); } catch (e) { s.setError((e as Error).message); }
-    setBusy("");
-  };
   const strategy = async () => { setBusy("strategy"); await s.call("/stats/strategy", "POST", { video: v.name }); setBusy(""); };
   const applied = all.rules.filter((r) => r.on);
   return (
     <div className="cols stats-cols">
-      <section aria-label="My published videos" className="list">
-        {all.videos.map((x) => (
+      <section aria-label={other ? "Other videos" : "My published videos"} className="list stats-video-sidebar">
+        <div className="stats-video-list" tabIndex={0} aria-label={t("Video list")}>
+        {videos.map((x) => (
           <button key={x.name} type="button" className={`row-item${x.name === v.name ? " on" : ""}`} onClick={() => setPick(x.name)}>
             <span>{x.name}</span><span className="mono">{x.where || (x.exported ? "EXPORTED" : x.stats.source ?? "")}</span>
           </button>
         ))}
-        <Drop accept={/\.(png|jpe?g|webp)$/i} onFile={shot} label={busy === "shot" ? "READING THE NUMBERS…" : <>DROP A SCREENSHOT<br />OF ITS STATS</>} />
-        <label htmlFor="vlink" className="h small">OR PASTE ITS LINK</label>
+        </div>
+        <div className="stats-import-dock">
+        <ImportStats key={v.name} s={s} onPick={setPick} own={!other} video={other ? undefined : v.name} />
+        <label htmlFor="vlink" className="h small">{t("Published video link")}</label>
         <input id="vlink" placeholder="tiktok.com/@…, youtube.com/…" value={link} onChange={(e) => setLink(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && link.trim()) { const u = /^https?:\/\//.test(link.trim()) ? link.trim() : `https://${link.trim()}`; void put({ links: [...v.stats.links, u] }).then((ok) => ok && setLink("")); } }} />
         {v.stats.links.map((l) => (
           <div key={l} className="kv"><a href={l} target="_blank" rel="noreferrer" className="mono ellipsis">{l.replace(/^https?:\/\/(www\.)?/, "")}</a>
             <button type="button" className="link" aria-label={`Remove ${l}`} onClick={() => void put({ links: v.stats.links.filter((x) => x !== l) })}>×</button></div>
         ))}
-        <ImportStats s={s} onPick={setPick} />
+        </div>
       </section>
 
       <section aria-label={`${v.name} performance`} className="center">
@@ -171,7 +176,7 @@ function MyVideos({ s }: { s: ReturnType<typeof useAll> }) {
                   onBlur={(e) => { if (e.target.value !== (v.stats.metrics[m.k] ?? "")) void put({ metrics: { [m.k]: e.target.value } }); }}
                   onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} /></label>
             ))}
-            <p className="note">TYPE THEM IN, OR DROP A SCREENSHOT OF THE STATS PAGE: ADAM READS IT.</p>
+            <p className="note">EDIT THESE VALUES OR USE THE IMPORT PANEL ON THE LEFT.</p>
           </div>
         </div>
         <div className="talk">
@@ -227,25 +232,30 @@ function References({ s }: { s: ReturnType<typeof useAll> }) {
   };
   const use = async (as: "use" | "donts") => { if (r && await s.call(`/stats/refs/${r.id}/use`, "POST", { as })) setAdded(as === "use" ? "KEPT AS RULES FOR YOUR NEXT VIDEOS." : "ADDED TO YOUR DON'TS."); };
   return (
-    <div className="cols stats-cols">
-      <section aria-label="References" className="list">
+    <div className="cols stats-cols stats-reference-cols">
+      <section aria-label="References" className="list stats-video-sidebar">
+        <div className="stats-video-list" tabIndex={0} aria-label={t("References")}>
         {all.refs.map((x) => (
           <button key={x.id} type="button" className={`row-item${x.id === r?.id ? " on" : ""}`} onClick={() => { setPick(x.id); setAdded(""); }}>
             <span className="ellipsis">{x.title ?? x.name}</span><span className="mono">{x.status === "watching" ? "…" : x.status === "failed" ? "!" : x.source}</span>
           </button>
         ))}
+        </div>
+        <div className="stats-import-dock reference-import-dock">
         <label htmlFor="ref-link" className="h small">ADD A REFERENCE</label>
         <div className="row tight">
           <input id="ref-link" placeholder="Paste a TikTok, Reels or YouTube link" value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void watch(); }} />
           <button type="button" className="act fill" disabled={!url.trim()} onClick={() => void watch()}>WATCH</button>
         </div>
         <Drop accept={/\.(mp4|mov|mkv|m4v|webm)$/i} onFile={drop} label="OR DROP A VIDEO FILE" />
+        </div>
       </section>
 
       <section aria-label="Selected reference" className="center">
         {!r ? <p className="mono note">ADD A REFERENCE: A LINK OR A VIDEO YOU WANT TO LEARN FROM.</p> : <>
           <div className="head"><h1>{(r.title ?? r.name).toUpperCase()}</h1>
             <span className="mono">{r.source} · {r.status === "watching" ? "WATCHING…" : r.status.toUpperCase()}</span></div>
+          <div className="ref-scroll">
           {r.status === "watching" && <p className="note"><i className="pulse" /> DOWNLOADING, TAKING FRAMES, THEN THE AI DESCRIBES IT. A MINUTE OR TWO.</p>}
           {r.status === "failed" && <p className="error">{r.error} <button type="button" className="link" onClick={() => void s.call(`/stats/refs/${r.id}/retry`, "POST")}>Try again</button></p>}
           {r.status === "watched" && <>
@@ -253,16 +263,17 @@ function References({ s }: { s: ReturnType<typeof useAll> }) {
               <div className="frame">{r.shot && <img src={fileUrl(r.shot)} alt="" />}</div>
               <div className="saw">
                 <div className="h small">WHAT IT SAW</div>
-                {r.saw.map((x, i) => <div key={i} className="sawline"><span className="mono dim">{x.k}</span><span>{x.v}</span></div>)}
+                {r.saw.map((x, i) => <div key={i} className="sawline"><span className="mono dim">{t(x.k ? x.k[0]!.toUpperCase() + x.k.slice(1) : x.k)}</span><span>{x.v}</span></div>)}
               </div>
             </div>
             <div className="mono sepline">STRUCTURE</div>
             <div className="beats">{r.beats.map((b, i) => <span key={i} style={{ flex: b.weight / total, background: BEAT_COLORS[b.kind] ?? BEAT_COLORS.other }}>{b.label}</span>)}</div>
           </>}
+          </div>
           <div className="row refacts">
             <button type="button" className="act fill" disabled={r.status !== "watched"} onClick={() => void use("use")}>USE IN MY NEXT VIDEO</button>
             <button type="button" className="act" disabled={r.status !== "watched"} onClick={() => void use("donts")}>ADD TO DON'TS</button>
-            <button type="button" className="link" onClick={() => { if (confirm(`Remove “${r.title ?? r.name}” from your references?`)) void s.call(`/stats/refs/${r.id}`, "DELETE").then(() => setPick("")); }}>Remove</button>
+            <button type="button" className="link" onClick={() => { if (confirm(uiText(`Remove “${r.title ?? r.name}” from your references?`))) void s.call(`/stats/refs/${r.id}`, "DELETE").then(() => setPick("")); }}>Remove</button>
             {added && <span className="mono ok">{added}</span>}
           </div>
         </>}
@@ -342,16 +353,16 @@ function Learned({ s }: { s: ReturnType<typeof useAll> }) {
 export function Stats({ view = "videos" }: { view?: string }) {
   useLang();
   const s = useAll();
-  const v: View = view === "refs" ? "refs" : view === "learned" ? "learned" : "videos";
-  const views: [View, string, string][] = [["videos", "My videos", "#/stats"], ["refs", "References & trends", "#/stats/refs"], ["learned", "What Adam learned", "#/stats/learned"]];
-  const foot = v === "videos" ? "Your numbers stay on this computer. Adam reads them when you ask." : v === "refs" ? "Adam watches each reference once and keeps what it saw." : "Rules learned from your feedback, your references and your numbers.";
+  const v: View = view === "other" ? "other" : view === "refs" ? "refs" : view === "learned" ? "learned" : "videos";
+  const views: [View, string, string][] = [["videos", "My videos", "#/stats"], ["other", "Other videos", "#/stats/other"], ["refs", "References & trends", "#/stats/refs"], ["learned", "What Adam learned", "#/stats/learned"]];
+  const foot = v === "other" ? "Import statistics from other videos here." : v === "videos" ? "Your numbers stay on this computer. Adam reads them when you ask." : v === "refs" ? "Adam watches each reference once and keeps what it saw." : "Rules learned from your feedback, your references and your numbers.";
   return (
     <>
-      <nav aria-label="Statistics views" className="subnav">
+      <nav aria-label="Statistics views" className="subnav stats-subnav">
         {views.map(([k, label, href]) => <a key={k} href={href} className={v === k ? "on" : ""} aria-current={v === k ? "page" : undefined}>{t(label)}</a>)}
       </nav>
       {s.error && <p className="error" onClick={() => s.setError("")}>{s.error}</p>}
-      {!s.all ? <p className="mono note">LOADING</p> : v === "videos" ? <MyVideos s={s} /> : v === "refs" ? <References s={s} /> : <Learned s={s} />}
+      {!s.all ? <p className="mono note">LOADING</p> : v === "videos" || v === "other" ? <MyVideos key={v} s={s} other={v === "other"} /> : v === "refs" ? <References s={s} /> : <Learned s={s} />}
       <footer className="foot"><span className="hint">{foot}</span></footer>
     </>
   );

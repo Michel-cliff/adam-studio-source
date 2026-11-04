@@ -80,3 +80,14 @@ def test_each_shot_gets_the_face_found_in_its_middle(tmp_path, monkeypatch):
     (tmp_path / "s.json").write_text(json.dumps(spec))
     legibility.run(str(tmp_path / "s.json"), str(tmp_path / "o.json"))
     assert json.loads((tmp_path / "o.json").read_text())["_shots"] == {"c1": [100, 200, 300, 400]}
+
+
+def test_small_false_face_does_not_hide_a_larger_tilted_head(monkeypatch):
+    from adam_analysis import legibility
+    detections = iter([[(58, 721, 122, 122)], [(181, 418, 222, 222)], []])
+    class Detector:
+        def detectMultiScale(self, *args, **kwargs):
+            return next(detections)
+    monkeypatch.setattr(legibility, "_cascade", lambda name: Detector())
+    face = legibility.face_box(np.zeros((1920, 1080, 3), dtype=np.uint8))
+    assert face[2] > 400 and face[1] < 1000

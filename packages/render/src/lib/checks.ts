@@ -1,6 +1,6 @@
 // The export checks of the default art direction that read the edit itself (the sound has its own, in loudness.ts):
 // blocking ones refuse the export, warnings let it through and say what to look at.
-import type { Timeline } from "@adam-studio/model";
+import { usesThirds, THIRD_BANDS, cardChecks, type CardProps, type Timeline } from "@adam-studio/model";
 
 type Word = { id: string; text: string; startMs: number; endMs: number };
 export type Checks = { blocking: string[]; warnings: string[] };
@@ -27,7 +27,9 @@ export function exportChecks(tl: Timeline, words: Record<string, Word[]>): Check
     if (!c.id.includes(".") && ms(c.durationFrames) < MIN_CAPTION_MS - 1) warnings.push(`caption ${c.id} stays ${(ms(c.durationFrames) / 1000).toFixed(1)} s (0.8 s reads better): merge it with its neighbour`);
     if (tl.format === "9:16") {
       const cy = c.y * tl.height, half = (lines * lineH) / 2;
-      if (cy - half < (SAFE.y0 + SAFE.margin) * ky - 1 || cy + half > (SAFE.y1 - SAFE.margin) * ky + 1) blocking.push(`caption ${c.id} is outside the safe zone (y ${Math.round(cy - half)} to ${Math.round(cy + half)})`);
+      const minY = usesThirds(tl) ? THIRD_BANDS.captionTop * tl.height : tl.style.textLayout === "free" ? THIRD_BANDS.titleTop * tl.height : (SAFE.y0 + SAFE.margin) * ky;
+      const maxY = usesThirds(tl) || tl.style.textLayout === "free" ? THIRD_BANDS.captionBottom * tl.height : (SAFE.y1 - SAFE.margin) * ky;
+      if (cy - half < minY - 1 || cy + half > maxY + 1) blocking.push(`caption ${c.id} is outside the safe zone (y ${Math.round(cy - half)} to ${Math.round(cy + half)})`);
     }
   }
 
@@ -46,10 +48,18 @@ export function exportChecks(tl: Timeline, words: Record<string, Word[]>): Check
   })]);
   if (families.size > 2) blocking.push(`${families.size} font families (${[...families].join(", ")}): 2 at most`);
 
+  // Text-only mode: the cards in the order they are seen.
+  const cards = tl.elements.filter((e) => e.kind === "card").sort((a, b) => a.fromFrame - b.fromFrame).map((e) => e.props as CardProps);
+  if (cards.length) {
+    const r = cardChecks(cards);
+    blocking.push(...r.blocking);
+    warnings.push(...r.warnings);
+  }
+
   // Warnings.
   const firstChange = Math.min(...tl.clips.slice(1).map((c) => c.fromFrame), ...tl.elements.map((e) => e.fromFrame), tl.durationFrames);
   if (ms(firstChange) > FIRST_CHANGE_MS) warnings.push(`the first visual change comes at ${(ms(firstChange) / 1000).toFixed(1)} s (before 2 s holds the viewer)`);
   if (tl.style.colors.highlight.toLowerCase() !== tl.style.colors.accent.toLowerCase()) warnings.push("two accent colours in the style (highlight and accent): one is enough");
-  if (!tl.audio.some((a) => !a.id.startsWith("clip:") && ms(a.durationFrames) > 4000)) warnings.push("no music: fine if wanted, the video goes out on the voice alone");
+  if (!tl.audio.some((a) => !a.id.startsWith("clip:") && ms(a.durationFrames) > 4000)) warnings.push(cards.length ? "no music: the cards go out silent" : "no music: fine if wanted, the video goes out on the voice alone");
   return { blocking, warnings };
 }

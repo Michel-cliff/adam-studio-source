@@ -46,7 +46,8 @@ describe("the setup doctor", () => {
   });
   it("keeps fonts, CapCut and the library keys optional, and finds fonts already installed", () => {
     const d = byId(machine("linux", {}, [], ["Anton-Regular.ttf", "DMSerifDisplay-Regular.ttf"]));
-    for (const id of ["fonts", "capcut", "pixabay", "freesound"]) expect(d[id]!.need).toBe("optional");
+    for (const id of ["fonts", "capcut"]) expect(d[id]!.need).toBe("optional");
+    expect(d.pixabay).toBeUndefined(); expect(d.freesound).toBeUndefined();
     expect(d.fonts!).toMatchObject({ ok: false, detail: "missing Manrope" });
     expect(byId(machine("linux", {}, [], ["Anton-Regular.ttf", "DMSerifDisplay-Regular.ttf", "Manrope[wght].ttf"])).fonts!.ok).toBe(true);
   });

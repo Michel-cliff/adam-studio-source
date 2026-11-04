@@ -1,3 +1,4 @@
+import { t as uiText } from "./i18n";
 import { useEffect, useState } from "react";
 import type { ProjectListItem } from "../server/types";
 import { api, enc } from "./api";
@@ -88,7 +89,7 @@ export function Library() {
   };
   // Deleting moves the file (and its notes) to the Inspiration folder's .trash: recoverable.
   const remove = async (i: Local) => {
-    if (!confirm(`Delete “${i.title}”?\n\nIt moves to the .trash folder of your Inspiration folder.`)) return;
+    if (!confirm(uiText(`Delete “${i.title}”?\n\nIt moves to the .trash folder of your Inspiration folder.`))) return;
     try { await api(`/library/file?path=${enc(i.path)}`, { method: "DELETE" }); setMsg(`${i.title} moved to the trash.`); await search(); await loadFolders(); }
     catch (e) { setMsg((e as Error).message); }
   };

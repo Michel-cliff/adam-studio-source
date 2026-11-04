@@ -6,9 +6,9 @@ import { api, enc, go } from "./api";
 import { t, useLang } from "./i18n";
 import { props as cachedProps } from "./VariantShot";
 
-type Step = "accent" | "captions" | "rhythm" | "motion" | "typography" | "donts";
-const STEPS: Step[] = ["accent", "captions", "rhythm", "motion", "typography", "donts"];
-const NAMES: Record<Step, string> = { accent: "Accent", captions: "Captions", rhythm: "Rhythm", motion: "Motion", typography: "Typography", donts: "Don'ts" };
+type Step = "accent" | "captions" | "motion" | "typography" | "donts";
+const STEPS: Step[] = ["accent", "captions", "motion", "typography", "donts"];
+const NAMES: Record<Step, string> = { accent: "Accent", captions: "Captions", motion: "Motion", typography: "Typography", donts: "Don'ts" };
 type Option = { key: string; label: string; value: string };
 type StepData = { say: string; options: Option[]; current: string | boolean | null };
 type Status = { step: Step; set: boolean }[];
@@ -49,12 +49,12 @@ export function DaPath({ name }: { name: string }) {
   const [version, setVersion] = useState(0);
   const [error, setError] = useState("");
   const step = STEPS[i]!;
-  const close = () => go(`#/p/${enc(name)}`);
+  const close = () => go("#/da");
   useEffect(() => { api<{ status: Status }>("/da").then((r) => setStatus(r.status), () => {}); }, []);
   useEffect(() => {
     let alive = true;
     setData(null); setPick(null); setHex(""); setError("");
-    api<StepData>(`/projects/${enc(name)}/da/${step}`).then((d) => { if (alive) { setData(d); setPick(d.options[0]?.value ?? null); } }, (e) => alive && setError((e as Error).message));
+    api<StepData>(`/projects/${enc(name)}/da/${step}`).then((d) => { if (alive) { setData(d); setPick(typeof d.current === "string" && d.current ? d.current : d.options[0]?.value ?? null); if (step === "donts") setDonts(typeof d.current === "string" ? d.current : ""); } }, (e) => alive && setError((e as Error).message));
     return () => { alive = false; };
   }, [name, step]);
   useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === "Escape") close(); }; addEventListener("keydown", k); return () => removeEventListener("keydown", k); }, [name]);
@@ -87,7 +87,7 @@ export function DaPath({ name }: { name: string }) {
           <p className="note">{t("Each step is saved as soon as you choose. Skipping keeps what Adam derived.")}</p>
         </nav>
         <section className="da-main" aria-label={NAMES[step]}>
-          <div className="head"><h1>{t(NAMES[step]).toUpperCase()}</h1><span className="mono">{t("STEP")} {i + 1} / 6</span></div>
+          <div className="head"><h1>{t(NAMES[step]).toUpperCase()}</h1><span className="mono">{t("STEP")} {i + 1} / {STEPS.length}</span></div>
           <p className="da-say">{data?.say ?? "…"}</p>
           {error && <p className="error">{error}</p>}
           {step === "donts" ? (
@@ -106,7 +106,7 @@ export function DaPath({ name }: { name: string }) {
           <div className="da-acts">
             {step === "accent" && <input className="da-hex" aria-label="Your colour" placeholder="#5AC576" value={hex} onChange={(e) => setHex(e.target.value.trim())} />}
             {step === "donts"
-              ? <button type="button" className="act fill" disabled={!donts.trim()} onClick={() => void save({ text: donts })}>{t("SAVE")}</button>
+              ? <button type="button" className="act fill" onClick={() => void save({ text: donts })}>{t("SAVE")}</button>
               : <button type="button" className="act fill" disabled={!chosen} onClick={() => chosen && void save({ value: chosen.value })}>{t("CHOOSE")} {chosen?.key ?? ""}</button>}
             <button type="button" className="act" onClick={next}>{t("SKIP")}</button>
             <button type="button" className="link" onClick={close}>{t("close")}</button>

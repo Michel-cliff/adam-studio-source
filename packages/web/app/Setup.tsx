@@ -45,6 +45,7 @@ export function SetupNote() {
       {running && <pre className="setuplog">{running.log.slice(-4).join("\n") || "starting…"}</pre>}
       {v.fixing?.state === "failed" && <p className="error">{v.fixing.id}: {v.fixing.error}</p>}
       {err && <p className="error">{err}</p>}
+      <button type="button" className="link" disabled={busy} onClick={() => { void api<View>("/doctor/refresh", { method: "POST" }).then(setV, e => setErr(e.message)); }}>{busy ? "Checking locally…" : "Check locally"}</button>
       {!required.length && !hidden && (
         <button type="button" className="link" onClick={() => { try { localStorage.setItem(LATER, "1"); } catch { /* private window */ } setHidden(true); }}>later</button>
       )}
@@ -52,37 +53,3 @@ export function SetupNote() {
   );
 }
 
-/** The online libraries' keys (Pixabay images and videos, Freesound sounds): optional, stored on this computer. */
-export function LibraryKeys() {
-  type K = { pixabay: string | null; freesound: string | null };
-  const [k, setK] = useState<K | null>(null);
-  const [edit, setEdit] = useState<"" | keyof K>("");
-  const [val, setVal] = useState("");
-  const [err, setErr] = useState("");
-  useEffect(() => { api<K>("/keys").then(setK, () => {}); }, []);
-  const save = async (p: keyof K, value: string) => {
-    try { setK(await api<K>("/keys", { method: "PUT", body: { [p]: value } })); setEdit(""); setVal(""); setErr(""); } catch (e) { setErr((e as Error).message); }
-  };
-  if (!k) return null;
-  const LINKS = { pixabay: "https://pixabay.com/api/docs/", freesound: "https://freesound.org/apiv2/apply/" };
-  return (
-    <>
-      <div className="kv sep"><span>LIBRARY KEYS</span><b className="dim">OPTIONAL</b></div>
-      {(["pixabay", "freesound"] as const).map((p) => (
-        <div key={p} className="kv">
-          <span>{p === "pixabay" ? <a href={LINKS[p]} target="_blank" rel="noreferrer">Pixabay</a> : <a href={LINKS[p]} target="_blank" rel="noreferrer">Freesound</a>}</span>
-          {edit === p ? (
-            <input type="password" autoFocus aria-label={`${p} API key`} value={val} onChange={(e) => setVal(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") void save(p, val); if (e.key === "Escape") setEdit(""); }} />
-          ) : (
-            <span className="row tight">
-              <button type="button" className="link" onClick={() => { setEdit(p); setVal(""); }}>{k[p] ? `${k[p]} · change` : "add"}</button>
-              {k[p] && <button type="button" className="link" aria-label={`Remove the ${p} key`} onClick={() => void save(p, "")}>×</button>}
-            </span>
-          )}
-        </div>
-      ))}
-      {err && <p className="error">{err}</p>}
-    </>
-  );
-}

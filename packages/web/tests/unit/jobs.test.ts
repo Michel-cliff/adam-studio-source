@@ -76,3 +76,12 @@ describe("hintOf", () => {
     expect(hintOf('CapCut project "x" exists and was not created by Adam Studio')).toBeNull();
   });
 });
+
+it("closes unused input so a headless command cannot wait forever for additional stdin", async () => {
+ const jobs = new JobManager();
+ const j = jobs.start("stdin-test", {cmd:process.execPath,args:["-e","process.stdin.resume();process.stdin.on('end',()=>console.log('input closed'))"],label:"Codex input regression"});
+ try {
+  await new Promise<void>((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error("stdin remained open")),4000);jobs.subscribe(j.id,e=>{if(e.type==="end"){clearTimeout(timer);resolve();}});});
+  expect(jobs.get(j.id)?.state).toBe("done");expect(jobs.get(j.id)?.output).toContain("input closed");
+ }finally{jobs.stopAll();}
+});

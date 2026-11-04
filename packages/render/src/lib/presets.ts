@@ -1,4 +1,4 @@
-import { clamp01, easeOutCubic } from "./text";
+import { clamp01, easeOutCubic, editorialEntrance } from "./text";
 
 /** `pixel`: the picture's block size in px at 1080 wide (0 or absent: sharp), drawn by the element's mosaic filter. */
 export type PresetStyle = { opacity?: number; transform?: string; filter?: string; pixel?: number };
@@ -18,7 +18,11 @@ const easeOutBack = (t: number) => 1 + 2.70158 * (t - 1) ** 3 + 1.70158 * (t - 1
 const WINDOW_MS = 250;
 
 /** Style of an entrance (or exit, with msFromEdge counted from the end) preset at msFromEdge. */
-export function presetStyle(name: string | undefined, msFromEdge: number, frame: number): PresetStyle {
+export function presetStyle(name: string | undefined, msFromEdge: number, frame: number, stable = false): PresetStyle {
+  if (name === "softZoom" || (stable && ["glitch", "step", "pixel", "popOut"].includes(name ?? ""))) {
+    const e = editorialEntrance(msFromEdge);
+    return { opacity: e.opacity, transform: `scale(${round(e.scale)})`, filter: e.blur > 0.05 ? `blur(${round(e.blur)}px)` : undefined };
+  }
   switch (name) {
     case "fade":
       return { opacity: clamp01(msFromEdge / 250) };

@@ -1,24 +1,50 @@
+import { t as uiText } from "./i18n";
 import { useEffect, useState } from "react";
 import type { ProjectView } from "../server/types";
-import { api, enc, ms } from "./api";
+import { api, enc, ms, go } from "./api";
 import { t, useLang } from "./i18n";
 import { IconEdit, IconTrash } from "./icons";
-import { LibraryKeys } from "./Setup";
 import { GROUPS, openGroup } from "./steps";
 
 /** The library keys, then the AI apps the studio plugs into. */
 function Keys({ project }: { project?: string }) {
-  return <div className="keysbox"><DaLine project={project} /><LibraryKeys /><Desktop /></div>;
+  return <div className="keysbox"><DaLine project={project} /><Desktop /></div>;
 }
 
 /** The creator's art direction: how many of its six lines they set; the path opens on the picked video. */
 function DaLine({ project }: { project?: string }) {
-  const [set, setSet] = useState<number | null>(null);
-  useEffect(() => { api<{ status: { set: boolean }[] }>("/da").then((r) => setSet(r.status.filter((x) => x.set).length), () => {}); }, []);
+  const [set, setSet] = useState<[number, number] | null>(null);
+  useEffect(() => { api<{ status: { set: boolean }[] }>("/da").then((r) => setSet([r.status.filter((x) => x.set).length, r.status.length]), () => {}); }, []);
   if (set === null) return null;
   return (
     <div className="kv sep"><span>ART DIRECTION</span>
-      {project ? <a className="link" href={`#/p/${enc(project)}/da`}>{set} / 6 · OPEN</a> : <b className="dim">{set} / 6</b>}
+      {project ? <a className="link" href={`#/p/${enc(project)}/da`}>{set[0]} / {set[1]} · OPEN</a> : <b className="dim">{set[0]} / {set[1]}</b>}
+    </div>
+  );
+}
+
+type DaList = { active: string; names: string[] };
+/** Which art direction the videos use, when the creator has several: switch, or open the dedicated creation page. */
+function DaPicker() {
+  const [list, setList] = useState<DaList | null>(null);
+  const [err, setErr] = useState("");
+  useEffect(() => { api<{ list: DaList; needsSetup: boolean }>("/da").then((r) => { setList(r.list); if (r.needsSetup) void api<{ completed: boolean }>("/onboarding").then(s => { if (s.completed && !document.querySelector(".onboard-root")) go("#/da"); }, () => {}); }, () => {}); }, []);
+  const call = async (path: string, body: Record<string, unknown>) => {
+    try { const r = await api<{ list: DaList }>(path, { method: "POST", body }); setList(r.list); setErr(""); }
+    catch (e) { setErr((e as Error).message); }
+  };
+  if (!list) return null;
+  return (
+    <div className="da-pick">
+      <a className="mono link" href="#/da">{t("ART DIRECTION")} ↗</a>
+        <select aria-label="Art direction" value={list.active} onChange={(e) => {
+          const v = e.target.value;
+          if (v === "+new") go("#/da"); else void call("/da/use", { name: v });
+        }}>
+          {list.names.map((n) => <option key={n} value={n}>{n === "default" ? t("Default") : n}</option>)}
+          <option value="+new">{t("+ New")}</option>
+        </select>
+      {err && <span className="error">{err}</span>}
     </div>
   );
 }
@@ -38,7 +64,19 @@ function Desktop() {
 function Connect({ name, path, install }: { name: string; path: string; install: string }) {
   const [s, setS] = useState<{ app: boolean; connected: boolean } | null>(null);
   const [err, setErr] = useState("");
-  useEffect(() => { api<typeof s>(`/connect/${path}`).then(setS, () => {}); }, []);
+  const [checking, setChecking] = useState(false);
+  const [download, setDownload] = useState(false);
+  useEffect(() => {
+    const refresh = () => { void api<typeof s>(`/connect/${path}`).then(setS, () => {}); };
+    refresh(); window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, [path]);
+  const checkLocal = async () => {
+    setChecking(true); setDownload(false); setErr("");
+    try { const found = await api<NonNullable<typeof s>>(`/connect/${path}?refresh=1`); setS(found); setDownload(!found.app); }
+    catch (e) { setErr((e as Error).message); }
+    finally { setChecking(false); }
+  };
   const connect = async () => { try { setS(await api<typeof s>(`/connect/${path}`, { method: "POST" })); setErr(""); } catch (e) { setErr((e as Error).message); } };
   if (!s) return null;
   return (
@@ -47,7 +85,8 @@ function Connect({ name, path, install }: { name: string; path: string; install:
         <span>{name}</span>
         {s.connected ? <b className="ok" title={`Quit and reopen ${name} once, then ask it about your Adam Studio projects.`}>CONNECTED · RESTART IT</b>
           : s.app ? <button type="button" className="link" onClick={() => void connect()}>connect</button>
-          : <a href={install} target="_blank" rel="noreferrer">install it</a>}
+          : download ? <a href={install} target="_blank" rel="noreferrer">{t("Download")}</a>
+          : <button type="button" className="link" disabled={checking} onClick={() => void checkLocal()}>{t(checking ? "Checking locally…" : "Check locally")}</button>}
       </div>
       {err && <p className="error">{err}</p>}
     </>
@@ -56,6 +95,7 @@ function Connect({ name, path, install }: { name: string; path: string; install:
 
 type Filter = "All" | "In progress" | "Exported";
 const stepLabel = (v: ProjectView) => {
+  if (v.importing) return t("Importing…");
   if (v.renders.length) return "EXPORTED";
   const g = openGroup(v.workflow);
   return `${String(GROUPS.findIndex((x) => x.id === g) + 1).padStart(2, "0")}/${String(GROUPS.length).padStart(2, "0")}`;
@@ -74,8 +114,9 @@ export function Home() {
   const pickLook = (name: string) => { setLook(name); api("/settings", { method: "PUT", body: { look: name } }).catch((e) => setError(e.message)); };
   const load = async () => {
     try {
-      const list = await api<{ name: string }[]>("/projects");
-      const full = await Promise.all(list.map((p) => api<ProjectView>(`/projects/${enc(p.name)}`).catch(() => ({ name: p.name, ok: false, takes: [], renders: [], proposals: [], jobs: [], workflow: null, durationMs: null, assets: [] }) as ProjectView)));
+      const list = await api<ProjectView[]>("/projects?full=1");
+      // A running old server may still answer with compact rows until its jobs finish.
+      const full = list.some(p => !Array.isArray(p.renders)) ? await Promise.all(list.map(p => api<ProjectView>(`/projects/${enc(p.name)}`))) : list;
       setProjects(full);
       setPicked((cur) => cur && full.some((p) => p.name === cur) ? cur : full[0]?.name ?? "");
     } catch (e) { setError((e as Error).message); }
@@ -89,17 +130,29 @@ export function Home() {
   }, []);
   // Deleting moves the folder to the projects folder's .trash: recoverable until emptied by hand.
   const remove = async (name: string) => {
-    if (!confirm(`Delete “${name}”?\n\nIt moves to the .trash folder inside your projects folder: you can still get it back from there.`)) return;
+    if (!confirm(uiText(`Delete “${name}”?\n\nIt moves to the .trash folder inside your projects folder: you can still get it back from there.`))) return;
     try { await api(`/projects/${enc(name)}`, { method: "DELETE" }); setPicked(""); await load(); } catch (e) { setError((e as Error).message); }
   };
   const saveRoot = () => api("/settings", { method: "PUT", body: { projectsRoot: root } }).then(() => { setEditRoot(false); void load(); }, (e) => setError(e.message));
-  // Most recent first: the three latest take the centre, the others stay in the side list.
+  // The sidebar lists every matching project; only three recent previews occupy the centre.
   const shown = (projects ?? []).filter((p) => filter === "All" || (filter === "Exported" ? p.renders.length > 0 : p.renders.length === 0))
     .sort((a, b) => (b.modified ?? 0) - (a.modified ?? 0));
-  const recent = shown.slice(0, 3), older = shown.slice(3);
+  const recent = shown.slice(0, 3);
   const p = projects?.find((x) => x.name === picked);
   const g = p ? openGroup(p.workflow) : "story";
   const words = p?.takes[0]?.firstWords;
+  const keyboardProject = shown.some(x => x.name === picked) ? picked : "";
+  useEffect(() => {
+    const openSelected = (event: KeyboardEvent) => {
+      if (event.key !== "Enter" || event.repeat || event.isComposing || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || !keyboardProject) return;
+      if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable], button, a, [role='button']")) return;
+      if (document.querySelector('dialog[open], [role="dialog"], [aria-modal="true"], .onboard-root')) return;
+      event.preventDefault();
+      go(`#/p/${enc(keyboardProject)}`);
+    };
+    window.addEventListener("keydown", openSelected);
+    return () => window.removeEventListener("keydown", openSelected);
+  }, [keyboardProject]);
   return (
     <>
       <nav aria-label="Filter" className="subnav">
@@ -108,23 +161,34 @@ export function Home() {
       {error && <p className="error">{error}</p>}
       <div className="cols projects-cols">
         <section aria-label="Projects" className="list side-list">
-          <div className="list-scroll">
-          {older.length === 0 && projects && <p className="note">{shown.length > 3 ? "" : "OLDER PROJECTS LAND HERE, THE THREE LATEST STAY IN THE CENTRE."}</p>}
-          {older.map((x) => (
-            <button key={x.name} type="button" className={`row-item${x.name === picked ? " on" : ""}`} onClick={() => setPicked(x.name)} onDoubleClick={() => { location.hash = `#/p/${enc(x.name)}`; }}>
+          <div className="list-scroll" tabIndex={0} aria-label={t("All projects")}>
+          {shown.length === 0 && projects && <p className="note">{t("No projects match this filter.")}</p>}
+          {shown.map((x) => (
+            <button key={x.name} type="button" className={`row-item${x.name === picked ? " on" : ""}`} onClick={() => setPicked(x.name)} onDoubleClick={() => { location.hash = `#/p/${enc(x.name)}`; }} onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.repeat && !event.nativeEvent.isComposing) { event.preventDefault(); go(`#/p/${enc(x.name)}`); }
+              }} title={t("Double-click or press Enter to open this project.")} aria-describedby="project-open-help">
               <span>{x.name}</span><span className="mono">{x.ok ? stepLabel(x) : "INVALID"}</span>
             </button>
           ))}
           </div>
+          <div className="project-controls">
           <a className="line-btn" href="#/new"><span>{t("NEW PROJECT")}</span><span>+</span></a>
           {p && <button type="button" className="act danger" onClick={() => void remove(p.name)}><span>{t("MOVE TO TRASH")} · {p.name}</span><IconTrash /></button>}
+          <DaPicker />
+          </div>
         </section>
 
         <section aria-label="Selected project" className="center">
           <div className="head"><h1>{p?.name ?? "YOUR VIDEOS"}</h1>{p && <span className="mono">{p.renders.length ? "EXPORTED" : `STEP ${stepLabel(p)}`}</span>}</div>
+          {shown.length > 0 && <div className="project-open-guide">
+            <p id="project-open-help">{t("Choose a project to enter the Studio. Double-click it, or select it and press Enter.")}</p>
+            {keyboardProject && <a className="act" href={`#/p/${enc(keyboardProject)}`}>{t("OPEN IN STUDIO")} →</a>}
+          </div>}
           <div className="recent">
             {recent.map((x) => (
-              <button key={x.name} type="button" className={`rcard${x.name === picked ? " on" : ""}`} onClick={() => setPicked(x.name)} onDoubleClick={() => { location.hash = `#/p/${enc(x.name)}`; }}
+              <button key={x.name} type="button" className={`rcard${x.name === picked ? " on" : ""}`} onClick={() => setPicked(x.name)} onDoubleClick={() => { location.hash = `#/p/${enc(x.name)}`; }} onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.repeat && !event.nativeEvent.isComposing) { event.preventDefault(); go(`#/p/${enc(x.name)}`); }
+              }} title={t("Double-click or press Enter to open this project.")} aria-describedby="project-open-help"
                 aria-pressed={x.name === picked} aria-label={`${x.name}, ${x.ok ? stepLabel(x) : "invalid"}`}>
                 <span className={`frame${x.name === picked ? " lit" : ""}`}><img src={`/api/projects/${enc(x.name)}/thumb`} alt="" onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} /></span>
                 <span className="rname"><b>{x.name}</b><span className="mono">{x.ok ? stepLabel(x) : "INVALID"}</span></span>
@@ -142,7 +206,7 @@ export function Home() {
           {words && <p className="quote">“{words}”</p>}
         </section>
 
-        <aside aria-label="Status" className="status">
+        <aside aria-label="Status" className="status home-status">
           <div className="h">{t("STATUS")}</div>
           {p && <>
             <div className="kv"><span>Format</span><b>{p.format ?? "?"}</b></div>
@@ -169,7 +233,7 @@ export function Home() {
           <div className="synced">● SYNCED</div>
         </aside>
       </div>
-      <footer className="foot"><span className="hint">{t("Select a project.")}</span></footer>
+      <footer className="foot"><span className="hint">{t("Select a project, then press Enter to open the Studio.")}</span></footer>
     </>
   );
 }

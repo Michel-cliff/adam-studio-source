@@ -41,7 +41,7 @@ def test_front_images_are_sized_photos_and_overlays_are_videos_on_front_tracks(l
     front = [t for t in content["tracks"] if t["name"].startswith("front")]
     assert [len(t["segments"]) for t in front] == [2]
     r = report_of(project, "front")
-    assert r["pic"]["status"] == "native" and "RGB Scanlines" in r["pic"]["reason"]
+    assert r["pic"]["status"] == "native" and "stable: no jitter" in r["pic"]["reason"]
     assert r["hud1"]["status"] == "baked"
 
 

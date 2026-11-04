@@ -38,3 +38,12 @@ describe("what the legibility pass is asked", () => {
     expect(out.captions[1]!.treatment).toBeUndefined();
   });
 });
+
+describe("default placement after cached analysis", () => {
+  it("ignores stale caption heights in the face or above the head", () => {
+    const defaultTl = { ...tl, style: { ...tl.style, name: "Default" }, elements: [], warnings: [] };
+    const out = mergeLegibility(defaultTl, { k1: { treatment: 2, y: 700, burnt: 0 } });
+    expect(out.captions[0]!.y).toBeGreaterThan(2 / 3);
+    expect(legibilitySpec(defaultTl, {}).keepBand).toBe(true);
+  });
+});

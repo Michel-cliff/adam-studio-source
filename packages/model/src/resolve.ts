@@ -1,3 +1,4 @@
+import { placeTextInThirds } from "./text-placement";
 import { canvasSize } from "./time";
 import type { Project } from "./schema/project";
 import type { Style } from "./schema/style";
@@ -61,15 +62,17 @@ export function resolve(projectIn: Project, styleIn: Style, options: ResolveOpti
     sourceInMs: l.clip.inMs,
     sourceOutMs: l.clip.outMs,
     framing: l.clip.framing,
-    zoom: defaultPush(l.clip.zoom, ctx.clips.indexOf(l), l.outEndMs - l.outStartMs, style.motion.push ?? PUSH_PER_SEC),
+    zoom: project.format === "facecam" ? defaultPush(l.clip.zoom, ctx.clips.indexOf(l), l.outEndMs - l.outStartMs, style.motion.push ?? PUSH_PER_SEC) : l.clip.zoom,
     transitionOut: l.clip.transitionOut,
     volume: l.clip.volume,
   }];
   });
   const { elements, sfx } = resolveElements(ctx);
-  const captions = resolveCaptions(ctx);
+  // An important passage says the words itself: the subtitles under it step aside (a caption whose middle falls in it).
+  const stacks = elements.filter((e) => e.kind === "text.stack").map((e) => [e.fromFrame, e.fromFrame + e.durationFrames] as const);
+  const captions = resolveCaptions(ctx).filter((c) => !stacks.some(([a, b]) => c.fromFrame + c.durationFrames / 2 >= a && c.fromFrame + c.durationFrames / 2 < b));
   const beats = resolveBeats(ctx);
-  return {
+  return placeTextInThirds({
     format: project.canvas.format,
     width,
     height,
@@ -84,5 +87,5 @@ export function resolve(projectIn: Project, styleIn: Style, options: ResolveOpti
     orphans: ctx.orphans,
     warnings: ctx.warnings,
     style,
-  };
+  });
 }

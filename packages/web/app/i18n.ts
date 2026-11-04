@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
 import { FR } from "./i18n-fr";
-import { translatePage } from "./translate";
+import { toFrench, translatePage } from "./translate";
 
 // The interface in English or French: the words of the shell, steps and main actions.
 export type Lang = "en" | "fr";
 
 let lang: Lang = (() => { try { return localStorage.getItem("adam.lang") === "fr" ? "fr" : "en"; } catch { return "en"; } })();
 const subs = new Set<() => void>();
-export const t = (s: string) => (lang === "fr" ? FR[s] ?? s : s);
+export const t = (s: string) => (lang === "fr" ? FR[s] ?? toFrench(s) ?? s : s);
 export function setLang(l: Lang) {
   lang = l;
   try { localStorage.setItem("adam.lang", l); } catch { /* private mode */ }

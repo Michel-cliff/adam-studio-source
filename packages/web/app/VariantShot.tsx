@@ -11,7 +11,10 @@ const cache = new Map<string, Promise<RenderProps>>();
 export function props(url: string, stamp: string): Promise<RenderProps> {
   const key = `${url}#${stamp}`;
   // A failed fetch is not kept: the next try asks again.
-  if (!cache.has(key)) cache.set(key, api<RenderProps>(url).catch((e) => { cache.delete(key); throw e; }));
+  if (!cache.has(key)) {
+    if (cache.size >= 48) cache.delete(cache.keys().next().value!);
+    cache.set(key, api<RenderProps>(url).catch((e) => { cache.delete(key); throw e; }));
+  }
   return cache.get(key)!;
 }
 

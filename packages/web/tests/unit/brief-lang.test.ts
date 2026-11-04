@@ -13,3 +13,13 @@ describe("the language of what Adam writes", () => {
     expect(askBrief("p", "hook", "x", null, { lang: "fr" }).system).toMatch(/language named in the creator's request overrides/);
   });
 });
+
+describe("proposal preservation rules", () => {
+  it("keeps hooks on the existing edit and asks the AI to repair rejected variants", () => {
+    const brief = askBrief("demo", "hook", "Three hooks").system;
+    expect(brief).toContain("Preserve the story and all existing captions");
+    expect(brief).toContain("Never put setStory in an unsolicited variant");
+    expect(brief).toContain("repair that variant and resubmit");
+    expect(brief).not.toContain("propose moving it to the start");
+  });
+});

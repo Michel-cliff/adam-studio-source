@@ -13,9 +13,11 @@ const STEP_KINDS: Record<string, string[]> = {
 const HOOK_MS = 6000;
 const TRANSCRIPT_CHARS = 14000;
 const json = (v: unknown) => JSON.stringify(v);
+let schemaCache: ReturnType<typeof exportSchemas> | undefined;
+const schemasOnce = () => schemaCache ??= exportSchemas();
 
 function patchSchema(): unknown {
-  const project = exportSchemas()["project.schema.json"] as { properties: { proposals: { items: { properties: { variants: { items: { properties: { patch: unknown } } } } } } } };
+  const project = schemasOnce()["project.schema.json"] as { properties: { proposals: { items: { properties: { variants: { items: { properties: { patch: unknown } } } } } } } };
   return project.properties.proposals.items.properties.variants.items.properties.patch;
 }
 
@@ -62,7 +64,7 @@ export function stepContext(dir: string, step: string): string {
     return `${p.step}: ${what}${note ? `, note "${note}"` : ""}`;
   });
   const pending = project.proposals.filter((p) => p.status === "pending").map((p) => `${p.id} (${p.step}, ${p.variants.length} variants)`);
-  const schemas = exportSchemas() as Record<string, unknown>;
+  const schemas = schemasOnce() as Record<string, unknown>;
   const script = readScript(dir).text;
   const parts = [
     "## Project (transcript words and past patches left out)",

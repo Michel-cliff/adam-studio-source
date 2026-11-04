@@ -18,7 +18,7 @@ def fit_font_size(text: str, max_width: float, max_size: float, glyph_em: float 
     return min(max_size, math.floor(max_width / (longest * glyph_em)))
 
 
-def title_texts(el: dict, width: int, height: int, fps: int) -> list[dict]:
+def title_texts(el: dict, width: int, height: int, fps: int, stable: bool = False) -> list[dict]:
     """Per phase: the kicker (first phase only) and one text per line, stacked and centered on the element's
     point, each starting when its reveal starts and ending with its phase."""
     props = el["props"]
@@ -41,6 +41,18 @@ def title_texts(el: dict, width: int, height: int, fps: int) -> list[dict]:
             reveal = frame(phase["startMs"] + REVEAL_DELAY_MS + i * STAGGER_MS)
             rows.append({"role": "line", "text": line["text"], "px": px, "gap": 0, "box": line.get("box", False),
                          "color": "ink", "intro": REVEAL_MS, "from": min(p_to - 1, max(p_from, reveal))})
+        if stable:
+            max_px = min(width * 0.10, height * 0.16 / max(1, len(phase["lines"])))
+            for row in rows:
+                row["from"] = p_from
+                row["intro"] = 0
+                row["color"] = props.get("textColor", "text")
+                if row["role"] == "line":
+                    line_index = sum(1 for previous in rows[:rows.index(row)] if previous["role"] == "line")
+                    row["text"] = row["text"].upper()
+                    row["px"] = fit_font_size(row["text"], width * 2 / 3, max_px * phase["lines"][line_index].get("sizeScale", 1), 0.55)
+                else:
+                    row["px"], row["gap"] = max_px * 0.36, width * 0.008
         top = el["y"] * height - sum(r["px"] + r["gap"] for r in rows) / 2
         for r in rows:
             out.append({"role": r["role"], "text": r["text"], "px": r["px"], "box": r["box"], "color": r["color"], "intro": r["intro"],

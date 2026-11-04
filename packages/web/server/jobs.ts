@@ -48,7 +48,8 @@ export class JobManager {
       this.prune(project);
       onEnd?.(job);
     };
-    const child = spawn(c.cmd, c.args, { windowsHide: true, detached: process.platform !== "win32", env: { ...process.env, ...c.env, FORCE_COLOR: "0" } });
+    // Every job gets its request through arguments. An open pipe makes Codex wait for extra input forever.
+    const child = spawn(c.cmd, c.args, { stdio: ["ignore", "pipe", "pipe"], windowsHide: true, detached: process.platform !== "win32", env: { ...process.env, ...c.env, FORCE_COLOR: "0" } });
     this.procs.set(job.id, child);
     child.stdout?.on("data", add);
     child.stderr?.on("data", add);
@@ -56,6 +57,8 @@ export class JobManager {
     child.on("close", (code) => finish(code));
     return job;
   }
+
+  projectNames(): string[] { return [...new Set([...this.jobs.values()].filter(j => j.label === "New project" || j.label === "Lay out the cards").map(j => j.project))]; }
 
   get(id: string): JobView | undefined { return this.jobs.get(id); }
 
@@ -79,6 +82,8 @@ export class JobManager {
     else { try { process.kill(-child.pid, "SIGTERM"); } catch { child.kill("SIGTERM"); } }
     return true;
   }
+
+  hasRunning(): boolean { return [...this.jobs.values()].some(j => j.state === "running"); }
 
   stopAll(): void { for (const id of [...this.procs.keys()]) this.stop(id); }
 

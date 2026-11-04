@@ -1,3 +1,4 @@
+import { t as uiText } from "./i18n";
 import { useEffect, useState } from "react";
 import type { ProjectView } from "../server/types";
 import { api, enc, fileUrl, uploadFile } from "./api";
@@ -68,12 +69,12 @@ export function AssetsPanel({ name, view, onClose, onMention, onChanged }: {
   };
   // Both are recoverable: an Inspiration file goes to its .trash, a video's asset file to the project's .trash.
   const deleteFile = async (i: Local) => {
-    if (!confirm(`Delete “${i.title}” from your Inspiration folder?\n\nIt moves to the folder's .trash.`)) return;
+    if (!confirm(uiText(`Delete “${i.title}” from your Inspiration folder?\n\nIt moves to the folder's .trash.`))) return;
     try { await api(`/library/file?path=${enc(i.path)}`, { method: "DELETE" }); setNote(`${i.title} moved to the trash.`); await search(); }
     catch (e) { setNote((e as Error).message); }
   };
   const removeAsset = async (id: string) => {
-    if (!confirm(`Remove “${id}” from ${name}?\n\nIts file moves to the project's .trash.`)) return;
+    if (!confirm(uiText(`Remove “${id}” from ${name}?\n\nIts file moves to the project's .trash.`))) return;
     try { await api(`/projects/${enc(name)}/assets/${enc(id)}`, { method: "DELETE" }); setNote(`${id} removed from this video.`); onChanged(); }
     catch (e) { setNote((e as Error).message); }
   };

@@ -32,6 +32,16 @@
       ],
       "additionalProperties": false
     },
+    "format": {
+      "default": "facecam",
+      "type": "string",
+      "enum": [
+        "facecam",
+        "motion",
+        "tutorial",
+        "text"
+      ]
+    },
     "style": {
       "type": "string",
       "minLength": 1
@@ -564,7 +574,7 @@
             "type": "boolean"
           },
           "slot": {
-            "default": "center",
+            "default": "auto",
             "type": "string"
           },
           "position": {
@@ -586,6 +596,21 @@
               "y"
             ],
             "additionalProperties": false
+          },
+          "scale": {
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 4
+          },
+          "rotation": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "opacity": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
           },
           "props": {
             "default": {},
@@ -906,7 +931,7 @@
                             "type": "boolean"
                           },
                           "slot": {
-                            "default": "center",
+                            "default": "auto",
                             "type": "string"
                           },
                           "position": {
@@ -928,6 +953,21 @@
                               "y"
                             ],
                             "additionalProperties": false
+                          },
+                          "scale": {
+                            "type": "number",
+                            "minimum": 0.1,
+                            "maximum": 4
+                          },
+                          "rotation": {
+                            "type": "number",
+                            "minimum": -180,
+                            "maximum": 180
+                          },
+                          "opacity": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
                           },
                           "props": {
                             "default": {},
@@ -1884,7 +1924,7 @@
                       "type": "boolean"
                     },
                     "slot": {
-                      "default": "center",
+                      "default": "auto",
                       "type": "string"
                     },
                     "position": {
@@ -1906,6 +1946,21 @@
                         "y"
                       ],
                       "additionalProperties": false
+                    },
+                    "scale": {
+                      "type": "number",
+                      "minimum": 0.1,
+                      "maximum": 4
+                    },
+                    "rotation": {
+                      "type": "number",
+                      "minimum": -180,
+                      "maximum": 180
+                    },
+                    "opacity": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
                     },
                     "props": {
                       "default": {},
@@ -2088,7 +2143,7 @@
                                   "type": "boolean"
                                 },
                                 "slot": {
-                                  "default": "center",
+                                  "default": "auto",
                                   "type": "string"
                                 },
                                 "position": {
@@ -2110,6 +2165,21 @@
                                     "y"
                                   ],
                                   "additionalProperties": false
+                                },
+                                "scale": {
+                                  "type": "number",
+                                  "minimum": 0.1,
+                                  "maximum": 4
+                                },
+                                "rotation": {
+                                  "type": "number",
+                                  "minimum": -180,
+                                  "maximum": 180
+                                },
+                                "opacity": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 1
                                 },
                                 "props": {
                                   "default": {},

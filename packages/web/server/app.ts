@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { closeSync, createWriteStream, existsSync, mkdirSync, openSync, readSync, renameSync, rmSync, statSync } from "node:fs";
+import { closeSync, createWriteStream, existsSync, mkdirSync, openSync, readSync, readdirSync, renameSync, rmSync, statSync } from "node:fs";
 import { pipeline } from "node:stream/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -7,7 +7,7 @@ import { homedir } from "node:os";
 import { basename, dirname, extname, join } from "node:path";
 import { addConnector, askServers, listConnectors, removeConnector, setEnabled } from "./connectors";
 import { listSkills } from "./skills";
-import { ActionError, addCommand, buildCommand, checkVideos, newProjectCommand, VIDEO_EXT } from "./actions";
+import { ActionError, addCommand, buildCommand, checkVideos, newProjectCommand, textProjectCommand, VIDEO_EXT } from "./actions";
 import { serveFile } from "./files";
 import { listFolder } from "./fsbrowse";
 import { hostAllowed, inside, originAllowed, safeName } from "./guards";
@@ -31,12 +31,15 @@ import { daRoute } from "./da-routes";
 import { statsRoute } from "./stats-routes";
 import { draftScript, readScript, saveScript } from "./script";
 import { mediaFile, previewData } from "./preview";
-import { listProjects, projectView } from "./projects";
-import { moveIn } from "./store";
+import { listProjects, pendingProject, projectView } from "./projects";
+import { inspectIn, moveIn, splitIn } from "./store";
+import { editorRoute } from "./editor-routes";
 import { applySeriesIn, closeCurrentStep, switchVariantIn, removeAssetIn, cutWordsIn, decideProposal, firstPassIn, listSeries, loadRaw, patchProject, setValue, ToolError, tightenIn, undo, updateItem } from "./store";
 import { listLooks, lookBrief } from "@adam-studio/library/src/looks";
 import { CLAUDE_MODELS, claudeModel, codexModel, engine, lookName, projectsRoot, setClaudeModel, setCodexModel, setEngine, setLookName, SETTINGS_FILE, setProjectsRoot, setStudioMode, setUiLang, studioMode, uiLang } from "./settings";
-import { parseUsage, recordUsage, usageSummary } from "./usage";
+import { ClaudeQuota } from "./claude-quota";
+import { CodexQuota } from "./codex-quota";
+import { parseLimits, recordLimits, parseUsage, recordUsage, usageSummary } from "./usage";
 import { thumbnail } from "./thumb";
 import { watchProjects } from "./watch";
 
@@ -73,7 +76,7 @@ function sse(res: ServerResponse): (data: unknown) => void {
   return (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 }
 
-export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capcutPython?: () => string | null; dist?: string; home?: string; ai?: AskAI } = {}): Server {
+export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capcutPython?: () => string | null; dist?: string; home?: string; ai?: AskAI; sessionToken?: string } = {}): Server & { hasActiveWork(): boolean } {
   const home = opts.home ?? homedir();
   const settingsFile = opts.settingsFile ?? SETTINGS_FILE;
   const doctor = new Doctor(dirname(settingsFile));
@@ -82,6 +85,8 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
   const dist = opts.dist ?? join(WEB, "dist");
   // The AI for questions outside the edit (statistics): the one the creator picked, with its model.
   const ai = opts.ai ?? aiRunner(() => engine(settingsFile), () => (engine(settingsFile) === "codex" ? codexModel(settingsFile) : claudeModel(settingsFile)), 240_000);
+  const codexQuota = new CodexQuota();
+  const claudeQuota = new ClaudeQuota(dirname(settingsFile));
   const clients = new Set<(d: unknown) => void>();
   const notify = (project: string) => { for (const c of clients) c({ type: "change", project }); };
   let unwatch = watchProjects(projectsRoot(settingsFile), notify);
@@ -102,12 +107,23 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     const skills = wanted.filter((x) => known.has(x));
     let context: string | undefined;
     try { context = stepContext(dir, step); } catch { /* an unreadable project: the AI reads it with its tools */ }
-    const extras = { ...askServers(home, connectorsFile), skills, mode, context, learned: learnedFor(dirname(settingsFile), step), lang: uiLang(settingsFile) };
+    const extras = { ...askServers(home, connectorsFile), skills, mode, context, learned: [learnedFor(dirname(settingsFile), step), (() => {
+      const da = readDA(dirname(settingsFile));
+      return [da.reference ? `Active art direction, inferred from the creator's references (visual guidance, not audio):\n${da.reference.summary}\n${da.reference.guidance.join("\n")}\nUncertainties: ${da.reference.uncertainties.join("; ")}` : "", da.notes ? `Creator's style instructions: ${da.notes}` : ""].filter(Boolean).join("\n");
+    })()].filter(Boolean).join("\n"), lang: uiLang(settingsFile) };
     const brief = look ? lookBrief(look) : null;
     const command = engineNow === "codex"
       ? codexAskCommand(name, step, prompt, codexModel(settingsFile), brief, extras)
       : askCommand(name, step, prompt, claudeModel(settingsFile), brief, extras);
-    return jobs.start(name, command, record);
+    const job = jobs.start(name, command, record);
+    if (engineNow === "claude") {
+      let previous = "";
+      jobs.subscribe(job.id, () => {
+        const limits = parseLimits(job.output), key = JSON.stringify(limits);
+        if (limits && key !== previous) { previous = key; try { recordLimits(dirname(settingsFile), limits); } catch {} }
+      });
+    }
+    return job;
   };
   const ended = (start: (done: (j: JobView) => void) => void) => new Promise<JobView>((done) => start(done));
   const autopilot = new Autopilot({
@@ -115,9 +131,13 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     firstPass: (dir) => { firstPassIn(dir, uiLang(settingsFile), daFirstPass(readDA(dirname(settingsFile)))); },
     decide: (dir, id, d) => { decideProposal(dir, id, d as "A"); },
     close: (dir) => { closeCurrentStep(dir); },
-    ask: async (name, dir, step, prompt) => { await ended((done) => askJob(name, dir, step, prompt, "propose", [], done)); },
+    ask: async (name, dir, step, prompt) => {
+      const job = await ended((done) => askJob(name, dir, step, prompt, "propose", [], done));
+      if (job.state !== "done") throw new Error(`Generation ${job.state}: ${job.label}`);
+    },
     render: async (name, dir) => (await ended((done) => jobs.start(name, buildCommand("render", dir, {}, capcutPython()), done))).state === "done",
-    script: async (dir) => { if (!readScript(dir).text.trim()) await draftScript(dir, ai); },
+    script: async (dir, signal) => { if (!readScript(dir).text.trim()) await draftScript(dir, ai, signal); },
+    stop: (name) => { const job = jobs.running(name); if (job) jobs.stop(job.id); },
   });
 
   const projectDir = (raw: string): { name: string; dir: string } => {
@@ -144,7 +164,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       if (handled) return;
     }
     if (path.startsWith("/api/da") || /^\/api\/projects\/[^/]+\/da\//.test(path)) {
-      const handled = await daRoute({ method, path, daDir: dirname(settingsFile), lang: uiLang(settingsFile), projectDir: (n) => existing(encodeURIComponent(n)).dir,
+      const handled = await daRoute({ req, url, ai, method, path, daDir: dirname(settingsFile), lang: uiLang(settingsFile), projectDir: (n) => existing(encodeURIComponent(n)).dir,
         send: (s, b) => send(res, s, b), body: () => body(req) });
       if (handled) return;
     }
@@ -160,7 +180,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     if (path === "/api/settings" && method === "GET") return send(res, 200, settings());
     // The creator's API keys: only whether they are set (last four characters) ever leaves the server.
     // Adam Studio as a connector of the creator's own Claude Desktop (their subscription, Anthropic's app).
-    if (path === "/api/connect/claude-desktop" && method === "GET") return send(res, 200, claudeDesktopStatus());
+    if (path === "/api/connect/claude-desktop" && method === "GET") return send(res, 200, claudeDesktopStatus(undefined, url.searchParams.has("refresh")));
     if (path === "/api/connect/claude-desktop" && method === "POST") {
       try { connectClaudeDesktop(claudeDesktopConfig(), adamServer()); } catch (e) { throw new HttpError(400, (e as Error).message); }
       // Claude Desktop's Code tab is Claude Code, with its own config: add the server there too (user scope), if it has Claude Code.
@@ -170,7 +190,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       } catch { /* no Claude Code, or already added */ }
       return send(res, 200, claudeDesktopStatus());
     }
-    if (path === "/api/connect/codex" && method === "GET") return send(res, 200, codexStatus());
+    if (path === "/api/connect/codex" && method === "GET") return send(res, 200, codexStatus(undefined, url.searchParams.has("refresh")));
     if (path === "/api/connect/codex" && method === "POST") {
       try { connectCodex(codexConfig(), adamServer()); } catch (e) { throw new HttpError(400, (e as Error).message); }
       return send(res, 200, codexStatus());
@@ -209,6 +229,9 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       } catch (e) { throw new HttpError(400, (e as Error).message); }
       return send(res, 200, settings());
     }
+    if (await editorRoute({ req, url, method, dir: dirname(settingsFile), send: (s, b) => send(res, s, b), body: () => body(req) })) return;
+    if (path === "/api/quota/claude" && method === "GET") return send(res, 200, await claudeQuota.read());
+    if (path === "/api/quota" && method === "GET") return send(res, 200, await codexQuota.read());
     // What Claude used: today's asks and the subscription windows Claude Code last reported.
     if (path === "/api/usage" && method === "GET") return send(res, 200, usageSummary(dirname(settingsFile)));
     // Skills Claude Code has, and the connectors (MCP servers) Claude may use from the studio.
@@ -230,19 +253,32 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       removeConnector(decodeURIComponent(m[1]!), connectorsFile);
       return send(res, 200, listConnectors(home, connectorsFile));
     }
-    if (path === "/api/projects" && method === "GET") return send(res, 200, listProjects(projectsRoot(settingsFile)));
+    if (path === "/api/projects" && method === "GET") {
+      const root = projectsRoot(settingsFile);
+      if (url.searchParams.get("full") === "1") {
+        const names = [...new Set([...(existsSync(root) ? readdirSync(root).filter(n => safeName(n) && existsSync(join(root, n, "project.json"))) : []), ...jobs.projectNames()])];
+        return send(res, 200, names.flatMap(name => { const list = jobs.list(name), view = projectView(root, name); const p = view ? { ...view, jobs: list } : pendingProject(name, list); return p ? [p] : []; }));
+      }
+      const list = listProjects(root);
+      for (const name of jobs.projectNames()) if (!list.some(p => p.name === name)) list.push({ name, ok: false, error: "Import in progress", takes: 0, lastRender: null });
+      return send(res, 200, list);
+    }
     if (path === "/api/projects" && method === "POST") {
       const b = await body(req);
       const name = typeof b.name === "string" ? b.name : "";
       if (!safeName(name)) throw new HttpError(400, `not a valid project name: "${name}"`);
       const dir = join(projectsRoot(settingsFile), name);
       if (existsSync(join(dir, "project.json"))) throw new HttpError(409, `a project "${name}" already exists: add rushes to it instead`);
-      return started(res, jobs.start(name, newProjectCommand(dir, checkVideos(b.videos), String(b.format ?? "9:16"), b.lang || undefined, b.series || undefined)));
+      const command = b.video === "text" ? textProjectCommand(dir, String(b.script ?? "")) : newProjectCommand(dir, checkVideos(b.videos), String(b.format ?? "9:16"), b.lang || undefined, b.series || undefined, b.video || undefined);
+      const job = jobs.start(name, command, () => notify(name)); notify(name);
+      return started(res, job);
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)$/)) && method === "GET") {
-      const { name } = existing(m[1]!);
-      const view = projectView(projectsRoot(settingsFile), name);
-      return send(res, 200, { ...view, jobs: jobs.list(name) });
+      const { name } = projectDir(m[1]!);
+      const view = projectView(projectsRoot(settingsFile), name), list = jobs.list(name);
+      const pending = !view ? pendingProject(name, list) : null;
+      if (!view && !pending) throw new HttpError(404, `no project "${name}"`);
+      return send(res, 200, view ? { ...view, jobs: list } : pending);
     }
     // Removing an asset from a video: refused while the edit uses it; the file goes to the project's .trash.
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/assets\/([^/]+)$/)) && method === "DELETE") {
@@ -320,7 +356,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/thumb$/)) && method === "GET") {
       const { dir } = existing(m[1]!);
-      const file = thumbnail(dir);
+      const file = await thumbnail(dir);
       if (!file) throw new HttpError(404, "no picture yet");
       return serveFile(req, res, file);
     }
@@ -329,6 +365,12 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const { dir } = existing(m[1]!);
       if (method === "GET") return send(res, 200, readScript(dir));
       return send(res, 200, saveScript(dir, String((await body(req)).text ?? ""), "you"));
+    }
+    // A text-only video: its cards laid out again from its script (a job: the background is made again too).
+    if ((m = path.match(/^\/api\/projects\/([^/]+)\/cards$/)) && method === "POST") {
+      const { name, dir } = existing(m[1]!);
+      if (jobs.running(name)) throw new HttpError(409, `${name} is busy: wait for its job`);
+      return started(res, jobs.start(name, textProjectCommand(dir)));
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/script\/draft$/)) && method === "POST") {
       return send(res, 200, await draftScript(existing(m[1]!).dir, ai));
@@ -341,6 +383,8 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const b = await body(req);
       switch (b.op) {
         // A block dragged on the timeline: an element or a sound to a moment, a caption to other words, a clip to another place.
+        case "inspect": return send(res, 200, inspectIn(dir, b));
+        case "split": return send(res, 200, splitIn(dir, String(b.id), Number(b.offsetMs)));
         case "move": return send(res, 200, moveIn(dir, String(b.what), b.what === "caption" ? Number(b.index) : String(b.id), Number(b.to)));
         case "update_item": return send(res, 200, updateItem(dir, b.collection === "story" ? "story" : "elements", String(b.id), b.changes ?? {}));
         case "set_value": return send(res, 200, setValue(dir, String(b.pointer), b.remove ? undefined : b.value));
@@ -426,7 +470,10 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     return serveFile(req, res, file && existsSync(file) ? file : join(dist, "index.html"));
   }
 
+  let activeRequests = 0;
   const server = createServer((req, res) => {
+    if (opts.sessionToken && req.headers["x-adam-desktop-token"] !== opts.sessionToken) { send(res, 403, { error: "desktop session required" }); return; }
+    if (!["GET", "HEAD"].includes(req.method ?? "GET")) { activeRequests++; res.once("close", () => { activeRequests--; }); }
     const port = (server.address() as AddressInfo).port;
     if (!hostAllowed(req.headers.host, port) || !originAllowed(req.method ?? "GET", req.headers.origin, port)) {
       send(res, 403, { error: "refused: the panel only answers itself" });
@@ -441,6 +488,6 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       send(res, 500, { error: (e as Error).message });
     });
   });
-  server.on("close", () => unwatch());
-  return server;
+  server.on("close", () => { autopilot.stopAll(); jobs.stopAll(); unwatch(); codexQuota.dispose(); claudeQuota.dispose(); });
+  return Object.assign(server, { hasActiveWork: () => jobs.hasRunning() || autopilot.hasRunning() || activeRequests > 0 });
 }

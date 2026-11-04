@@ -62,36 +62,26 @@ describe("captions across takes", () => {
 describe("firstPass", () => {
   it("labels its proposals in the creator's language", () => {
     const { project, style } = setup();
-    const fr = firstPass(project, style, "fr").project.proposals;
-    expect(fr.find((p) => p.id === "auto.cuts")!.variants[0]!.label).toMatch(/^serré : 2 hésitations/);
-    expect(fr.find((p) => p.id === "auto.captions")!.variants[0]!.label).toMatch(/sous-titres, deux lignes/);
-    expect(firstPass(project, style).project.proposals.find((p) => p.id === "auto.cuts")!.variants[0]!.label).toMatch(/^tight: 2 fillers/);
+    expect(firstPass(project, style, "fr").project.proposals.find((p) => p.id === "auto.captions")!.variants[0]!.label).toMatch(/sous-titres, deux lignes/);
   });
-  it("proposes cuts and captions that resolve, and re-runs without duplicates", () => {
+  it("never cuts: the creator brings footage already cut, the story stays as it came", () => {
     const { project, style } = setup();
     const { project: out, summary } = firstPass(project, style);
-    expect(summary).toMatchObject({ fillers: 2, captions: expect.any(Number), proposals: ["auto.cuts", "auto.captions"] });
-    expect(out.workflow?.current).toBe("cuts");
-    const cuts = out.proposals.find((p) => p.id === "auto.cuts")!;
-    expect(cuts.variants.map((v) => v.key)).toEqual(["A", "B"]);
-    for (const v of cuts.variants) {
-      const t = resolve(out, style, { apply: { proposal: "auto.cuts", variant: v.key } });
-      expect(t.durationFrames).toBeLessThan(resolve(out, style).durationFrames);
-    }
-    const tight = keptWords({ ...out, story: cuts.variants[0]!.patch.setStory! }).map((w) => w.text);
-    expect(tight).toEqual(["Alors", "je", "voulais", "vous", "parler", "du", "projet.", "voilà."]);
+    expect(out.story).toEqual(project.story);
+    expect(out.proposals.some((p) => p.step === "cuts")).toBe(false);
+    expect(summary.proposals).toEqual(["auto.captions"]);
     expect(resolve(out, style, { apply: { proposal: "auto.captions", variant: "A" } }).captions.length).toBeGreaterThan(0);
     const again = firstPass(out, style).project;
-    expect(again.proposals.filter((p) => p.id.startsWith("auto.")).length).toBe(2);
+    expect(again.proposals.filter((p) => p.id.startsWith("auto.")).length).toBe(1);
   });
 
   it("leaves decided proposals alone", () => {
     const { project, style } = setup();
     const out = firstPass(project, style).project;
-    const decided = { ...out, proposals: out.proposals.map((p) => (p.id === "auto.cuts" ? { ...p, status: { accepted: "A" as const } } : p)) };
+    const decided = { ...out, proposals: out.proposals.map((p) => (p.id === "auto.captions" ? { ...p, status: { accepted: "A" as const } } : p)) };
     const r = firstPass(decided, style);
-    expect(r.summary.skipped.join()).toMatch(/auto.cuts/);
-    expect(r.project.proposals.find((p) => p.id === "auto.cuts")!.status).toEqual({ accepted: "A" });
+    expect(r.summary.skipped.join()).toMatch(/auto.captions/);
+    expect(r.project.proposals.find((p) => p.id === "auto.captions")!.status).toEqual({ accepted: "A" });
   });
 });
 
@@ -113,15 +103,16 @@ describe("pauses and stutters, as the default art direction asks", () => {
     return NaN;
   };
 
-  it("keeps breaths, brings long pauses down to 0.25 s, never to zero, and flags the very long ones", () => {
+  it("flags the very long pauses for the creator, without cutting them", () => {
     const { project, style } = proj();
     const { project: o, summary } = firstPass(project, style);
-    const story = o.proposals.find((p) => p.id === "auto.cuts")!.variants[0]!.patch.setStory!;
-    const gap = (i: number) => out(story, ws[i + 1]!.startMs) - out(story, ws[i]!.endMs);
-    expect(gap(0)).toBe(500);
-    expect(gap(1)).toBe(250);
-    expect(gap(2)).toBe(250);
+    expect(o.story).toEqual(project.story);
     expect(summary.longPauses).toEqual([{ afterWord: "a.w2", ms: 3500 }]);
+  });
+
+  it("refuses a text-only video: it has no speech", () => {
+    const { project, style } = proj();
+    expect(() => firstPass({ ...project, format: "text" }, style)).toThrow(/text-only/);
   });
 
   it("cuts a stutter (the same word again within 0.4 s) and keeps the last one", () => {

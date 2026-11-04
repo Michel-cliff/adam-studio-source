@@ -9,15 +9,17 @@ import type { ClaudeModel } from "./settings";
 /** Claude Code's executable: ADAM_CLAUDE, the npm install's claude.exe on Windows, or `claude` on the PATH. */
 export function claudeBin(): string {
   if (process.env.ADAM_CLAUDE) return process.env.ADAM_CLAUDE;
+  const local = process.env.ADAM_TOOLS ? join(process.env.ADAM_TOOLS, "node_modules", "@anthropic-ai", "claude-code", "bin", "claude.exe") : "";
+  if (local && existsSync(local)) return local;
   const npmExe = process.env.APPDATA ? join(process.env.APPDATA, "npm", "node_modules", "@anthropic-ai", "claude-code", "bin", "claude.exe") : "";
   return npmExe && existsSync(npmExe) ? npmExe : "claude";
 }
 
 export const STEP_BRIEFS: Record<string, string> = {
-  cuts: "Cuts: what stays. Remove dead air, fillers, failed takes, tangents; keep the strongest version of each idea.",
-  structure: "Story: the order and the narrative framework (setStructure with beats on word ids, setStory to reorder).",
+  cuts: "Cuts: preserve the creator’s already edited footage. Never cut, trim or replace the story.",
+  structure: "Story: use the creator’s script to anchor visuals. Preserve the existing footage order and timing; never use setStory.",
   captions: "Captions: words on screen (addCaptions; caption font and colors go through setStyle).",
-  hook: "Hook: the first 3 seconds. A title at 0 ms, a tighter or reordered opening, a bold first frame.",
+  hook: "Hook: the first 3 seconds. A title at 0 ms, a visual emphasis on the existing opening, a bold first frame. Preserve the story and all existing captions.",
   beats: "Beats: what marks each change of idea (text.behindSubject with the key word, camera.zoom punch-ins, transitions).",
   visuals: "Visuals: images, HUD panels and stats, Lottie where the speech names something showable (Inspiration folder first).",
   sound: "Sound: sound effects on reveals and key cuts (search_assets kind audio, import_asset).",

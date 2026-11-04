@@ -88,7 +88,10 @@ describe("the 4:3 window", () => {
   it("can sit on the take itself, blurred, instead of a flat colour", () => {
     const blur = timeline([el("w", "camera.window", 60, 90, { backdrop: "blur", width: 0.8, y: 0.42, focusY: 0.4, easeMs: 300 })]);
     expect(windowAt(blur, 100)!.backdrop).toBe("blur");
-    expect(windowAt(tl, 100)!.backdrop).toBe("color");
+    expect(windowAt(tl, 100)!.backdrop).toBe("blur");
+    expect(windowAt(tl, 100)!.chrome).toBe("plain");
+    const flat = timeline([el("flat", "camera.window", 60, 90, { backdrop: "color" })]);
+    expect(windowAt(flat, 100)!.backdrop).toBe("color");
   });
   it("is baked for CapCut, like the zoom, never an overlay", () => {
     expect(cameraWindows(tl)).toEqual([[60, 150]]);

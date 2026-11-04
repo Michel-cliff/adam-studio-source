@@ -101,6 +101,43 @@ export function updateItem(dir: string, collection: "story" | "elements", id: st
   return save(dir, raw);
 }
 
+/** Applies inspector fields and project styling together: one validation, one undo step. */
+export function inspectIn(dir: string, input: Plain) {
+  const raw = loadRaw(dir);
+  const kind = input.kind;
+  if (kind !== "style") {
+    const collection = kind === "clip" ? "story" : kind === "element" ? "elements" : kind === "caption" ? "captions" : null;
+    if (!collection) throw new ToolError("unknown inspector selection");
+    const list = raw[collection] as Plain[];
+    const i = kind === "caption" ? Number(input.index) : list.findIndex(x => x.id === input.id);
+    if (!Number.isInteger(i) || i < 0 || i >= list.length) throw new ToolError("the selection no longer exists");
+    const value = input.value as Plain;
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new ToolError("the selection must be an object");
+    if (kind !== "caption" && value.id !== list[i]!.id) throw new ToolError("an id cannot be changed");
+    if (kind === "clip") {
+      const asset = (raw.assets as Plain[]).find(a => a.id === value.asset);
+      const duration = (asset?.meta as Plain | undefined)?.durationMs;
+      if (typeof duration === "number" && Number(value.outMs) > duration) throw new ToolError("the clip extends beyond its source");
+    }
+    list[i] = value;
+  }
+  const patch = input.style;
+  if (patch && typeof patch === "object" && !Array.isArray(patch)) raw.styleOverrides = deepMerge((raw.styleOverrides ?? {}) as Plain, patch as Plain);
+  return save(dir, raw);
+}
+
+/** Splits source timing without losing word anchors, framing or audio. */
+export function splitIn(dir: string, id: string, offsetMs: number) {
+  const raw = loadRaw(dir), list = raw.story as Plain[];
+  const i = list.findIndex(c => c.id === id), c = list[i];
+  if (!c) throw new ToolError("no clip to split");
+  const fps = Number((raw.canvas as Plain).fps), min = Math.ceil(1000 / fps);
+  if (!Number.isFinite(offsetMs) || offsetMs < min || offsetMs > Number(c.outMs) - Number(c.inMs) - min) throw new ToolError("leave at least one frame on each side of the cut");
+  const cut = Math.round(Number(c.inMs) + offsetMs);
+  list.splice(i, 1, { ...c, outMs: cut, transitionOut: { kind: "cut" } }, { ...c, id: `${id}.split.${crypto.randomUUID().slice(0, 8)}`, inMs: cut });
+  return save(dir, raw);
+}
+
 /** Sets (or, with value undefined, removes) the value at a JSON Pointer such as /captions/0/text. */
 export function setValue(dir: string, pointer: string, value: unknown) {
   if (!pointer.startsWith("/")) throw new ToolError(`a JSON Pointer starts with "/", got "${pointer}"`);
@@ -132,7 +169,14 @@ export function propose(dir: string, input: unknown) {
     const before = new Set(resolve(project, style).orphans);
     return proposal.variants.flatMap((v) => {
       let orphans: string[];
-      try { orphans = resolve(project, style, { apply: { proposal: proposal.id, variant: v.key } }).orphans; } catch { return []; }
+      try {
+        const applied = applyPatch(project, v.patch);
+        const parsed = parseProject(applied);
+        if (!parsed.ok) throw errors("variant project", parsed.errors);
+        orphans = resolve(parsed.value, style).orphans;
+      } catch (e) {
+        throw new ToolError(`variant ${v.key} cannot be previewed or applied: ${(e as Error).message}. Repair this variant and call propose again before announcing it is ready.`);
+      }
       const added = orphans.filter((o) => !before.has(o));
       return added.length ? [`variant ${v.key}: ${added.join(", ")}`] : [];
     });

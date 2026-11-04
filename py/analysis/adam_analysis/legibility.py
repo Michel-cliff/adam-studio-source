@@ -55,15 +55,26 @@ def _cascade(name: str) -> cv2.CascadeClassifier:
 
 
 def face_box(bgr: np.ndarray) -> tuple[int, int, int, int] | None:
-    """The largest frontal face (x, y, w, h), from the Haar cascade bundled with OpenCV; None when there is none."""
+    """Largest face, including a tilted head. Rotate detection only, never the video."""
     small = cv2.equalizeHist(cv2.cvtColor(cv2.resize(bgr, (bgr.shape[1] // 2, bgr.shape[0] // 2)), cv2.COLOR_BGR2GRAY))
-    # Equalised and searched finely: a close-up, slightly turned face is found on 25 frames of 25 of a real take
-    # (12 of 25 with the defaults); the largest one is kept, which rules out the small false hits.
-    faces = _cascade("haarcascade_frontalface_default.xml").detectMultiScale(small, 1.05, 4, minSize=(60, 60))
-    if len(faces) == 0:
-        return None
-    x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
-    return int(x * 2), int(y * 2), int(w * 2), int(h * 2)
+    height, width = small.shape
+    candidates = []
+    for angle in (0, -15, 15):
+        matrix = cv2.getRotationMatrix2D((width / 2, height / 2), angle, 1)
+        image = small if angle == 0 else cv2.warpAffine(small, matrix, (width, height))
+        faces = _cascade("haarcascade_frontalface_default.xml").detectMultiScale(image, 1.05, 4, minSize=(60, 60))
+        inverse = cv2.invertAffineTransform(matrix)
+        for x, y, w, h in faces:
+            corners = np.array([[[x, y], [x + w, y], [x, y + h], [x + w, y + h]]], dtype=np.float32)
+            points = cv2.transform(corners, inverse)[0]
+            x0, y0 = np.maximum(points.min(axis=0), 0)
+            x1, y1 = np.minimum(points.max(axis=0), (width, height))
+            candidates.append((int(x0 * 2), int(y0 * 2), int((x1 - x0) * 2), int((y1 - y0) * 2)))
+        # An unrotated close-up is reliable; small detections can be a hand or poster,
+        # so check for a larger tilted face before choosing one of those.
+        if angle == 0 and candidates and max(c[2] for c in candidates) >= bgr.shape[1] * 0.30:
+            break
+    return max(candidates, key=lambda f: f[2] * f[3]) if candidates else None
 
 
 def eyes_mouth(face: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
@@ -91,7 +102,7 @@ def hands_low(bgr: np.ndarray, face: tuple[int, int, int, int] | None, band: tup
     return float(skin.mean())
 
 
-def place(y: int, half: int, face: tuple[int, int, int, int] | None, hands: float, band: tuple[int, int], safe_top: int = SAFE_TOP) -> int:
+def place(y: int, half: int, face: tuple[int, int, int, int] | None, hands: float, band: tuple[int, int], safe_top: int = SAFE_TOP, keep_band: bool = False) -> int:
     """The caption's centre, always inside the band with its breathing room at the bottom.
 
     The eyes and the mouth come first: of the three spots (where it is, the top of the band, the bottom), only those
@@ -111,7 +122,7 @@ def place(y: int, half: int, face: tuple[int, int, int, int] | None, hands: floa
         return clear[0]
     above = face[1] - MARGIN - half
     # On a tie, the lowest spot: rather over the chin than over the eyes.
-    return above if above - half >= safe_top + MARGIN else min(spots, key=lambda c: (overlap(c), -c))
+    return above if not keep_band and above - half >= safe_top + MARGIN else min(spots, key=lambda c: (overlap(c), -c))
 
 
 def _frame(cap: cv2.VideoCapture, ms: float) -> np.ndarray | None:
@@ -141,7 +152,7 @@ def run(spec_path: str, out_path: str) -> None:
             face = face_box(frame) or last_face.get(s["take"])
             if face is not None:
                 last_face[s["take"]] = face
-            ys.append(place(y, half, face, hands_low(frame, face, band), band, spec.get("safeTop", SAFE_TOP)))
+            ys.append(y if spec.get("manualPlacement", False) else place(y, half, face, hands_low(frame, face, band), band, spec.get("safeTop", SAFE_TOP), spec.get("keepBand", False)))
             worst = max(worst, ladder(*measure(gray, (x0, ys[-1] - half, x1, ys[-1] + half))))
             burns.append(burnt(gray))
         # One height for the whole caption (the most constrained of its frames), one treatment (the strongest needed).

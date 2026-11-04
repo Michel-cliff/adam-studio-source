@@ -63,6 +63,24 @@ Projects and media live outside this repository; never commit footage or third-p
 
 Keys: [docs/connections.md](docs/connections.md).
 
+## Your art direction
+
+The **Art direction** space is available from the navigation and the Projects page. New users are offered two
+entrances on their first visit and can defer the choice:
+
+- **I already have an art direction**: upload 3 to 5 distinct finished videos (up to 300 MB each), name the profile,
+  and analyse their recurring visual choices with the selected AI. Four frames per video are sampled locally.
+  The profile stores supported style settings, visual guidance, sources and analysis limits. Audio and exact
+  font identification are not inferred. A failed analysis leaves the active profile unchanged.
+- **Create mine from scratch**: name a profile and choose an existing video for the guided colour, caption,
+  motion, typography and exclusions path. Without a video, add one first, then return to the space.
+
+Switch profiles from the Projects page or Art direction space. Add editable style instructions and refine any
+profile with the guided path. Guidance and exclusions follow the active profile. Existing per-video settings keep
+precedence over the profile. Reference files are stored locally under `~/.adam-studio/da-references`; sampled
+images are passed to the selected AI for the analysis. Profiles remain under `~/.adam-studio/das` (the original
+profile remains `da.json`).
+
 ## Claude Code (MCP)
 
     claude mcp add --scope user adam-studio -- node <repo>/node_modules/tsx/dist/cli.mjs <repo>/packages/mcp/src/server.ts

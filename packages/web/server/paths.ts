@@ -2,8 +2,8 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const WEB = join(dirname(fileURLToPath(import.meta.url)), "..");
-export const REPO = join(WEB, "..", "..");
+export const WEB = process.env.ADAM_APP_ROOT ? join(process.env.ADAM_APP_ROOT, "packages", "web") : join(dirname(fileURLToPath(import.meta.url)), "..");
+export const REPO = process.env.ADAM_APP_ROOT ?? join(WEB, "..", "..");
 export const TSX = join(REPO, "node_modules", "tsx", "dist", "cli.mjs");
 export const CLI = join(REPO, "packages", "render", "src", "cli.ts");
 

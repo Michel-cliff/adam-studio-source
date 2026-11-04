@@ -165,3 +165,12 @@ describe("the push as a style setting", () => {
     expect(resolve(makeProject({ story, styleOverrides: { motion: { push: 0 } } }), makeStyle()).clips[0]!.zoom).toEqual({ base: 1, driftPerSec: 0 });
   });
 });
+
+describe("editorial title placement", () => {
+  it("puts a title in the upper title band by default, preserving explicit centre and positions", () => {
+    const title = { kind: "title", anchor: { atMs: 0 }, durationMs: 1000, props: { connector: "et surtout", phases: [{ startMs: 0, endMs: 1000, lines: [{ text: "Une idée" }, { text: "Plus claire" }] }] } };
+    const p = makeProject({ elements: [{ ...title, id: "auto" }, { ...title, id: "centre", slot: "center" }, { ...title, id: "custom", position: { x: 0.4, y: 0.2 } }] });
+    const tl = resolve(p, makeStyle());
+    expect(tl.elements.map(e => [e.id, e.x, e.y])).toEqual([["auto", 0.5, 0.3], ["centre", 0.5, 0.5], ["custom", 0.4, 0.2]]);
+  });
+});

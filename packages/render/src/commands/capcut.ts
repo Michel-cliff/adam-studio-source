@@ -1,6 +1,6 @@
 import { homedir } from "node:os";
 import { repairCuts } from "@adam-studio/model";
-import { readDA, withDA } from "../lib/da";
+import { withVideoDA } from "../lib/da";
 import { writeFileSync } from "node:fs";
 import { join, resolve as resolvePath } from "node:path";
 import { resolve } from "@adam-studio/model";
@@ -11,6 +11,8 @@ import { planMedia, type MediaPlan } from "../media";
 import { clearPrepFolder } from "../prep-folder";
 import { loadProject } from "../project-io";
 import { lintGate } from "./render";
+import { applyLegibility } from "../lib/legibility";
+import { analysisPython } from "../analysis";
 
 type Source = { video?: string; file?: string; width?: number; height?: number };
 
@@ -36,9 +38,10 @@ export async function capcutPrepCommand(projectDir: string, opts: { out?: string
   const loaded = loadProject(projectDir);
   const { dir, style } = loaded;
   // As the render: the creator's art direction under the video's own settings, no cut inside a word.
-  const project = repairCuts(withDA(loaded.project, readDA(join(homedir(), ".adam-studio")))).project;
-  const timeline = resolve(project, style);
+  const project = repairCuts(withVideoDA(loaded.project, join(homedir(), ".adam-studio"))).project;
+  let timeline = resolve(project, style);
   ensureAnalysis(dir, project, timeline, { analyze: opts.analyze ?? true });
+  timeline = applyLegibility(dir, timeline, analysisPython, opts.analyze ?? true);
   lintGate(project, timeline, dir, opts.force, "export");
   const media = planMedia(dir, project, timeline);
   const plan = planCapcut(timeline, opts.nativeKinds ? new Set(opts.nativeKinds) : NATIVE_FRONT_KINDS);

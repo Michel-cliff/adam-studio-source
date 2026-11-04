@@ -8,7 +8,7 @@ import { CliError } from "./project-io";
 import type { Take } from "./takes";
 
 export const CHEAP_STEPS = ["edit", "proxy", "transcript", "silences"];
-const REPO = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+const REPO = process.env.ADAM_APP_ROOT ?? join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
 export function analysisPython(): string {
   if (process.env.ADAM_ANALYSIS_PYTHON) return process.env.ADAM_ANALYSIS_PYTHON;

@@ -9,6 +9,7 @@ import { ClaudeBar, ENGINE_EVENT } from "./ClaudeBar";
 import { aiOf, readEvent } from "./feed";
 import { ConnectorsPanel, SkillsPanel } from "./Connectors";
 import { t, useLang } from "./i18n";
+import { reportSupportJob } from "./SupportPrompt";
 import { JobLog } from "./JobLog";
 import { askStep, GROUPS, groupOf, groupState, openGroup, type GroupId } from "./steps";
 import { keyFrame } from "./frames";
@@ -23,13 +24,14 @@ const ICONS: Record<GroupId, string> = {
 const NAMES: Record<GroupId, string> = { story: "Story", captions: "Captions", hook: "Hook", visuals: "Visuals", sound: "Sound", wrap: "Wrap" };
 
 const HELP: Record<GroupId, string> = {
-  story: "Adam cut the silences and failed takes. Pick the cut you like (A tight, B light), then paste your script or let Adam write it from what you say. Press SCRIPT READY, NEXT to move on. Story shapes are optional.",
+  story: "Your video comes already cut: Adam never cuts it. Paste your script or let Adam write it from what you say, then press STEP DONE, NEXT on the right.",
   captions: "How your words show on screen. Press PROPOSE 3 CAPTION STYLES, pick one with CHOOSE, or skip the step to keep plain captions.",
   hook: "The first three seconds decide if people stay. Ask for three hooks, pick one with CHOOSE. You can skip it.",
   visuals: "Images, icons, effects and the color treatment, anchored on what you say. Ask for three directions, pick one, or skip.",
   sound: "Music bed and sound effects. Ask for three soundtracks, listen to them in place, pick one, or skip.",
   wrap: "Every step is done: pick a format and export the MP4, or send the edit to CapCut to finish by hand.",
 };
+const TEXT_HELP = "A text-only video: each line of your script becomes a card (a statement, a number, A vs B, a list, a quote, one word on its own). Press LAY OUT THE CARDS after each change, watch them on the left, then export.";
 const AUTO_HELP = "Auto mode runs every step for you and picks the first variant, then renders the video. Open any step afterwards and pick another variant: the video is rendered again.";
 
 function Help({ text }: { text: string }) {
@@ -196,6 +198,7 @@ function Wrap({ name, view, run }: { name: string; view: ProjectView; run: (acti
 export function Studio({ name, jobId }: { name: string; jobId?: string }) {
   useLang();
   const [view, setView] = useState<ProjectView | null>(null);
+  useEffect(() => { view?.jobs.forEach(reportSupportJob); }, [view?.jobs]);
   const [error, setError] = useState("");
   const [group, setGroup] = useState<GroupId | null>(null);
   const [pick, setPick] = useState<{ proposal: string; key: string } | null>(null);
@@ -222,6 +225,9 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
   const [auto, setAuto] = useState<{ state: string; label: string; error?: string } | null>(null);
   // A click on a locked step: the action that is needed now pulses for a moment.
   const [nudge, setNudge] = useState(false);
+  const [scriptReady, setScriptReady] = useState(false);
+  const [finishingStep, setFinishingStep] = useState(false);
+  const [stoppingAuto, setStoppingAuto] = useState(false);
   useEffect(() => { api<{ mode: "steps" | "auto" }>("/settings").then((x) => setMode(x.mode ?? "steps"), () => {}); }, []);
   useEffect(() => { if (!nudge) return; const id = setTimeout(() => setNudge(false), 2600); return () => clearTimeout(id); }, [nudge]);
   const addMention = (text: string) => setPrompt((p) => (p.includes(text) ? p : `${p.trimEnd()}${p.trim() ? " " : ""}${text}`));
@@ -231,13 +237,19 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
   }, [name]);
   // While auto mode runs, look again every two seconds.
   useEffect(() => {
-    if (auto?.state !== "running") return;
+    if (auto?.state !== "running" && !view?.importing) return;
     const id = setInterval(() => void load(), 2000);
     return () => clearInterval(id);
-  }, [auto?.state, load]);
+  }, [auto?.state, view?.importing, load]);
   const startAuto = async () => {
     try { setAuto(await api(`/projects/${enc(name)}/auto`, { method: "POST", body: { action: "start" } })); } catch (e) { setError((e as Error).message); }
   };
+  const stopAuto = async () => {
+    setStoppingAuto(true);
+    try { setAuto(await api(`/projects/${enc(name)}/auto`, { method: "POST", body: { action: "stop" } })); await load(); }
+    catch (e) { setError((e as Error).message); setStoppingAuto(false); }
+  };
+  useEffect(() => { if (auto?.state !== "running") setStoppingAuto(false); }, [auto?.state]);
   const pickMode = async (m: "steps" | "auto") => {
     setMode(m);
     try { await api("/settings", { method: "PUT", body: { mode: m } }); } catch (e) { setError((e as Error).message); }
@@ -278,6 +290,13 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
     catch (e) { setError((e as Error).message); }
   };
   const wf = view?.workflow ?? null;
+  // A text-only video: its script and its cards, then the export (no takes to cut, no captions, no hook to find).
+  const text = view?.video === "text";
+  const groups = text ? GROUPS.filter((x) => x.id === "story" || x.id === "wrap") : GROUPS;
+  const layOut = async () => {
+    try { const { job } = await api<{ job: JobView }>(`/projects/${enc(name)}/cards`, { method: "POST" }); setToast("Laying out the cards"); void job; await load(); }
+    catch (e) { setError((e as Error).message); }
+  };
   const g: GroupId = group ?? "story";
   const step = askStep(g, wf);
   const ask = async (text: string, mode: "do" | "propose" = "propose") => {
@@ -309,11 +328,13 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
   const chosen = shown?.variants.find((v) => v.key === chosenKey);
 
   // A project being created: its analysis job writes project.json at the end. Show the job, then open the studio.
-  if (!view && jobId) return (
+  const importJob = view?.importing ? view.jobs.find(j => j.label === "New project" || j.label === "Lay out the cards") : null;
+  if (view?.importing || (!view && jobId)) return (
     <div className="creating">
       <Halftone fx="wave" step={6} className="creatingwave" />
-      <p className="mono">ANALYZING {name.toUpperCase()}: TAKES, TRANSCRIPT, CUT-OUT… A FEW MINUTES</p>
-      <JobLog id={jobId} onEnd={() => void load()} />
+      <p className="mono">{name.toUpperCase()} · {t(importJob && importJob.state !== "running" ? "Import stopped. Review the log below." : "Import in progress. You can leave this page and return later.")}</p>
+      {(importJob?.id ?? jobId) && <JobLog id={(importJob?.id ?? jobId)!} onEnd={() => void load()} />}
+      <a className="act" href="#/">{t("PROJECTS")}</a>
     </div>
   );
   if (!view) return <div className="center-msg">{error ? <p className="error">{error}</p> : <p className="mono">OPENING THE PROJECT</p>}</div>;
@@ -323,10 +344,25 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
   const state = groupState(g, wf);
   const locked = state === "locked" && g !== "wrap";
   const lockedWhy = locked && wf ? `Finish ${t(NAMES[groupOf(wf.current)])} first` : null;
-  const stepNo = GROUPS.findIndex((x) => x.id === g) + 1;
+  const stepNo = groups.findIndex((x) => x.id === g) + 1;
   const canAsk = Boolean(wf) && g !== "wrap";
   const busy = Boolean(claudeJob && claudeJob.state === "running") || Boolean(running && aiOf(running.label));
   const canClose = wf && members.includes(wf.current) && !pending && !Object.values(wf.steps).every((x) => x === "done");
+  const finishStep = async () => {
+    if (finishingStep) return;
+    setFinishingStep(true);
+    try {
+      if (!await edit({ op: "close_step" }, "Step done")) return;
+      // Cuts and script are one visible Story step; an already edited video needs no second confirmation.
+      if (g === "story" && wf?.current === "cuts") {
+        const latest = await api<ProjectView>(`/projects/${enc(name)}`);
+        if (latest.workflow?.current === "structure" && !latest.proposals.some(p => p.step === "structure" && p.status === "pending")) {
+          await edit({ op: "close_step" }, "Step done");
+        }
+      }
+    } catch (e) { setError((e as Error).message); }
+    finally { setFinishingStep(false); }
+  };
   const decide = async (d: string) => { if (pending && await edit({ op: "decide", proposal: pending.id, decision: d }, d === "reject" ? "Proposal set aside" : `Variant ${d} applied`)) setPick(null); };
   const allDone = Boolean(wf && Object.values(wf.steps).every((x) => x === "done"));
   // Another variant for a step already chosen: the first one is taken back, this one applied, then the video renders again.
@@ -341,13 +377,15 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
     return { k: p.status.startsWith("accepted") ? key : "×", label: p.variants.find((v) => v.key === key)?.label ?? p.reason ?? (p.id.startsWith("auto.") ? "First pass" : "Proposal") };
   };
   const current = wf ? openGroup(wf) : "story";
-  const nextAction = !wf ? "Run the first pass on your takes."
+  const nextAction = text ? (g === "wrap" ? "Export your video." : "One line per card: write your script, then press LAY OUT THE CARDS.")
+    : !wf ? "Run the first pass on your takes."
     : current === "wrap" ? "Every step is done: export your video."
     : g !== current ? (groupState(g, wf) === "done" ? `Next step: ${t(NAMES[current])}.` : `Finish ${t(NAMES[current])} first.`)
     : pending ? `Pick a variant, then press CHOOSE ${chosenKey}.`
-    : g === "story" ? "Paste your script or let Adam write it, then press SCRIPT READY, NEXT."
+    : g === "story" ? "Paste your script or let Adam write it, then press STEP DONE, NEXT on the right."
     : PRESETS[g] && !decided.length ? `Press ${PRESETS[g]!.button}, or skip the step.`
     : "Press STEP DONE, NEXT.";
+  const readyToAdvance = canClose && !busy && !running && auto?.state !== "running" && (g === "story" ? scriptReady : !!accepted);
   const need = nudge ? " nudge" : "";
   const openStep = (id: GroupId) => {
     setPick(null);
@@ -371,8 +409,8 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
           </div>
           {mode === "auto" && <Help text={AUTO_HELP} />}
           {auto?.state === "running" ? <>
-            <span className="mono autostate"><i className="pulse" /> AUTO · {auto.label.toUpperCase()}…</span>
-            <button type="button" className="link" onClick={() => void api<{ state: string; label: string; error?: string }>(`/projects/${enc(name)}/auto`, { method: "POST", body: { action: "stop" } }).then(setAuto)}>stop</button>
+            <span className="mono autostate"><i className="pulse" /> AUTO · {t(auto.label).toUpperCase()}…</span>
+            <button type="button" className="link" disabled={stoppingAuto} onClick={() => void stopAuto()}>{stoppingAuto ? t("Stopping…") : t("stop")}</button>
           </> : mode === "auto" && wf && current !== "wrap" ? <button type="button" className="act small" onClick={() => void startAuto()}>RUN THE REMAINING STEPS ▶</button>
             : auto?.state === "failed" ? <span className="mono error">AUTO STOPPED: {auto.error}</span> : null}
         </div>
@@ -383,13 +421,13 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
       </div>
       <div className={`cols studio-cols${g === "wrap" ? " no-aside" : ""}`}>
         <nav aria-label="Steps" className="list steps">
-          {GROUPS.map((x) => {
+          {groups.map((x) => {
             const st = groupState(x.id, wf);
             const n = (view.proposals ?? []).filter((p) => x.members.includes(p.step) && p.status === "pending" && p.variants.length).reduce((a, p) => a + p.variants.length, 0);
             return (
               <button key={x.id} type="button" className={`step ${st}${g === x.id ? " on" : ""}`} style={{ borderLeftColor: x.color }} aria-current={g === x.id ? "step" : undefined}
                 onClick={() => openStep(x.id)}>
-                <span className="sname"><svg className="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={ICONS[x.id]} /></svg>{t(NAMES[x.id])}</span><span className={`mono${n ? " newbadge" : ""}`}>{n ? `${n} NEW` : st === "done" ? "✓" : ""}</span>
+                <span className="sname"><svg className="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={ICONS[x.id]} /></svg>{t(NAMES[x.id])}</span><span className={`mono${n ? " newbadge" : ""}`}>{n ? t(`${n} NEW`) : st === "done" ? "✓" : ""}</span>
               </button>
             );
           })}
@@ -408,28 +446,30 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
               <h1>{chosen ? `${chosen.key} · ${chosen.label.toUpperCase()}` : t(NAMES[g]).toUpperCase()}</h1>
               {/* While the AI works: the dot wave stretched between the title and the step count. */}
               {claudeJob?.state === "running" && <Halftone fx="wave" step={5} className="headwave" label="Adam is working" />}
-              <span className="mono">{t(NAMES[g]).toUpperCase()} · STEP {String(stepNo).padStart(2, "0")} / {String(GROUPS.length).padStart(2, "0")}</span>
+              <span className="mono">{t(NAMES[g]).toUpperCase()} · STEP {String(stepNo).padStart(2, "0")} / {String(groups.length).padStart(2, "0")}</span>
             </div>
-            <p className="nextline mono"><Help text={HELP[g]} />
-              {state === "done" ? (accepted ? "DONE · TO CHANGE IT, PICK ANOTHER VARIANT, THEN CHOOSE" : "DONE") : auto?.state === "running" ? "AUTO MODE IS ON IT" : `NEXT · ${nextAction.toUpperCase()}`}</p>
+            <p className="nextline mono"><Help text={text && g === "story" ? TEXT_HELP : HELP[g]} />
+              {state === "done" ? (accepted ? "DONE · TO CHANGE IT, PICK ANOTHER VARIANT, THEN CHOOSE" : "DONE") : auto?.state === "running" ? "AUTO MODE IS ON IT" : `${t("NEXT")} · ${t(nextAction).toUpperCase()}`}</p>
             {error && <p className="error" onClick={() => setError("")}>{error}</p>}
             {/* A job in the steps: one line of fixed height, the step's layout never moves (the full log is in Wrap). */}
             {otherJob && auto?.state !== "running" && <JobLog key={otherJob.id} id={otherJob.id} onEnd={() => load()} compact />}
-            {!wf && g === "story" ? <Rushes name={name} view={view} run={run} firstPass={firstPass} /> : g === "story" ? (
-              // Story: the edit on the left (or the picked shape), the script on the right.
+            {text && g === "story" ? (
+              // A text-only video: the cards on the left, the script they come from on the right.
               <div className="story-view">
                 <div className="story-video">
-                  {shown && (
-                    <div className="vchips" role="group" aria-label="Story shapes">
-                      {shown.variants.map((v) => <button key={v.key} type="button" className={`vchip${v.key === chosenKey ? " on" : ""}`} aria-pressed={v.key === chosenKey}
-                        title={v.label} onClick={() => setPick({ proposal: shown.id, key: v.key })}><b>{v.key}</b> {v.label}{v.key === acceptedKey && shown !== pending ? " · CHOSEN" : ""}</button>)}
-                    </div>
-                  )}
-                  <Screen name={name} view={view} proposal={shown ? shown.id : null} variant={shown ? chosenKey : null} step={shown?.step} decided={!!shown && shown !== pending} className="frame lit" />
-                  {!pending && canClose && <button type="button" className={`act fill${need}`} onClick={() => void edit({ op: "close_step" }, "Story done")}>{t("SCRIPT READY, NEXT")} →</button>}
-                  {!pending && <button type="button" className="act" disabled={busy || locked} onClick={() => void ask(PRESETS.story!.prompt)}>{PRESETS.story!.button} · OPTIONAL</button>}
+                  <Screen name={name} view={view} proposal={null} variant={null} className="frame lit" />
+                  <button type="button" className="act" onClick={() => openStep("wrap")}>{t("CARDS READY, EXPORT")} →</button>
                 </div>
-                <ScriptPanel name={name} aiName="ADAM" />
+                <ScriptPanel name={name} aiName="ADAM" onLayOut={layOut} busy={!!otherJob && otherJob.state === "running"} />
+              </div>
+            ) : !wf && g === "story" ? <Rushes name={name} view={view} run={run} firstPass={firstPass} /> : g === "story" ? (
+              // Story: the video as it came (already cut: Adam never cuts or reorders it) and the script beside it.
+              <div className="story-view">
+                <div className="story-video">
+                  <Screen name={name} view={view} proposal={null} variant={null} className="frame lit" />
+
+                </div>
+                <ScriptPanel name={name} aiName="ADAM" onReadyChange={setScriptReady} />
               </div>
             ) : g === "sound" && shown ? (
               // Sound: the three soundtracks on the left, the edit with the picked one on the right to hear it in place.
@@ -488,7 +528,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
                 <button type="button" className="line-link" onClick={() => void decide("reject")}><span>{t("None of these")}</span><span>×</span></button>
               </>}
             </>}
-            {canClose && <button type="button" className={`act${g !== "story" && decided.length ? need : ""}`} onClick={() => void edit({ op: "close_step" }, "Step done")}>{decided.length || g === "story" ? t("STEP DONE, NEXT") : t("SKIP THIS STEP")} →</button>}
+            {canClose && <button type="button" className={`act step-next${readyToAdvance ? " is-ready" : ""}${need}`} disabled={finishingStep || !!running || auto?.state === "running" || (g === "story" && !scriptReady)} onClick={() => void finishStep()}>{decided.length || g === "story" ? t("STEP DONE, NEXT") : t("SKIP THIS STEP")} →</button>}
             {decided.slice(-2).map((p) => { const h = historyLabel(p); return <div key={p.id} className="line-link dim" title={h.label}><span>History: {h.label}</span><span>{h.k}</span></div>; })}
             <div className="synced">{running ? `● ${running.label.toUpperCase()}` : "● SYNCED"}</div>
           </aside>

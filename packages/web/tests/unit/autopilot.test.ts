@@ -17,7 +17,6 @@ function fake(opts: { askFails?: string } = {}) {
     load: () => ({ workflow: wf && { ...wf, steps: { ...wf.steps } }, proposals: proposals.map((p) => ({ ...p })) }),
     firstPass: () => {
       wf = { current: "cuts", steps: Object.fromEntries(STEPS.map((s) => [s, s === "cuts" ? "open" : "locked"])) };
-      proposals.push({ id: "auto.cuts", step: "cuts", status: "pending", variants: [{ key: "A" }, { key: "B" }] });
       log.push("first pass");
     },
     decide: (_d, id, k) => {
@@ -43,7 +42,7 @@ describe("auto mode", () => {
     const s = await new Autopilot(pilot).start("v", "/v");
     expect(s.state).toBe("done");
     expect(log).toEqual([
-      "first pass", "decide auto.cuts A", "script", "close structure", "ask captions", "decide p.captions A",
+      "first pass", "close cuts", "script", "close structure", "ask captions", "decide p.captions A",
       "ask hook", "decide p.hook A", "close beats", "ask visuals", "decide p.visuals A", "ask sound", "decide p.sound A", "close look", "render",
     ]);
   });

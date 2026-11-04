@@ -15,6 +15,9 @@
     "ui": "tsx packages/web/server/main.ts",
     "skill": "tsx packages/web/server/skill.ts",
     "setup": "tsx packages/web/server/setup.ts",
-    "postinstall": "tsx packages/web/server/setup.ts"
+    "postinstall": "tsx packages/web/server/setup.ts",
+    "desktop": "npm run start -w @adam-studio/desktop",
+    "desktop:smoke": "npm run smoke -w @adam-studio/desktop",
+    "desktop:make": "npm run make -w @adam-studio/desktop"
   }
 }

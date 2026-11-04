@@ -3,6 +3,7 @@ import { parseArgs } from "node:util";
 import { capcutPrepCommand } from "./commands/capcut";
 import { decideCommand } from "./commands/decide";
 import { addCommand, analyzeCommand, newCommand } from "./commands/new";
+import { textCommand } from "./commands/text";
 import { renderCommand } from "./commands/render";
 import { reviewCommand } from "./commands/review";
 import { stillCommand } from "./commands/still";
@@ -21,8 +22,9 @@ const USAGE = `usage: npm run adam -- <command> <projectDir> [options]
   still <dir> --at 500,1500 [--variant p1:B]
   series list | series save <dir> <name> | series apply <dir> <name>
   capcut-prep <dir> [--out folder] [--force]
-  new <dir> <videos...> [--lang fr] [--format 9:16|16:9] [--style style.json] [--name name] [--series name]
+  new <dir> <videos...> [--lang fr] [--format 9:16|16:9] [--video facecam|motion|tutorial] [--style style.json] [--name name] [--series name]
   add <dir> <videos...> [--lang fr]
+  text <dir> [--script script.txt] [--name name]   (a text-only video: one card per line of the script)
   analyze <dir> [--assets c01,c02] [--steps subject,plate] [--force]
   (render, review, studio and capcut-prep take --no-analyze)`;
 
@@ -55,6 +57,8 @@ async function main(argv: string[]): Promise<void> {
       series: { type: "string" },
       at: { type: "string" },
       variant: { type: "string" },
+      script: { type: "string" },
+      video: { type: "string" },
     },
   });
   const [cmd, dirArg, ...rest] = positionals;
@@ -70,8 +74,11 @@ async function main(argv: string[]): Promise<void> {
   const dir = resolve(base, dirArg);
   switch (cmd) {
     case "new":
-      newCommand(dir, rest.map((v) => resolve(base, v)), { lang: values.lang, format: values.format, style: values.style ? resolve(base, values.style) : undefined, name: values.name });
+      newCommand(dir, rest.map((v) => resolve(base, v)), { lang: values.lang, format: values.format, video: values.video, style: values.style ? resolve(base, values.style) : undefined, name: values.name });
       if (values.series) applySeriesTo(dir, values.series);
+      return;
+    case "text":
+      textCommand(dir, { script: values.script ? resolve(base, values.script) : undefined, name: values.name });
       return;
     case "add":
       addCommand(dir, rest.map((v) => resolve(base, v)), { lang: values.lang });

@@ -81,8 +81,11 @@ export const ElementSchema = z
     durationMs: Ms.optional(),
     untilWord: z.string().min(1).optional(),
     untilEnd: z.boolean().optional(),
-    slot: z.string().default("center"),
+    slot: z.string().default("auto"),
     position: z.strictObject({ x: Unit, y: Unit }).optional(),
+    scale: z.number().min(0.1).max(4).optional(),
+    rotation: z.number().min(-180).max(180).optional(),
+    opacity: Unit.optional(),
     props: z.record(z.string(), z.unknown()).default({}),
   })
   .refine(
@@ -153,6 +156,8 @@ export const ProjectSchema = z.strictObject({
   version: z.literal(1),
   name: z.string().min(1),
   canvas: CanvasSchema,
+  // What the video is (default art direction): face camera, motion design, tutorial, or cards from a script alone.
+  format: z.enum(["facecam", "motion", "tutorial", "text"]).default("facecam"),
   style: z.string().min(1),
   styleOverrides: z.record(z.string(), z.unknown()).default({}),
   assets: z.array(AssetSchema),

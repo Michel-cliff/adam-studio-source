@@ -1,5 +1,6 @@
 """python -m adam_capcut export: the prepare step (TypeScript), then the CapCut project and its report."""
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -14,7 +15,7 @@ from .lab import lab_path, load_lab
 from .media import copy_media
 from .units import safe_name
 
-REPO = Path(__file__).resolve().parents[3]
+REPO = Path(os.environ["ADAM_APP_ROOT"]) if os.environ.get("ADAM_APP_ROOT") else Path(__file__).resolve().parents[3]
 TSX = REPO / "node_modules" / "tsx" / "dist" / "cli.mjs"
 
 
@@ -22,7 +23,7 @@ def run_prepare(project_dir: Path, prep: Path, force: bool = False) -> None:
     """Runs `adam capcut-prep` (resolve, lint, Remotion renders of what CapCut cannot do natively)."""
     if not TSX.is_file():
         raise ExportError(f"{TSX} not found: run npm install at the repo root")
-    cmd = ["node", str(TSX), str(REPO / "packages" / "render" / "src" / "cli.ts"), "capcut-prep", str(project_dir), "--out", str(prep)]
+    cmd = [os.environ.get("ADAM_NODE", "node"), str(TSX), str(REPO / "packages" / "render" / "src" / "cli.ts"), "capcut-prep", str(project_dir), "--out", str(prep)]
     if force:
         cmd.append("--force")
     if subprocess.run(cmd, cwd=REPO).returncode != 0:

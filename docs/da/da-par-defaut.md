@@ -1,36 +1,32 @@
 # ADAM Studio : DA par défaut
 
-Version 2, 29 octobre 2026. Spec produit : ce que le moteur applique quand le créateur n'a rien défini. Objectif
-unique : qu'un run 1 sans aucun réglage soit publiable tel quel, et ne ressemble pas à tous les autres runs 1.
+Version 3, 3 novembre 2026. Référence visuelle fournie par Michel : `1026_4K.mp4` (25,6 s).
 
-Cette version corrige la v1 (28 octobre) après relecture et après une première implémentation mesurée sur une vraie
-prise. Chaque section porte son état : **en place** (dans le moteur, testé) ou **à faire**.
+## Le principe : un squelette éditorial, une identité générique
 
-## Le principe : récessif, pas signé
+Le défaut et le parcours de création de DA de zéro reprennent la composition de la référence : un titre condensé
+en capitales en haut, deux lignes fortes éventuellement reliées par une courte liaison serif italique,
+des sous-titres compacts sous le visage et quelques visuels qui illustrent exactement le discours.
 
-Une DA par défaut ne doit pas avoir de goût. Si elle en a, chaque vidéo sortie d'ADAM se reconnaît, et un créateur
-qui se reconnaît dans l'outil plutôt que dans sa propre chaîne s'en va.
+La police exacte n'est pas certifiable dans une vidéo aplatie : Anton et Manrope sont les équivalents maison,
+avec une serif système en italique pour la liaison. L'absence des polices maison utilise une police système lisible.
+Les couleurs restent génériques ou dérivées du rush. Les cadres 4:3 sont neutres, sur fond flouté ; aucune copie
+de la barre Windows, du jaune ni des icônes 3D nostalgiques de la référence. Icônes génériques cohérentes, seulement
+si elles illustrent une idée ; pas d'atomes pixel décoratifs par défaut.
 
-La qualité perçue au run 1 vient de l'exécution, pas du style : sous-titres lisibles et bien synchronisés, silences
-coupés, niveaux audio normalisés, texte hors des zones d'interface, rythme calé sur la parole. Un montage
-techniquement irréprochable et stylistiquement muet passe pour professionnel.
+## Mouvement : stable, zoom et flou
 
-**Le défaut est dérivé, jamais imposé.** Ce qui peut porter une signature (la couleur, la texture) est extrait du rush.
-Ce qui est purement technique (tailles, marges, niveaux, durées) est fixé en dur par le moteur.
+`motion.stable=true` par défaut : aucun tremblement, jitter, glitch, whip latéral ou clignotement automatique.
+Les titres entrent par un petit zoom monotone (0,97 → 1) et une mise au point courte (4 → 0 px), sans déplacement
+aléatoire. Les propositions utilisent des zooms doux (1,03 à 1,12) et du flou sur leur mouvement ; le texte reste net.
+Le zoom du plan et le flou périphérique existants restent disponibles. Une animation historique agitée ne peut
+revenir qu'avec une demande explicite et `motion.stable=false`, jamais dans une proposition de DA de zéro.
 
-**Question tranchée.** La v1 laissait ouverte la question d'un défaut reconnaissable comme canal d'acquisition. Elle
-est fermée : ADAM est un outil local, open source, pour des créateurs qui ont déjà une chaîne. Un défaut reconnaissable
-y coûte les utilisateurs qui restent le plus longtemps et n'achète rien de mesurable. Le défaut reste récessif. On
-mesure seulement la part de créateurs qui définissent leur propre DA dans leurs trois premières vidéos.
+## Portée et personnalisation
 
-## Portée : le défaut, pas le catalogue
-
-Cette spec gouverne ce que le moteur fait **de lui-même**. Elle n'interdit rien de ce que le créateur ou Adam
-choisissent explicitement :
-
-- **Transitions et mouvements de caméra** : flash, whip, zoom, camera.zoom, camera.window restent au catalogue. Le
-  run 1 n'en pose aucun de lui-même ; une proposition A / B / C peut en contenir, le créateur décide.
-- **Typographie** : ADAM garde ses polices. Les rôles et tailles ci-dessous s'appliquent aux polices du style.
+Le défaut sert aussi de fondation aux nouveaux profils de DA créés de zéro. L'import d'une DA existante reste
+indépendant. Les projets et profils déjà créés ne sont pas réécrits ; les réglages explicites d'un projet gardent
+la priorité. Les règles envoyées à l'IA conservent ce squelette et la préférence sans tremblement.
 
 ## Où vit chaque valeur
 
@@ -93,20 +89,10 @@ l'information seul ; surface d'accent ≤ 8 % de l'image sur un plan ; aucun dé
 
 ## Typographie
 
-Les polices sont celles du style (ADAM garde les siennes ; les polices maison Anton, DM Serif Display et Manrope sont
-proposées à l'installation). Deux familles au plus : une pour les titres, une pour les sous-titres.
-
-| Rôle | Graisse | Taille | Interlignage | Interlettrage |
-|---|---|---|---|---|
-| Hook / titre, jusqu'à 5 mots | Bold | 92 px | 0,95 | −2 % |
-| Hook / titre, 6 à 8 mots | Bold | 56 px | 1,00 | −2 % |
-| Sous-titre | SemiBold | 62 px | 1,10 | −1 % |
-| Carton, label, étape | Medium | 36 px | 1,25 | 0 |
-| Source, mention, chiffre secondaire | Regular | 28 px | 1,30 | +1 % |
-
-**Correction v1.** La v1 donnait « 92 px, 4 à 8 mots, ≤ 720 px, 2 lignes ». À 92 px, une grotesque grasse occupe
-environ 0,52 em par caractère : 15 caractères par ligne de 720 px, 30 sur deux lignes, soit 5 mots français (6
-caractères par mot avec l'espace). Au-delà de 5 mots, le titre passe à 56 px, ce qui tient 8 mots sur deux lignes.
+Titre : Anton ou condensée équivalente, capitales, environ 108 px au maximum, ramené à la largeur et à la hauteur
+disponibles (bande haute de la zone sûre). Liaison optionnelle `title.connector` : courte, serif italique, 62 % du
+corps du titre. Sous-titres : Manrope ou sans-serif équivalente, semi-gras 600, environ 48 px à 1080 de large,
+3 à 5 mots, sans rebond ; un seul mot en couleur au besoin. Couleurs génériques et contour adapté au fond.
 
 ## Lisibilité adaptative (en place)
 
@@ -129,45 +115,28 @@ Mesuré sur une vraie prise (bureau éclairé, affiche orange) : fond mi-clair e
 
 ## Zone sûre et placement
 
-Tout texte et tout graphisme tiennent dans **x 72 à 900, y 269 à 1248**, avec 24 px de respiration à l'intérieur.
-La marge droite est plus large : elle porte la colonne de boutons de l'app.
+La demande du créateur prime sur les anciennes bandes centrales : en 9:16, le titre se place au-dessus de la tête
+dans le tiers haut et les sous-titres sous le visage dans le tiers bas. Les positions explicites des anciens
+titres et sous-titres ne doivent pas ramener le texte sur le visage lorsque `textLayout=thirds` est actif.
 
-| Bande y | Ce qu'elle porte |
-|---|---|
-| 0 → 269 | Interface plateforme : en-tête, nom de compte |
-| 269 → 600 | Titres : hook des premières secondes, sujet, titre de section |
-| 600 → 950 | Impact : un mot, un chiffre, en grand et bref |
-| 950 → 1248 | Sous-titres, labels, sources |
-| 1248 → 1920 | Interface plateforme : légende, pseudo, barre de progression. Jamais de texte |
+| Élément (1080 × 1920) | Bande du groupe entier | Centre visé |
+|---|---|---|
+| Hook / titre condensé | y 106 à 576, adapté à la tête détectée | y 288 |
+| Sous-titres compacts | y 1344 à 1632, sous le visage détecté | y 1459 |
+| Derniers 15 % | réservés à l’interface de la plateforme | aucun texte |
 
-Une seule zone occupée à la fois, hors sous-titres. Centré sur x 540, ligne ≤ 720 px, deux lignes au plus, coupe au
-sens.
+Les groupes gardent leur hauteur complète dans ces bandes, pas seulement leur point d’ancrage. Le titre réduit
+sa taille pour tenir au-dessus de la tête. Le calcul de lisibilité reste chargé de l’ombre, du contour ou de la
+plaque. Les résultats d’un ancien cache ne peuvent pas déplacer les sous-titres hors de leur bande.
 
-| Élément | x | Ligne de base | Taille | Contrainte |
-|---|---|---|---|---|
-| Hook / titre | centré 540 | 430 | 92 ou 56 px | voir Typographie |
-| Mot d'impact | centré 540 | 790 | 110 px | 1 à 3 mots, ≤ 2,0 s |
-| Sous-titre | centré 540 | 1180 (dernière ligne) | 62 px | 2 lignes, ≤ 720 px |
-| Label, source | gauche 120 | 1000 | 36 / 28 px | au-dessus du sous-titre |
+Lorsqu’un visage occupe toute une bande sans espace disponible, le texte concerné est masqué avec un avertissement
+dans la timeline, plutôt que posé sur les yeux ou la bouche. L’aperçu utilise les visages du cache valide ; le rendu
+et la préparation CapCut calculent la lisibilité si nécessaire. Un aperçu sans analyse utilise les bandes fixes.
 
-Vérifié : un sous-titre de deux lignes à 62 px occupe 1067 → 1195, il reste 29 px avant la limite de 1224.
+Le mode `textLayout=free`, choisi volontairement dans l’inspecteur, respecte les positions manuelles. Déplacer,
+redimensionner ou tourner un élément depuis l’inspecteur active ce mode pour la vidéo. Les réglages propres à la
+vidéo restent au-dessus de la DA. En 16:9, la disposition du style reste utilisée.
 
-**Le visage passe avant le texte (en place).** L'analyse trouve le visage à chaque instant mesuré (cascade Haar
-fournie avec OpenCV, image égalisée, recherche fine : 25 images sur 25 sur une vraie prise en gros plan, contre 12
-avec les réglages par défaut), en déduit la bande yeux → bouche (de 25 % à 82 % de la hauteur du visage), et cherche
-les mains dans la bande des sous-titres (peau apprise sur le visage, donc toutes les carnations). Le sous-titre :
-
-- descend en bas de la bande s'il couvrirait les yeux ou la bouche ;
-- remonte en haut de la bande quand des mains ou un objet y entrent (plus de 15 % de la bande) ;
-- ne sort jamais de 950 → 1248.
-
-Mesuré sur une vraie prise : le micro tenu à hauteur de poitrine couvre 19 à 24 % de la bande, le sous-titre remonte.
-
-**Format 16:9 (à faire).** Les valeurs ci-dessus sont pour 1080 × 1920. En 16:9, le moteur place provisoirement les
-sous-titres entre 70 % et 93 % de la hauteur ; les bandes, la zone sûre et les lignes de base restent à définir.
-
-Les bandes d'interface sont à revalider par capture réelle sur chaque plateforme avant le gel : elles bougent à chaque
-refonte d'app.
 
 ## Sous-titres
 
@@ -300,7 +269,7 @@ Un export refusé est renommé `.refused.mp4` (il ne passe jamais pour une vidé
 | Crête vraie | ≤ −1,0 dBTP | en place |
 | Plancher de bruit (voix traitée, avant gain) | ≤ −35 dBFS | en place |
 | Silence total | ≤ 15 % de la durée | en place |
-| Sous-titre hors de la zone sûre | x 72–900, y 269–1248, respiration 24 px | en place (sous-titres ; titres à faire) |
+| Sous-titre hors de sa bande | x 72–900, y 1344–1632 en 9:16 par défaut | en place ; titres en y 106–576 |
 | Texte sur les yeux ou la bouche | aucune image | placement en place, test à faire |
 | Contraste texte / fond réel | ≥ 4,5:1 | traitement en place, mesure du contraste rendu à faire |
 | Coupe à l'intérieur d'un mot | aucune | en place : réparée avant le rendu (le clip qui tient la plus grande part du mot le garde entier) |
@@ -308,7 +277,7 @@ Un export refusé est renommé `.refused.mp4` (il ne passe jamais pour une vidé
 | Image noire | aucune | en place |
 | Familles typographiques | ≤ 2 | en place |
 | Zones occupées en même temps, hors sous-titres | 1 | à faire |
-| Contraste d'échelle, mode texte seul | ≥ 2,5:1 par carton | à faire |
+| Contraste d'échelle, mode texte seul | ≥ 2,5:1 par carton | en place |
 
 ## Tests d'avertissement : l'export passe, le créateur est prévenu
 
@@ -338,11 +307,44 @@ Refuser tôt coûte trente secondes ; découvrir le même défaut au run 1 coût
 | Piste audio | présente, hors mode texte seul | bloquer |
 | Langue du script = langue du rush | | demander, ne pas deviner |
 
-## Les formats et le mode texte seul (à faire)
+## Les formats et le mode texte seul (en place)
 
-Les trois formats (face caméra, motion design, tuto), les six archétypes de carton du mode texte seul et leurs trois
-règles anti-diaporama sont repris de la v1 sans changement. Le tuto garde 0,40 s de silence au lieu de 0,25 s ; le
-projet devra porter son format pour que le moteur le sache.
+Le projet porte son format (`format` : `facecam` par défaut, `motion`, `tutorial`, `text`), choisi à la création.
+
+| Format | Ce que le moteur fait de lui-même |
+|---|---|
+| Face caméra | Tout ce document : poussée, flou de périphérie, sous-titres placés autour du visage |
+| Tuto | Pauses longues ramenées à 0,40 s au lieu de 0,25 s ; aucune poussée (on suit un geste à l'écran) |
+| Motion design | Aucune poussée : le mouvement vient des graphismes |
+| Texte seul | Des cartons à partir du script, sans rush ni voix |
+
+**Le mode texte seul.** Une ligne du script, un carton ; la forme de la ligne choisit son archétype, les mots ne sont
+jamais changés (seul le point final tombe, comme pour les sous-titres) :
+
+| Archétype | Ligne qui le déclenche | Tailles |
+|---|---|---|
+| Affirmation | toute autre ligne | 92 px, quatre lignes au plus, réduite au besoin |
+| Chiffre | commence par un nombre (`73 % ...`, `3x ...`) | chiffre 240 px en accent, label 36 px |
+| Opposition | `A vs B`, `A contre B`, `A \| B` | deux fois 92 px, B en accent, filet d'accent entre les deux |
+| Liste | `Titre :` puis des lignes `- ...`, quatre éléments au plus par carton | titre 92 px, éléments 36 px décalés de 60 ms |
+| Citation | `« ... » - Source` | 72 px, barre d'accent de 6 px, source 28 px |
+| Respiration | un seul mot | 140 px, encre sur papier : le seul carton qui retourne le fond |
+
+Durée d'un carton : 0,35 s par mot + 0,6 s, entre 1,6 et 3,0 s. Entrée en 240 ms depuis 24 px plus bas
+(cubic-bezier(0.33, 1, 0.68, 1)), sortie en 180 ms vers le haut, même axe ; le premier carton est là dès la première
+image (la vidéo et sa miniature ne s'ouvrent jamais sur un fond vide). Ni image de banque, ni visuel généré. Tout tient
+dans la zone sûre : ligne de 720 px centrée, bloc centré entre y 269 et 1248.
+
+Le « rush » est un fond silencieux à l'encre du style, aussi long que les cartons, écrit là où l'analyse met une
+prise : le rendu, le studio et CapCut le lisent comme les autres. Le test d'image noire ne s'applique pas à ce fond.
+
+Les trois règles anti-diaporama : contraste d'échelle ≥ 2,5:1 entre les deux niveaux d'un carton (bloquant : le texte
+trop long pour sa forme est nommé), jamais deux cartons du même archétype à la suite (avertissement), au moins une
+respiration ou une opposition sur cinq cartons d'affilée (avertissement).
+
+Dans le studio, un projet texte seul n'a que deux étapes : le script et ses cartons (bouton METTRE EN CARTONS après
+chaque changement), puis la livraison. Côté Claude : `create_project` avec `video: "text"` et le script, `run cards`
+pour remettre en cartons.
 
 ## Définir sa propre DA : le parcours guidé (en place)
 

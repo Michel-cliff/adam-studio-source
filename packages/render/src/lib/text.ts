@@ -70,3 +70,20 @@ export function colorOf(name: string, style: Pick<Style, "colors">): string {
   const colors = style.colors as Record<string, string>;
   return colors[name] ?? name;
 }
+
+/** A title line cut around its key word (case-insensitive), the part drawn in the key look. */
+export function keySegments(text: string, key: string | undefined): { text: string; key: boolean }[] {
+  const at = key ? text.toLowerCase().indexOf(key.toLowerCase()) : -1;
+  if (!key || at < 0) return [{ text, key: false }];
+  return [
+    { text: text.slice(0, at), key: false },
+    { text: text.slice(at, at + key.length), key: true },
+    { text: text.slice(at + key.length), key: false },
+  ].filter((s) => s.text.length > 0);
+}
+
+/** Stable editorial entrance: monotonic scale, a short focus pull, no x/y displacement. */
+export function editorialEntrance(ms: number): { scale: number; blur: number; opacity: number } {
+  const p = easeOutCubic(ms / 300);
+  return { scale: 0.97 + 0.03 * p, blur: 4 * (1 - p), opacity: clamp01(ms / 120) };
+}

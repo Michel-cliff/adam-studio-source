@@ -16,36 +16,44 @@ export interface Pilot {
   /** Renders the MP4; resolves when the job ends, true when it worked. */
   render(name: string, dir: string): Promise<boolean>;
   /** Writes the script from the transcript when the creator has none. */
-  script(dir: string): Promise<void>;
+  script(dir: string, signal?: AbortSignal): Promise<void>;
+  /** Interrupts the process owned by this project. */
+  stop?(name: string): void;
 }
 
 export type AutoState = { state: "running" | "done" | "stopped" | "failed"; step: string; label: string; error?: string; at: number };
 
 const LABELS: Record<string, string> = {
-  cuts: "Cutting the silences and failed takes", structure: "Shaping the story", captions: "Styling the captions", hook: "Writing the hook",
+  cuts: "Reading your video", structure: "Shaping the story", captions: "Styling the captions", hook: "Writing the hook",
   beats: "Placing the beats", visuals: "Adding the visuals", sound: "Mixing the sound", look: "Grading the look", render: "Rendering the video",
 };
 
 export class Autopilot {
-  private runs = new Map<string, AutoState & { stop?: boolean }>();
+  private runs = new Map<string, AutoState & { stop?: boolean; controller: AbortController }>();
   constructor(private pilot: Pilot) {}
 
   status(name: string): AutoState | null {
     const r = this.runs.get(name);
     if (!r) return null;
-    const { stop: _, ...s } = r;
+    const { stop: _, controller: __, ...s } = r;
     return s;
   }
 
   stop(name: string): void {
     const r = this.runs.get(name);
-    if (r?.state === "running") r.stop = true;
+    if (r?.state === "running" && !r.stop) {
+      r.stop = true; r.label = "Stopping"; r.at = Date.now();
+      r.controller.abort(); this.pilot.stop?.(name);
+    }
   }
+
+  hasRunning(): boolean { return [...this.runs.values()].some(r => r.state === "running"); }
+  stopAll(): void { for (const name of this.runs.keys()) this.stop(name); }
 
   /** Runs the remaining steps of a project; one run at a time per project. */
   start(name: string, dir: string): Promise<AutoState> {
     if (this.runs.get(name)?.state === "running") throw new Error("auto mode is already running on this video");
-    const r: AutoState & { stop?: boolean } = { state: "running", step: "", label: "Starting", at: Date.now() };
+    const r: AutoState & { stop?: boolean; controller: AbortController } = { state: "running", step: "", label: "Starting", at: Date.now(), controller: new AbortController() };
     this.runs.set(name, r);
     const set = (step: string) => { r.step = step; r.label = LABELS[step] ?? step; r.at = Date.now(); };
     const asked = new Set<string>();
@@ -57,7 +65,9 @@ export class Autopilot {
         const wf = p.workflow;
         if (Object.values(wf.steps).every((s) => s === "done")) {
           set("render");
-          r.state = (await this.pilot.render(name, dir)) ? "done" : "failed";
+          const rendered = await this.pilot.render(name, dir);
+          if (r.stop) { r.state = "stopped"; return; }
+          r.state = rendered ? "done" : "failed";
           if (r.state === "failed") r.error = "the render failed: open Wrap to see why";
           return;
         }
@@ -66,7 +76,7 @@ export class Autopilot {
         const pending = p.proposals.find((x) => x.step === step && x.status === "pending");
         if (pending) { this.pilot.decide(dir, pending.id, pending.variants[0]?.key ?? "reject"); continue; }
         // The story needs no shapes to pick from: the script (the creator's, or written from the transcript) is enough.
-        if (step === "structure") { await this.pilot.script(dir); this.pilot.close(dir); continue; }
+        if (step === "structure") { await this.pilot.script(dir, r.controller.signal); if (r.stop) { r.state = "stopped"; return; } this.pilot.close(dir); continue; }
         const preset = STEP_PRESET[step];
         if (preset && !asked.has(step) && !p.proposals.some((x) => x.step === step)) {
           asked.add(step);
@@ -77,6 +87,6 @@ export class Autopilot {
       }
       r.state = "failed"; r.error = "auto mode went round in circles: finish the steps by hand";
     };
-    return go().then(() => this.status(name)!, (e) => { r.state = "failed"; r.error = (e as Error).message; return this.status(name)!; });
+    return go().then(() => this.status(name)!, (e) => { r.state = r.stop ? "stopped" : "failed"; if (!r.stop) r.error = (e as Error).message; return this.status(name)!; });
   }
 }

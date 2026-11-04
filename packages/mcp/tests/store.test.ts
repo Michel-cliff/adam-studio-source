@@ -75,6 +75,21 @@ describe("store", () => {
     expect(() => closeCurrentStep(dir)).toThrow();
   });
 
+  it("preflights duplicate element ids in each variant before saving any proposal", () => {
+    const before = readFileSync(join(dir, "project.json"), "utf8");
+    expect(() => propose(dir, { id: "invalid-preview", step: "hook", variants: [{ key: "A", label: "Broken", patch: { addElements: [magenta, magenta] } }] })).toThrow(/variant A cannot be previewed.*already exists/);
+    expect(readFileSync(join(dir, "project.json"), "utf8")).toBe(before);
+    propose(dir, { id: "invalid-preview", step: "hook", variants: [{ key: "A", label: "Fixed", patch: { addElements: [magenta] } }] });
+    expect(read().proposals.at(-1).id).toBe("invalid-preview");
+  });
+
+  it("rejects a hook that hides existing captions before the creator sees it", () => {
+    const p = read();
+    const before = readFileSync(join(dir, "project.json"), "utf8");
+    expect(() => propose(dir, { id: "unsafe-hook", step: "hook", variants: [{ key: "A", label: "Cut opening", patch: { setStory: [{ ...p.story[0], inMs: 3000, outMs: 4000 }] } }] })).toThrow(/caption.*hidden/);
+    expect(readFileSync(join(dir, "project.json"), "utf8")).toBe(before);
+  });
+
   it("refuses a variant whose element would be hidden (anchored on a cut word), naming it, and keeps the rest", () => {
     const words = Object.values(read().transcript.words).flat() as { id: string }[];
     const cut = words[words.length - 2]!.id;

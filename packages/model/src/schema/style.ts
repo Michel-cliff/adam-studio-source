@@ -24,6 +24,7 @@ export const FontSchema = z.strictObject({
 
 export const StyleSchema = z.strictObject({
   name: z.string().min(1),
+  textLayout: z.enum(["thirds", "free"]).optional(),
   fonts: z.strictObject({ caption: FontSchema, title: FontSchema }),
   colors: z.strictObject({ text: Hex, highlight: Hex, accent: Hex, ink: Hex }),
   grade: z
@@ -64,13 +65,16 @@ export const StyleSchema = z.strictObject({
     shadow: z.boolean().default(true),
     maxCharsPerLine: z.number().int().positive().default(22),
     intro: z.string().default("miniZoom"),
+    // The important word: in the highlight colour, or on a block of it (like the key word of a title).
+    highlightAs: z.enum(["color", "block"]).default("color"),
   }),
   /** Animation speed of every effect: 1 as designed, below 1 slower (0.7 = 30% slower), above 1 faster. */
   motion: z.strictObject({
     speed: z.number().min(0.25).max(3).default(1),
+    stable: z.boolean().default(true),
     // The default push of face-camera shots, per second (0.012 when not set, 0 for none).
     push: z.number().min(0).max(0.03).optional(),
-  }).default({ speed: 1 }),
+  }).default({ speed: 1, stable: true }),
   /** Filler words checked by lint, by transcript language. */
   fillers: z.record(z.string(), z.array(z.string())).default(FILLERS),
   slots: z.record(FormatSchema, z.record(z.string(), Point)),

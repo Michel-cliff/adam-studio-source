@@ -30,7 +30,7 @@ export async function renderVideo(
   frameRange: number | [number, number] | [number, number][] | null = null,
   opts: { transparent?: boolean; scale?: number } = {},
 ): Promise<void> {
-  const composition = await selectComposition({ serveUrl, id: COMPOSITION_ID, inputProps: props });
+  const composition = await selectComposition({ browserExecutable: process.env.ADAM_BROWSER_EXECUTABLE, serveUrl, id: COMPOSITION_ID, inputProps: props });
   const concurrency = safeConcurrency({
     freeBytes: freemem(), cores: cpus().length, fps: composition.fps,
     width: composition.width * (opts.scale ?? 1), height: composition.height * (opts.scale ?? 1),
@@ -42,10 +42,10 @@ export async function renderVideo(
     : // BT.709 limited range, like the takes: Remotion's default (full-range BT.601) shifts brightness in CapCut.
       ({ codec: "h264", colorSpace: "bt709" } as const);
   // scale renders the 1080 x 1920 layout at n times its pixels (4K with 2); the takes come from edit@<n>x.mp4.
-  await renderMedia({ composition, serveUrl, outputLocation: outFile, inputProps: props, frameRange, concurrency, scale: opts.scale ?? 1, ...output });
+  await renderMedia({ browserExecutable: process.env.ADAM_BROWSER_EXECUTABLE, composition, serveUrl, outputLocation: outFile, inputProps: props, frameRange, concurrency, scale: opts.scale ?? 1, ...output });
 }
 
 export async function renderFrame(serveUrl: string, props: RenderProps, frame: number, outFile: string): Promise<void> {
-  const composition = await selectComposition({ serveUrl, id: COMPOSITION_ID, inputProps: props });
-  await renderStill({ composition, serveUrl, output: outFile, frame, inputProps: props, imageFormat: "png" });
+  const composition = await selectComposition({ browserExecutable: process.env.ADAM_BROWSER_EXECUTABLE, serveUrl, id: COMPOSITION_ID, inputProps: props });
+  await renderStill({ browserExecutable: process.env.ADAM_BROWSER_EXECUTABLE, composition, serveUrl, output: outFile, frame, inputProps: props, imageFormat: "png" });
 }

@@ -15,3 +15,7 @@ packages/web/dist/
 packages/web/app/public/da/
 # The tutorial video waits for its final voice (the synthetic one comes from an AGPL dataset)
 packages/web/demo/welcome.mp4
+
+# Desktop build products, runtimes and installers (never source control)
+packages/desktop/.build/
+packages/desktop/out/

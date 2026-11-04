@@ -7,6 +7,8 @@ import { api, enc, go } from "./api";
 import { t as tr, useLang } from "./i18n";
 import { pack, stripSlots } from "./lanes";
 import { Wave } from "./wave";
+import { VisualInspector } from "./VisualInspector";
+import { EditorAssets } from "./EditorAssets";
 
 type Raw = Record<string, any>;
 type Selected = { kind: "clip" | "element" | "caption"; id: string } | null;
@@ -82,10 +84,13 @@ const capIndex = (id: string) => Number(id.match(/^cap(\d+)/)?.[1] ?? -1);
 
 type Drag = { key: string; x0: number; width: number; dx: number; moved: boolean; from: number };
 
-function Lanes({ props, raw, frame, selected, select, seek, move, trim }: { props: RenderProps; raw: Raw; frame: number; selected: Selected; select: (s: Selected) => void; seek: (f: number) => void;
+function Lanes({ props, raw, frame, selected, select, seek, move, trim, snap }: { props: RenderProps; raw: Raw; frame: number; selected: Selected; select: (s: Selected) => void; seek: (f: number) => void;
   move: (what: "element" | "caption" | "story" | "element-start" | "element-end", id: string | number, to: number) => void;
-  trim: (clip: string, edge: "in" | "out", deltaMs: number) => void }) {
+  trim: (clip: string, edge: "in" | "out", deltaMs: number) => void; snap: boolean }) {
   const [drag, setDrag] = useState<Drag | null>(null);
+  const scrubPointer = useRef<number | null>(null);
+  const scrubCleanup = useRef<(() => void) | null>(null);
+  useEffect(() => () => scrubCleanup.current?.(), []);
   const { timeline, media } = props;
   const total = Math.max(1, timeline.durationFrames);
   const pct = (f: number) => `${(f / total) * 100}%`;
@@ -94,7 +99,7 @@ function Lanes({ props, raw, frame, selected, select, seek, move, trim }: { prop
   const sounds = pack(timeline.audio.filter((a) => !a.id.startsWith("clip:")));
   const lanesOf = (l: { lane: number }[]) => Math.max(1, ...l.map((x) => x.lane + 1));
   const secs = total / timeline.fps;
-  const step = secs > 90 ? 15 : secs > 30 ? 10 : 5;
+  const step = secs <= 10 ? 1 : secs > 90 ? 15 : secs > 30 ? 10 : 5;
   const ticks = Array.from({ length: Math.floor(secs / step) + 1 }, (_, i) => i * step);
   const isSel = (kind: string, id: string) => selected?.kind === kind && selected.id === id;
   const pick = (kind: "clip" | "element" | "caption", id: string, from: number) => { select({ kind, id }); seek(from); };
@@ -105,7 +110,7 @@ function Lanes({ props, raw, frame, selected, select, seek, move, trim }: { prop
       if (e.button !== 0) return;
       e.stopPropagation();
       try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* a pointer the browser no longer tracks */ }
-      setDrag({ key, x0: e.clientX, width: (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect().width, dx: 0, moved: false, from });
+      setDrag({ key, x0: e.clientX, width: (e.currentTarget.closest(".track") as HTMLElement).getBoundingClientRect().width, dx: 0, moved: false, from });
     },
     onPointerMove: (e: React.PointerEvent<HTMLElement>) => {
       setDrag((d) => (d && d.key === key ? { ...d, dx: e.clientX - d.x0, moved: d.moved || Math.abs(e.clientX - d.x0) > 4 } : d));
@@ -115,9 +120,19 @@ function Lanes({ props, raw, frame, selected, select, seek, move, trim }: { prop
       const d = drag;
       setDrag(null);
       if (!d || d.key !== key) return;
-      if (d.moved) onDrop(Math.round((d.dx / d.width) * total)); else onClick();
+      if (d.moved) {
+        let delta = Math.round((d.dx / d.width) * total);
+        if (snap) {
+          const edges = [0, total, frame, ...[...timeline.clips, ...timeline.elements, ...timeline.captions].flatMap(v => [v.fromFrame, v.fromFrame + v.durationFrames])];
+          const target = d.from + delta, closest = edges.reduce((best, n) => Math.abs(n - target) < Math.abs(best - target) ? n : best, edges[0]!);
+          if (Math.abs(closest - target) <= total / d.width * 8) delta = closest - d.from;
+        }
+        onDrop(delta);
+      } else onClick();
     },
-    onClick: (e: React.MouseEvent) => e.stopPropagation(),
+    onPointerCancel: () => setDrag(null),
+    onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onClick(); } },
+    onClick: (e: React.MouseEvent) => { e.stopPropagation(); if (e.detail === 0) onClick(); },
   });
   // The arrows on a block's edges stretch or shorten it (on a story clip: trim it, a cut); moving keeps its length.
   const handles = (key: string, from: number, dur: number, onEdge: (edge: "start" | "end", frames: number) => void) => (["start", "end"] as const).map((edge) => (
@@ -133,20 +148,63 @@ function Lanes({ props, raw, frame, selected, select, seek, move, trim }: { prop
     const mid = c.fromFrame + c.durationFrames / 2 + shift;
     return timeline.clips.filter((x) => x.id !== id && x.fromFrame + x.durationFrames / 2 < mid).length;
   };
-  const onTrack = (e: React.MouseEvent<HTMLDivElement>) => { const r = e.currentTarget.getBoundingClientRect(); seek(Math.round(((e.clientX - r.left) / r.width) * total)); };
+  const onTrack = (e: React.MouseEvent<HTMLDivElement>) => { const r = e.currentTarget.getBoundingClientRect(); seek(Math.min(total - 1, Math.max(0, Math.round(((e.clientX - r.left) / r.width) * total)))); };
+  // Measure the full, scrolled ruler rather than the viewport: zoom and scroll keep the same time mapping.
+  const scrubAt = (e: React.PointerEvent<HTMLDivElement>) => {
+    const ruler = e.currentTarget.querySelector(".ticks")!.getBoundingClientRect();
+    seek(Math.min(total - 1, Math.max(0, Math.round((e.clientX - ruler.left) / ruler.width * total))));
+  };
   const lane = (label: string, cls: string, height: number, children: React.ReactNode) => (
     <div className="lane"><span className="lname">{label}</span><div className={`track ${cls}`} style={{ height }} onClick={onTrack}>{children}</div></div>
   );
   return (
     <section aria-label="Timeline" className="lanes">
-      <div className="lane"><span /><div className="ticks mono">{ticks.map((s) => <span key={s} style={{ left: pct(s * timeline.fps) }}>{clock(s).replace(/\.0$/, "")}</span>)}</div></div>
-      <div className="lane"><span /><div className="ruler" aria-hidden="true" style={{ backgroundSize: `${(timeline.fps / total) * 100}% 100%` }} /></div>
+      <div className="timeline-ruler" role="slider" tabIndex={0} aria-label={tr("Playhead position")}
+        aria-orientation="horizontal" aria-valuemin={0} aria-valuemax={total - 1} aria-valuenow={frame} aria-valuetext={clock(frame / timeline.fps)}
+        title={tr("Click or drag to move the playhead")}
+        onPointerDown={e => {
+          if (e.button !== 0 || !e.isPrimary || scrubPointer.current !== null) return;
+          if (e.clientX < e.currentTarget.querySelector(".ticks")!.getBoundingClientRect().left) return;
+          e.preventDefault(); e.stopPropagation(); e.currentTarget.focus({ preventScroll: true });
+          const root = e.currentTarget, pointer = e.pointerId;
+          scrubPointer.current = pointer;
+          const update = (event: PointerEvent) => {
+            if (event.pointerId !== pointer) return;
+            event.preventDefault(); event.stopPropagation();
+            const r = root.querySelector(".ticks")!.getBoundingClientRect();
+            seek(Math.max(0, Math.min(total - 1, Math.round((event.clientX - r.left) / r.width * total))));
+          };
+          const cleanup = () => {
+            scrubPointer.current = null; scrubCleanup.current = null;
+            window.removeEventListener("pointermove", update, true);
+            window.removeEventListener("pointerup", finish, true);
+            window.removeEventListener("pointercancel", cancel, true);
+            window.removeEventListener("blur", cleanup);
+            if (root.hasPointerCapture(pointer)) root.releasePointerCapture(pointer);
+          };
+          const finish = (event: PointerEvent) => { if (event.pointerId === pointer) { update(event); cleanup(); } };
+          const cancel = (event: PointerEvent) => { if (event.pointerId === pointer) cleanup(); };
+          scrubCleanup.current = cleanup;
+          window.addEventListener("pointermove", update, true);
+          window.addEventListener("pointerup", finish, true);
+          window.addEventListener("pointercancel", cancel, true);
+          window.addEventListener("blur", cleanup);
+          root.setPointerCapture(pointer); scrubAt(e);
+        }}
+        onKeyDown={e => {
+          const step = e.shiftKey ? timeline.fps : 1;
+          const next = e.key === "Home" ? 0 : e.key === "End" ? total - 1 : e.key === "ArrowLeft" ? frame - step : e.key === "ArrowRight" ? frame + step : null;
+          if (next !== null) { e.preventDefault(); e.stopPropagation(); seek(Math.max(0, Math.min(total - 1, next))); }
+        }}>
+        <div className="lane"><span /><div className="ticks mono">{ticks.map((s) => <span key={s} style={{ left: pct(s * timeline.fps) }}>{clock(s).replace(/\.0$/, "")}</span>)}</div></div>
+        <div className="lane"><span /><div className="ruler" aria-hidden="true" style={{ backgroundSize: `${(timeline.fps / total) * 100}% 100%` }} /></div>
+      </div>
       {lane("STORY", "story", 62, <>
         <Filmstrip props={props} />
         {timeline.clips.map((c) => <button key={c.id} type="button" className={`cliprect${isSel("clip", c.id) ? " sel" : ""}`} title={`${c.id} · ${c.asset} · drag to reorder`}
           {...draggable(`clip:${c.id}`, (f) => move("story", c.id, storyIndex(c.id, f)), () => pick("clip", c.id, c.fromFrame), c.fromFrame)}
           style={{ left: pct(c.fromFrame), width: pct(c.durationFrames), ...lift(`clip:${c.id}`) }}>
-          {isSel("clip", c.id) && handles(`clip:${c.id}`, c.fromFrame, c.durationFrames, (edge, f) => trim(c.id, edge === "start" ? "in" : "out", ms(f)))}
+          <span className="clip-name">{c.id}</span>{isSel("clip", c.id) && handles(`clip:${c.id}`, c.fromFrame, c.durationFrames, (edge, f) => trim(c.id, edge === "start" ? "in" : "out", ms(f)))}
         </button>)}
       </>)}
       {lane("ELEMENTS", "", lanesOf(els) * 23 + 2, els.map((e) => {
@@ -168,6 +226,7 @@ function Lanes({ props, raw, frame, selected, select, seek, move, trim }: { prop
       )))}
       {lane("SOUND", "", lanesOf(sounds) * 36 + 4, sounds.map((a) => (
         <span key={a.id} className={`snd${inProject(a.id) ? " movable" : ""}${isSel("element", a.id) ? " sel" : ""}`} title={inProject(a.id) ? `${a.asset} · drag to move` : a.asset}
+          role="button" tabIndex={0}
           {...(inProject(a.id) ? draggable(`snd:${a.id}`, (f) => move("element", a.id, ms(Math.max(0, a.fromFrame + f))), () => pick("element", a.id, a.fromFrame), a.fromFrame) : {})}
           style={{ left: pct(a.fromFrame), width: pct(Math.max(1, a.durationFrames)), top: a.lane * 36 + 3, ...lift(`snd:${a.id}`) }}>
           <Wave url={media[a.asset]?.file ?? media[a.asset]?.video} label={a.asset} />
@@ -180,67 +239,6 @@ function Lanes({ props, raw, frame, selected, select, seek, move, trim }: { prop
       })()}
       <span className="playhead" aria-hidden="true" style={{ left: `calc(110px + (100% - 110px) * ${frame / total})` }} />
     </section>
-  );
-}
-
-// What the keyboard and the mouse do in the timeline, as built.
-const KEYS: [string, string][] = [
-  ["Space", "Play · pause"], ["Del · ⌫", "Remove the selection"], ["Ctrl+Z", "Undo the last change"], ["T", "Back to the steps"],
-  ["Drag a block", "Move it (story: reorder)"], ["Click a word", "Jump there"], ["Shift+click", "Select a passage"],
-];
-function Keys() {
-  return (
-    <div className="keys" aria-label="Shortcuts">
-      <div className="h small">SHORTCUTS</div>
-      {KEYS.map(([k, v]) => <div key={k} className="kv"><kbd>{k}</kbd><span>{v}</span></div>)}
-    </div>
-  );
-}
-
-function Inspector({ raw, props, selected, edit }: { raw: Raw; props: RenderProps; selected: Selected; edit: (body: Raw) => Promise<boolean> }) {
-  const where = selected ? ({ clip: "story", element: "elements", caption: "captions" } as const)[selected.kind] : null;
-  const index = !where || !Array.isArray(raw[where]) ? -1 : selected!.kind === "caption" ? (raw.captions[capIndex(selected!.id)] ? capIndex(selected!.id) : -1) : raw[where].findIndex((x: Raw) => x.id === selected!.id);
-  const item = index >= 0 ? raw[where!][index] : null;
-  const [text, setText] = useState("");
-  useEffect(() => { setText(item ? JSON.stringify(item, null, 2) : ""); }, [JSON.stringify(item)]);
-  const tl = props.timeline;
-  const placed = selected?.kind === "clip" ? tl.clips.find((c) => c.id === selected.id) : selected?.kind === "element" ? tl.elements.find((e) => e.id === selected.id) : tl.captions.find((c) => c.id === selected?.id);
-  const undo = <button type="button" className="act" onClick={() => edit({ op: "undo" })}>UNDO</button>;
-  if (!selected) return <aside aria-label="Selected element" className="status"><div className="h">NOTHING SELECTED</div><p className="note">CLICK A BLOCK OF THE TIMELINE.</p><div className="pair">{undo}</div><Keys /></aside>;
-  const kv: [string, string][] = [];
-  if (placed) { kv.push(["Starts", clock(placed.fromFrame / tl.fps)], ["Duration", `${(placed.durationFrames / tl.fps).toFixed(2)} s`]); }
-  if (placed && "x" in placed) kv.push(["Position", `${placed.x.toFixed(2)} · ${placed.y.toFixed(2)}`]);
-  if (item) for (const [k, v] of Object.entries(item.props ?? {})) if (["string", "number", "boolean"].includes(typeof v) && kv.length < 9) kv.push([k[0]!.toUpperCase() + k.slice(1), String(v)]);
-  if (selected.kind === "clip" && item) kv.push(["Asset", item.asset], ["In", `${(item.inMs / 1000).toFixed(2)} s`], ["Out", `${(item.outMs / 1000).toFixed(2)} s`]);
-  const save = () => { let v; try { v = JSON.parse(text); } catch (e) { alert(`Not valid JSON: ${(e as Error).message}`); return; } void edit({ op: "set_value", pointer: `/${where}/${index}`, value: v }); };
-  const nudge = (key: "inMs" | "outMs", d: number) => edit({ op: "update_item", collection: "story", id: item.id, changes: { [key]: Math.max(0, item[key] + d) } });
-  const textProp = selected.kind === "element" && item && typeof item.props?.text === "string";
-  return (
-    <aside aria-label="Selected element" className="status">
-      <div className="h">{selected.id.toUpperCase()} · {(placed && "kind" in placed ? placed.kind : selected.kind).toUpperCase()}</div>
-      {kv.map(([k, v]) => <div key={k} className="kv"><span>{k}</span><b title={v}>{v}</b></div>)}
-      {!item && <p className="note">GENERATED FROM THE TRANSCRIPT OR THE STYLE: EDIT ITS SOURCE INSTEAD.</p>}
-      {selected.kind === "clip" && item && (
-        <div className="kv"><span>Trim</span><span className="nudges">
-          <button type="button" className="link" onClick={() => nudge("inMs", -100)}>in −0.1</button><button type="button" className="link" onClick={() => nudge("inMs", 100)}>+0.1</button>
-          <button type="button" className="link" onClick={() => nudge("outMs", -100)}>out −0.1</button><button type="button" className="link" onClick={() => nudge("outMs", 100)}>+0.1</button>
-        </span></div>
-      )}
-      {textProp && <input aria-label="Text" defaultValue={item.props.text} key={item.props.text} title="Enter to save"
-        onKeyDown={(e) => { if (e.key === "Enter") void edit({ op: "update_item", collection: "elements", id: item.id, changes: { props: { text: (e.target as HTMLInputElement).value } } }); }} />}
-      <div className="pair">
-        {undo}
-        {item && selected.kind !== "clip" && <button type="button" className="act fill" onClick={() => { if (confirm(`Delete ${selected.kind} ${selected.id}?`)) void edit({ op: "set_value", pointer: `/${where}/${index}`, remove: true }); }}>DELETE</button>}
-      </div>
-      {item && (
-        <details className="json-box">
-          <summary className="mono">ALL FIELDS</summary>
-          <textarea className="json" value={text} onChange={(e) => setText(e.target.value)} spellCheck={false} />
-          <button type="button" className="act" onClick={save}>SAVE</button>
-        </details>
-      )}
-      <Keys />
-    </aside>
   );
 }
 
@@ -293,10 +291,12 @@ function Words({ name, raw, props, frame, seek, edit, sel, setSel }: { name: str
       </div>
       <div className="row words-acts mono">
         <button type="button" className="act" disabled={!chosen.length} onClick={async () => { if (await edit({ op: "cut_words", words: chosen.map((w) => w.id) })) setSel(null); }}>CUT {chosen.length ? `${chosen.length} WORD${chosen.length > 1 ? "S" : ""}` : "SELECTION"}</button>
-        <span>PAUSES OVER</span>
+        <div className="words-pause-controls">
+        <span title={tr("PAUSES OVER")}>{tr("Pauses >")}</span>
         <input type="number" aria-label="Pauses over, in milliseconds" step={100} value={minPause} onChange={(e) => setMinPause(Number(e.target.value))} />
         <span>MS</span>
         <button type="button" className="act" onClick={() => edit({ op: "tighten", minPauseMs: minPause, keepMs: 200 })}>TIGHTEN</button>
+        </div>
       </div>
     </section>
   );
@@ -310,6 +310,14 @@ export function Editor({ name }: { name: string }) {
   const [note, setNote] = useState("");
   const [frame, setFrame] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [panel, setPanel] = useState<"assets" | "words">("assets");
+  const [zoom, setZoom] = useState(1);
+  const [snap, setSnap] = useState(true);
+  const [safe, setSafe] = useState(false);
+  const [trackHeight, setTrackHeight] = useState(() => { try { return Math.max(180, Math.min(360, Number(localStorage.getItem("adam.trackHeight")) || 200)); } catch { return 240; } });
+  const [saving, setSaving] = useState(false);
+  const editing = useRef(false);
+  const timelineScroll = useRef<HTMLDivElement>(null);
   const [selected, setSelectedRaw] = useState<Selected>(null);
   const [wordSel, setWordSelRaw] = useState<WordSel>(null);
   // One selection at a time, so Delete knows what to remove: a block of the timeline or a passage of words.
@@ -344,8 +352,8 @@ export function Editor({ name }: { name: string }) {
       if (!raw) return;
       const words = wordsIn(raw, wordSel);
       if (words.length) { void edit({ op: "cut_words", words: words.map((w) => w.id) }).then((ok) => ok && setWordSelRaw(null)); return; }
-      if (!selected || selected.kind === "clip") return;
-      const where = selected.kind === "element" ? "elements" : "captions";
+      if (!selected || (selected.kind === "clip" && raw.story.length === 1)) return;
+      const where = selected.kind === "clip" ? "story" : selected.kind === "element" ? "elements" : "captions";
       const index = !Array.isArray(raw[where]) ? -1 : selected.kind === "caption" ? (raw.captions[capIndex(selected.id)] ? capIndex(selected.id) : -1) : raw[where].findIndex((x: Raw) => x.id === selected.id);
       if (index >= 0) void edit({ op: "set_value", pointer: `/${where}/${index}`, remove: true }).then((ok) => ok && setSelectedRaw(null));
     },
@@ -357,19 +365,21 @@ export function Editor({ name }: { name: string }) {
       if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); keys.current.remove(); return; }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === "t") go(`#/p/${enc(name)}`);
-      if (e.key === " " && player.current) { e.preventDefault(); player.current.toggle(); }
+      if (e.key === " " && player.current && !(e.target as HTMLElement)?.closest("button, a, [role=button]")) { e.preventDefault(); player.current.toggle(); }
     };
     addEventListener("keydown", key);
     return () => removeEventListener("keydown", key);
   }, [name]);
-  const seek = (f: number) => { player.current?.seekTo(f); setFrame(f); };
+  const seek = (f: number) => { const value = Math.max(0, Math.min((props?.timeline.durationFrames ?? 1) - 1, Math.round(f))); player.current?.seekTo(value); setFrame(value); };
   const edit = async (body: Raw): Promise<boolean> => {
+    if (editing.current) return false;
+    editing.current = true; setSaving(true);
     try {
       const r = await api<{ lint?: string[]; durationMs?: number; message?: string }>(`/projects/${enc(name)}/edit`, { method: "POST", body });
       setNote(r.message ?? (r.lint?.length ? r.lint.join("\n") : "Saved."));
       await load();
       return true;
-    } catch (e) { setNote(""); setError((e as Error).message); return false; }
+    } catch (e) { setNote(""); setError((e as Error).message); return false; } finally { editing.current = false; setSaving(false); }
   };
   const tl = props?.timeline;
   const playerEl = useMemo(() => tl && props && (
@@ -377,6 +387,14 @@ export function Editor({ name }: { name: string }) {
       compositionWidth={tl.width} compositionHeight={tl.height} clickToPlay acknowledgeRemotionLicense style={{ width: "100%", height: "100%" }} />
   ), [props]);
   const sec = tl ? frame / tl.fps : 0;
+  const clipAt = tl?.clips.find(c => frame > c.fromFrame && frame < c.fromFrame + c.durationFrames - 1);
+  const split = () => clipAt && edit({ op: "split", id: clipAt.id, offsetMs: Math.round((frame - clipAt.fromFrame) / tl!.fps * 1000) });
+  const resizeTimeline = (e: React.PointerEvent<HTMLDivElement>) => {
+    const start = e.clientY, height = trackHeight;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.currentTarget.onpointermove = move => setTrackHeight(Math.max(180, Math.min(Math.round(innerHeight * 0.48), height + start - move.clientY)));
+    e.currentTarget.onpointerup = ev => { const el = ev.currentTarget as HTMLElement; el.onpointermove = null; el.onpointerup = null; try { localStorage.setItem("adam.trackHeight", String(Math.max(180, Math.min(Math.round(innerHeight * 0.48), height + start - ev.clientY)))); } catch {} };
+  };
 
   return (
     <>
@@ -389,26 +407,43 @@ export function Editor({ name }: { name: string }) {
       </div>
       {error && <p className="error" onClick={() => setError("")}>{error}</p>}
       {props && raw && tl && (
-        <>
-          <div className="cols editor-cols">
-            <div className="preview-col">
-              <div className="frame lit" style={{ aspectRatio: `${tl.width} / ${tl.height}` }}>{playerEl}</div>
+        <div className="editor-shell" style={{ "--track-height": `${trackHeight}px` } as React.CSSProperties}>
+          <div className="editor-workspace">
+            <aside className="editor-left">
+              <div className="vi-tabs" role="tablist" aria-label={tr("Resources")}><button role="tab" aria-selected={panel === "assets"} onClick={() => setPanel("assets")}>{tr("Media and elements")}</button><button role="tab" aria-selected={panel === "words"} onClick={() => setPanel("words")}>{tr("Transcript")}</button></div>
+              {panel === "assets" ? <EditorAssets name={name} raw={raw} props={props} frame={frame} edit={edit} select={setSelected} reload={load} /> : <Words name={name} raw={raw} props={props} frame={frame} seek={seek} edit={edit} sel={wordSel} setSel={setWordSel} />}
+            </aside>
+            <div className="editor-preview">
+              <div className="preview-heading"><span>{tr("Preview")}</span><button className="link" onClick={e => void e.currentTarget.closest(".editor-preview")?.requestFullscreen()}>{tr("Full screen")}</button><button className="link" aria-pressed={safe} onClick={() => setSafe(s => !s)}>{tr("Safe zones")}</button></div>
+              <div className="preview-canvas">
+              <div className="frame lit" style={{ aspectRatio: `${tl.width} / ${tl.height}` }}>{playerEl}{safe && <div className="safe-guides" aria-hidden="true"><div className="safe-title">{tr("Title zone")}</div><div className="safe-caption">{tr("Caption zone")}</div></div>}</div>
+              </div>
               <div role="group" aria-label="Transport" className="transport mono">
                 <button type="button" className="act" aria-label="Back one second" onClick={() => seek(Math.max(0, frame - tl.fps))}>−1s</button>
                 <button type="button" className="act fill" aria-label={playing ? "Pause" : "Play"} onClick={() => player.current?.toggle()}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={playing ? "M6 5h4v14H6zM14 5h4v14h-4z" : "M7 5v14l12-7z"} /></svg>
                 </button>
                 <button type="button" className="act" aria-label="Forward one second" onClick={() => seek(Math.min(tl.durationFrames - 1, frame + tl.fps))}>+1s</button>
-                <span>{clock(sec)}</span>
+                <span>{clock(sec)} / {clock(tl.durationFrames / tl.fps)}</span>
               </div>
             </div>
-            <Words name={name} raw={raw} props={props} frame={frame} seek={seek} edit={edit} sel={wordSel} setSel={setWordSel} />
-            <Inspector raw={raw} props={props} selected={selected} edit={edit} />
+            <VisualInspector raw={raw} props={props} selected={selected} edit={edit} />
           </div>
-          <Lanes props={props} raw={raw} frame={frame} selected={selected} select={setSelected} seek={seek}
+          <div className="timeline-resizer" role="separator" aria-label={tr("Timeline height")} aria-orientation="horizontal" tabIndex={0} onPointerDown={resizeTimeline} onKeyDown={e => { if (["ArrowUp", "ArrowDown"].includes(e.key)) { e.preventDefault(); setTrackHeight(h => Math.max(180, Math.min(innerHeight * 0.48, h + (e.key === "ArrowUp" ? 20 : -20)))); } }}><span /></div>
+          <div className="timeline-tools">
+            <button className="act small" disabled={saving} onClick={() => void edit({ op: "undo" })}>{tr("UNDO")}</button>
+            <button className="act small" disabled={!clipAt || saving} onClick={() => void split()} title={tr("Split the clip at the playhead")}>{tr("Split")}</button>
+            <button className="act small" disabled={!selected || saving || (selected.kind === "clip" && raw.story.length === 1)} onClick={() => keys.current.remove()}>{tr("DELETE")}</button>
+            <button className={`act small${snap ? " active" : ""}`} title={tr("Align blocks with nearby edges and the playhead while dragging")} aria-pressed={snap} onClick={() => setSnap(s => !s)}>{tr("Snapping")}</button>
+            <span className="spacer" /><span className="save-state" role="status">{tr(saving ? "Saving…" : "All changes saved")}</span>
+            <label className="timeline-zoom">{tr("Zoom")}<input type="range" aria-label={tr("Timeline zoom")} min={1} max={8} step={0.25} value={zoom} onChange={e => setZoom(Number(e.target.value))} /><span>{Math.round(zoom * 100)}%</span></label><button className="link" onClick={() => setZoom(1)}>{tr("Fit timeline")}</button>
+          </div>
+          <div className="timeline-scroll" ref={timelineScroll}><div style={{ width: `${zoom * 100}%`, minWidth: "100%" }}>
+          <Lanes snap={snap} props={props} raw={raw} frame={frame} selected={selected} select={setSelected} seek={seek}
             trim={(clip, edge, d) => { const c = (raw.story ?? []).find((x: Raw) => x.id === clip); if (c) void edit({ op: "update_item", collection: "story", id: clip, changes: edge === "in" ? { inMs: Math.max(0, c.inMs + d) } : { outMs: Math.max(c.inMs + 100, c.outMs + d) } }).then((ok) => ok && setNote("Clip trimmed. Ctrl+Z puts it back.")); }}
             move={(what, id, to) => void edit({ op: "move", what, ...(what === "caption" ? { index: id } : { id }), to }).then((ok) => ok && setNote(what === "story" ? "Clip moved. Ctrl+Z puts it back." : "Moved. Ctrl+Z puts it back."))} />
-        </>
+          </div></div>
+        </div>
       )}
       <footer className="foot">
         {note && <span className="mono note-line" title={note}>{note.split("\n")[0]}</span>}

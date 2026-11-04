@@ -4,6 +4,8 @@ import { api, enc, go } from "./api";
 import { IconFolder } from "./icons";
 
 const LANGS = ["auto", "fr", "en", "es", "de", "it", "pt"];
+// What the video is: it sets what Adam does on its own (the push on a face, the pauses of a tutorial, cards alone).
+const KINDS: [string, string][] = [["facecam", "Face camera"], ["tutorial", "Tutorial"], ["motion", "Motion design"], ["text", "Text only"]];
 const leaf = (p: string) => p.split(/[\\/]/).filter(Boolean).pop() ?? p;
 
 function FolderPicker({ picked, setPicked }: { picked: string[]; setPicked: (v: string[]) => void }) {
@@ -75,6 +77,9 @@ export function NewProject({ addTo }: { addTo?: string }) {
     setName(leaf(picked[0]).replace(/\.[^.]+$/, "").replace(/[<>:"/\|?*]/g, " ").trim().slice(0, 60));
   }, [picked]);
   const [format, setFormat] = useState("9:16");
+  const [kind, setKind] = useState("facecam");
+  const [script, setScript] = useState("");
+  const text = !addTo && kind === "text";
   const [lang, setLang] = useState("fr");
   const [series, setSeries] = useState("");
   const [allSeries, setAllSeries] = useState<{ name: string; error?: string }[]>([]);
@@ -86,9 +91,11 @@ export function NewProject({ addTo }: { addTo?: string }) {
     try {
       const body = { videos: picked, lang: lang === "auto" ? undefined : lang };
       const project = addTo ?? name.trim();
-      const { job } = addTo
+      const { job } = text
+        ? await api<{ job: { id: string } }>("/projects", { method: "POST", body: { name: project, video: "text", script } })
+        : addTo
         ? await api<{ job: { id: string } }>(`/projects/${enc(addTo)}/add`, { method: "POST", body })
-        : await api<{ job: { id: string } }>("/projects", { method: "POST", body: { ...body, name: project, format, series: series || undefined } });
+        : await api<{ job: { id: string } }>("/projects", { method: "POST", body: { ...body, name: project, format, video: kind, series: series || undefined } });
       go(`#/p/${enc(project)}/job/${job.id}`);
     } catch (e) { setError((e as Error).message); setBusy(false); }
   };
@@ -98,7 +105,8 @@ export function NewProject({ addTo }: { addTo?: string }) {
       {!addTo && (
         <div className="row" style={{ marginBottom: 12 }}>
           <input placeholder="Project name" value={name} onChange={(e) => setName(e.target.value)} />
-          <select value={format} onChange={(e) => setFormat(e.target.value)}><option>9:16</option><option>16:9</option></select>
+          <select aria-label="Kind of video" value={kind} onChange={(e) => setKind(e.target.value)}>{KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+          {!text && <select value={format} onChange={(e) => setFormat(e.target.value)}><option>9:16</option><option>16:9</option></select>}
           {allSeries.length > 0 && (
             <select value={series} onChange={(e) => setSeries(e.target.value)}>
               <option value="">No series</option>
@@ -107,6 +115,13 @@ export function NewProject({ addTo }: { addTo?: string }) {
           )}
         </div>
       )}
+      {text ? (
+        <section className="script-in">
+          <textarea aria-label="Script" value={script} onChange={(e) => setScript(e.target.value)} rows={12}
+            placeholder={"One line, one card.\n73 % of creators stop before their tenth video\nTalent vs habit\nWhat keeps them going:\n- a fixed day\n- a short format\n« Done is better than perfect » - Sheryl Sandberg\nConsistency"} />
+          <p className="mono note">A NUMBER, A « QUOTE », A VS B, A LIST WITH - , ONE WORD: EACH LINE'S SHAPE PICKS ITS CARD. YOUR WORDS ARE NEVER CHANGED.</p>
+        </section>
+      ) : <>
       <div className="row" style={{ marginBottom: 12 }}>
         <span>Language</span>
         <select value={lang} onChange={(e) => setLang(e.target.value)}>{LANGS.map((l) => <option key={l}>{l}</option>)}</select>
@@ -119,9 +134,12 @@ export function NewProject({ addTo }: { addTo?: string }) {
           <ul>{picked.map((p) => <li key={p}>{p} <button className="quiet" onClick={() => setPicked(picked.filter((x) => x !== p))}>Remove</button></li>)}</ul>
         </section>
       )}
+      </>}
       {error && <p className="error">{error}</p>}
-      {!busy && (picked.length === 0 || (!addTo && !name.trim())) && <p className="mono note">{picked.length === 0 ? "PICK OR DROP AT LEAST ONE VIDEO." : "GIVE THE PROJECT A NAME (TOP OF THE PAGE)."}</p>}
-      <button disabled={busy || picked.length === 0 || (!addTo && !name.trim())} onClick={submit}>{addTo ? "Add and analyze" : "Create and analyze"}</button>
+      {!busy && !text && (picked.length === 0 || (!addTo && !name.trim())) && <p className="mono note">{picked.length === 0 ? "PICK OR DROP AT LEAST ONE VIDEO." : "GIVE THE PROJECT A NAME (TOP OF THE PAGE)."}</p>}
+      {text
+        ? <button disabled={busy || !script.trim() || !name.trim()} onClick={submit}>Lay out the cards</button>
+        : <button disabled={busy || picked.length === 0 || (!addTo && !name.trim())} onClick={submit}>{addTo ? "Add and analyze" : "Create and analyze"}</button>}
     </>
   );
 }

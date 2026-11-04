@@ -1,5 +1,7 @@
+import { t as uiText } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import type { JobEvent, JobView } from "../server/types";
+import { reportSupportJob } from "./SupportPrompt";
 import { api } from "./api";
 
 /** A job's output; compact: one line of fixed height (label, state, last line, Stop), for views whose layout must not move. */
@@ -14,7 +16,7 @@ export function JobLog({ id, onEnd, onRetry, compact }: { id: string; onEnd?: (j
     ev.onmessage = (m) => {
       const e = JSON.parse(m.data) as JobEvent;
       if (e.type === "output") setOutput((o) => o + e.text);
-      else { setJob(e.job); ev.close(); onEnd?.(e.job); }
+      else { setJob(e.job); reportSupportJob(e.job); ev.close(); onEnd?.(e.job); }
     };
     return () => ev.close();
   }, [id]);
@@ -43,7 +45,7 @@ export function JobLog({ id, onEnd, onRetry, compact }: { id: string; onEnd?: (j
         <button onClick={() => onRetry({ force: true })}>{job.label === "Export to CapCut" ? "Export anyway" : "Render anyway"}</button>
       )}
       {job.state === "failed" && job.hint === "replace" && onRetry && (
-        <button onClick={() => { if (confirm("Replace the CapCut project? Edits made in CapCut since the last export will be lost.")) onRetry({ replace: true }); }}>Replace the CapCut project</button>
+        <button onClick={() => { if (confirm(uiText("Replace the CapCut project? Edits made in CapCut since the last export will be lost."))) onRetry({ replace: true }); }}>Replace the CapCut project</button>
       )}
       <pre className="log" ref={pre}>{output}</pre>
     </section>

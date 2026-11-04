@@ -19,7 +19,7 @@ export interface LintOptions {
   fileExists?: (path: string) => boolean;
 }
 
-const TEXT_KINDS = new Set(["title", "text.behindSubject"]);
+const TEXT_KINDS = new Set(["card", "text.stack", "title", "text.behindSubject"]);
 
 function keptWords(project: Project) {
   const { clips } = layoutStory(project);

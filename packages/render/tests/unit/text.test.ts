@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { presetStyle } from "../../src/lib/presets";
-import { captionLines, colorOf, exitOpacity, fitFontSize, glitchAmount, lineReveal } from "../../src/lib/text";
+import { captionLines, colorOf, exitOpacity, editorialEntrance, fitFontSize, glitchAmount, keySegments, lineReveal } from "../../src/lib/text";
 
 describe("captionLines", () => {
   it("splits lines and highlighted spans, accents included", () => {
@@ -62,5 +62,28 @@ describe("presetStyle", () => {
   it("ignores unknown or missing presets", () => {
     expect(presetStyle(undefined, 0, 0)).toEqual({});
     expect(presetStyle("laser", 0, 0)).toEqual({});
+  });
+});
+
+describe("the key word of a title", () => {
+  it("splits a line around its key word, whatever its case", () => {
+    expect(keySegments("we are only human", "Human")).toEqual([{ text: "we are only ", key: false }, { text: "human", key: true }]);
+    expect(keySegments("no key here", "robot")).toEqual([{ text: "no key here", key: false }]);
+    expect(keySegments("plain", undefined)).toEqual([{ text: "plain", key: false }]);
+  });
+});
+
+describe("stable editorial entrances", () => {
+  it("zooms monotonically into focus without horizontal displacement or flicker", () => {
+    const frames = Array.from({ length: 20 }, (_, i) => editorialEntrance(i * 1000 / 30));
+    for (let i = 1; i < frames.length; i++) {
+      expect(frames[i]!.scale).toBeGreaterThanOrEqual(frames[i-1]!.scale);
+      expect(frames[i]!.opacity).toBeGreaterThanOrEqual(frames[i-1]!.opacity);
+      expect(frames[i]!.blur).toBeLessThanOrEqual(frames[i-1]!.blur);
+    }
+    expect(frames.at(-1)).toEqual({ scale: 1, blur: 0, opacity: 1 });
+    const stable = presetStyle("glitch", 60, 3, true);
+    expect(stable.transform).toMatch(/^scale/); expect(stable.filter).not.toContain("drop-shadow");
+    expect(stable.transform).not.toContain("translate");
   });
 });

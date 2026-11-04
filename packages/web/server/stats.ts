@@ -1,3 +1,4 @@
+import { listDAs, readDA } from "@adam-studio/render/src/lib/da";
 // Statistics: the creator's numbers per exported video, the references Claude watched, and the rules learned from
 // both and from the creator's feedback. One JSON file next to the settings (~/.adam-studio/stats.json), never sent
 // anywhere: the AI reads it when the creator asks, and the rules that are on travel with every ask of their step.
@@ -152,10 +153,15 @@ const STEP_TOPICS: Record<string, Topic[]> = {
 /** The rules that are on for a step, as lines for the ask; "" when there are none. */
 export function learnedFor(dir: string, step: string): string {
   const topics = [...(STEP_TOPICS[step] ?? []), "donts"];
-  const on = readStats(dir).rules.filter((r) => r.on && topics.includes(r.topic));
-  if (!on.length) return "";
+  const active = listDAs(dir).active;
+  const da = readDA(dir);
+  const on = readStats(dir).rules.filter((r) => r.on && topics.includes(r.topic)
+    && (r.source !== "YOUR ART DIRECTION" || (active === "default" && da.dontsText === undefined))
+    && !r.source.startsWith("ART DIRECTION: "));
+  const exclusions = (da.dontsText ?? "").split("\n").filter(Boolean);
+  if (!on.length && !exclusions.length) return "";
   return ["Rules the creator keeps (learned from their feedback, references and numbers; follow them):",
-    ...on.map((r) => `- ${r.topic === "donts" ? "Never: " : ""}${r.text}`)].join("\n");
+    ...on.map((r) => `- ${r.topic === "donts" ? "Never: " : ""}${r.text}`), ...exclusions.map((text) => `- Never: ${text}`)].join("\n");
 }
 
 /** The section of a reference's "saw" line, as a rule topic. */

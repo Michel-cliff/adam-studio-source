@@ -1,5 +1,5 @@
-import { existsSync, statSync } from "node:fs";
-import { isAbsolute } from "node:path";
+import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
+import { isAbsolute, join } from "node:path";
 import { CLI, TSX } from "./paths";
 
 export class ActionError extends Error {}
@@ -40,6 +40,8 @@ export function buildCommand(action: string, dir: string, o: Opts, capcutPython:
     }
     case "render":
       return cliCommand(["render", dir, ...flag(o, "force")], "Render");
+    case "cards":
+      return textProjectCommand(dir);
     case "review": {
       const step = text(o, "step", ID);
       return cliCommand(["review", dir, ...(step ? ["--step", step] : [])], "Review");
@@ -76,11 +78,22 @@ export function checkVideos(videos: unknown): string[] {
   return videos as string[];
 }
 
-export function newProjectCommand(dir: string, videos: string[], format: string, lang?: string, series?: string): Command {
+export function newProjectCommand(dir: string, videos: string[], format: string, lang?: string, series?: string, video?: string): Command {
   if (format !== "9:16" && format !== "16:9") throw new ActionError(`format must be 9:16 or 16:9, got "${format}"`);
   if (lang !== undefined && !LANG.test(lang)) throw new ActionError(`language is not valid: "${lang}"`);
   if (series !== undefined && /[\/:*?"<>|]/.test(series)) throw new ActionError(`not a valid series name: "${series}"`);
-  return cliCommand(["new", dir, ...videos, "--format", format, ...(lang ? ["--lang", lang] : []), ...(series ? [`--series=${series}`] : [])], "New project");
+  if (video !== undefined && !["facecam", "motion", "tutorial"].includes(video)) throw new ActionError(`the kind of video is facecam, motion or tutorial, got "${video}"`);
+  return cliCommand(["new", dir, ...videos, "--format", format, ...(lang ? ["--lang", lang] : []), ...(series ? [`--series=${series}`] : []), ...(video ? ["--video", video] : [])], "New project");
+}
+
+/** A text-only video from a script: written to the project's script.json, then laid out as cards. */
+export function textProjectCommand(dir: string, script?: string): Command {
+  if (script !== undefined) {
+    if (!script.trim()) throw new ActionError("write the script first: one line per card");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "script.json"), `${JSON.stringify({ text: script.trim(), by: "you", at: Date.now() }, null, 2)}\n`);
+  }
+  return cliCommand(["text", dir], "Lay out the cards");
 }
 
 export function addCommand(dir: string, videos: string[], lang?: string): Command {

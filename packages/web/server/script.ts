@@ -24,7 +24,7 @@ export function saveScript(dir: string, text: string, by: "you" | "ai"): Script 
 }
 
 /** The AI writes the script from what is said in the edit, part by part, in the transcript's language. */
-export async function draftScript(dir: string, ai: AskAI): Promise<Script> {
+export async function draftScript(dir: string, ai: AskAI, signal?: AbortSignal): Promise<Script> {
   const { project } = load(dir);
   const said = Object.values(project.transcript.words).flat().map((w) => w.text).join(" ").trim();
   if (!said) throw new ToolError("no transcript yet: analyze the takes first");
@@ -34,6 +34,7 @@ export async function draftScript(dir: string, ai: AskAI): Promise<Script> {
     "each part as an uppercase heading line followed by one to three clean sentences in the creator's own words and language.",
     "Drop retakes, fillers and false starts; do not add ideas they do not say. Plain text only, no markdown, no commentary.",
     "", said.slice(0, 12000),
-  ].join("\n") });
+  ].join("\n"), signal });
+  signal?.throwIfAborted();
   return saveScript(dir, text.replace(/^```\w*\n?|```$/g, "").trim(), "ai");
 }

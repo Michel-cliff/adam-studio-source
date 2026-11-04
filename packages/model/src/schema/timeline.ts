@@ -22,6 +22,10 @@ export const TimelineClipSchema = z.object({
 });
 
 export const TimelineElementSchema = z.object({
+  textMaxHeight: z.number().positive().optional(),
+  scale: z.number().min(0.1).max(4).optional(),
+  rotation: z.number().min(-180).max(180).optional(),
+  opacity: z.number().min(0).max(1).optional(),
   id: z.string(),
   kind: z.string(),
   layer: z.enum(["front", "behind-subject"]),

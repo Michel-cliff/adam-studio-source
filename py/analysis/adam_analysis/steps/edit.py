@@ -7,6 +7,7 @@ from ..errors import AnalysisError
 from ..ingest import FIRST_SECONDS, noise_floor
 
 VERSION = 2  # 2: the voice chain of the default art direction
+PROXY_VERSION = 3  # Preview encoding only; render inputs retain their original quality.
 LONG_SIDE = 1920
 
 
@@ -55,4 +56,4 @@ def make_edit(src: Path, dst: Path, fps: int) -> None:
 
 
 def make_proxy(edit: Path, dst: Path, fps: int) -> None:
-    ffmpeg(["-i", str(edit), "-vf", "scale=trunc(iw/4)*2:trunc(ih/4)*2", *encode(fps, 128), str(dst)], "proxy.mp4")
+    ffmpeg(["-i", str(edit), "-vf", "scale=trunc(iw/4)*2:trunc(ih/4)*2", *encode(fps, 128), "-preset", "veryfast", "-crf", "23", str(dst)], "proxy.mp4")

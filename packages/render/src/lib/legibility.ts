@@ -6,13 +6,13 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Timeline } from "@adam-studio/model";
+import { placeTextInThirds, usesThirds, THIRD_BANDS, type Timeline } from "@adam-studio/model";
 
-const VERSION = 5; // 2: the face wins over the hands; 3: above the head when the face fills the band; 4: one height above the head
+const VERSION = 7; // 2: the face wins over the hands; 3: above the head when the face fills the band; 4: one height above the head
 const LINE_HEIGHT = 1.15;
 
 export type LegibilitySpec = {
-  width: number; height: number; band: [number, number]; safeTop: number; takes: Record<string, string>;
+  width: number; height: number; band: [number, number]; safeTop: number; keepBand?: boolean; manualPlacement?: boolean; takes: Record<string, string>;
   shots: { id: string; take: string; ms: number }[];
   items: { id: string; box: [number, number, number, number]; samples: { take: string; ms: number }[] }[];
 };
@@ -29,7 +29,7 @@ function sourceAt(tl: Timeline, frame: number): { take: string; ms: number } | n
 export function legibilitySpec(tl: Timeline, takes: Record<string, string>): LegibilitySpec {
   const k = tl.width / 1080;
   const band: [number, number] = tl.format === "9:16"
-    ? [Math.round(950 * tl.height / 1920), Math.round(1248 * tl.height / 1920)]
+    ? usesThirds(tl) ? [Math.round(THIRD_BANDS.captionTop * tl.height), Math.round(THIRD_BANDS.captionBottom * tl.height)] : [Math.round(950 * tl.height / 1920), Math.round(1248 * tl.height / 1920)]
     : [Math.round(tl.height * 0.7), Math.round(tl.height * 0.93)];
   const h = Math.round(2 * tl.style.caption.size * tl.width * LINE_HEIGHT);
   const items = tl.captions.map((c) => {
@@ -40,20 +40,20 @@ export function legibilitySpec(tl: Timeline, takes: Record<string, string>): Leg
   const safeTop = tl.format === "9:16" ? Math.round(269 * tl.height / 1920) : Math.round(tl.height * 0.08);
   // The middle of each shot, for the face its edge blur is shaped around.
   const shots = tl.clips.filter((c) => c.asset in takes).map((c) => ({ id: c.id, take: c.asset, ms: Math.round((c.sourceInMs + c.sourceOutMs) / 2) }));
-  return { width: tl.width, height: tl.height, band, safeTop, takes, items, shots };
+  return { width: tl.width, height: tl.height, band, safeTop, keepBand: usesThirds(tl), manualPlacement: tl.style.textLayout === "free", takes, items, shots };
 }
 
 /** The timeline with each answered caption's treatment and height. */
 export function mergeLegibility(tl: Timeline, r: LegibilityResult): Timeline {
   const faces = r._shots ?? {};
-  return {
+  return placeTextInThirds({
     ...tl,
     captions: tl.captions.map((c) => (r[c.id] ? { ...c, treatment: r[c.id]!.treatment, y: r[c.id]!.y / tl.height } : c)),
     clips: tl.clips.map((c) => {
       const f = faces[c.id];
       return f ? { ...c, face: [f[0] / tl.width, f[1] / tl.height, f[2] / tl.width, f[3] / tl.height] as [number, number, number, number] } : c;
     }),
-  };
+  });
 }
 
 /**
@@ -61,7 +61,8 @@ export function mergeLegibility(tl: Timeline, r: LegibilityResult): Timeline {
  * the analysis. Without the analysis environment, or when it fails, the captions keep the style's own treatment.
  */
 export function applyLegibility(dir: string, tl: Timeline, python: (() => string) | null, compute: boolean): Timeline {
-  if (!tl.captions.length) return tl;
+  tl = placeTextInThirds(tl);
+  if (!tl.captions.length && !tl.elements.some(e => e.kind === "title")) return tl;
   const takes = Object.fromEntries([...new Set(tl.clips.map((c) => c.asset))].map((a) => [a, join(dir, "cache", a, "edit.mp4")] as const).filter(([, p]) => existsSync(p)));
   const spec = legibilitySpec(tl, takes);
   const key = createHash("sha1").update(`${VERSION}:${JSON.stringify(spec)}`).digest("hex");

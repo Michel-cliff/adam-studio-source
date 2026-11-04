@@ -8,6 +8,7 @@ import json
 import re
 import subprocess
 from pathlib import Path
+from functools import lru_cache
 
 from .errors import AnalysisError
 
@@ -17,7 +18,15 @@ FIRST_SECONDS = 10
 def noise_floor(path: Path, seconds: float | None = None) -> float:
     """The noise floor in dBFS: the 10th percentile of the level of every 50 ms that is not digital silence (the
     quiet between words, where the room and the mic are heard); -120 when there is no sound at all."""
-    args = ["ffmpeg", "-hide_banner", "-nostats", *(["-t", str(seconds)] if seconds else []), "-i", str(path), "-af",
+    st = Path(path).stat()
+    return _noise_floor_cached(str(path), st.st_mtime_ns, st.st_size, seconds)
+
+
+@lru_cache(maxsize=16)
+def _noise_floor_cached(path: str, mtime_ns: int, size: int, seconds: float | None) -> float:
+    # Audio only: decoding full-resolution video into a null sink adds no measurement.
+    # The source stamp prevents a replaced recording from reusing its old measurement.
+    args = ["ffmpeg", "-hide_banner", "-nostats", *(["-t", str(seconds)] if seconds else []), "-i", str(path), "-vn", "-sn", "-dn", "-af",
             "asetnsamples=n=2400:p=0,astats=metadata=1:reset=1:measure_perchannel=none:measure_overall=RMS_level,"
             "ametadata=print:key=lavfi.astats.Overall.RMS_level:file=-", "-f", "null", "-"]
     r = subprocess.run(args, capture_output=True, text=True)

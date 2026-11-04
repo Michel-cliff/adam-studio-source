@@ -38,3 +38,12 @@ def test_big_word():
     t = big_word_text(word, 1080, 1920)
     assert (t["text"], t["from"], t["to"], t["color"], t["y"]) == ("WOW", 45, 54, "accent", 0.5)
     assert t["px"] == pytest.approx(226.8)
+
+
+def test_stable_titles_have_no_glitch_timing_and_use_compact_condensed_layout():
+    texts = title_texts(TITLE, 1080, 1920, 30, stable=True)
+    assert all(t["intro"] == 0 for t in texts)
+    assert all(t["color"] == "text" for t in texts)
+    assert [t["from"] for t in texts[:3]] == [90, 90, 90]
+    assert all(t["px"] <= 108 * 1.2 for t in texts)
+

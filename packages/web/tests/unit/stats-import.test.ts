@@ -45,3 +45,13 @@ describe("the name a dropped file gets on disk", () => {
     expect(diskName("")).toBe("");
   });
 });
+
+it("attaches imported statistics to the selected project without creating an external video", () => {
+  const dir = mkdtempSync(join(tmpdir(), "adam-own-import-"));
+  const result = applyImport(dir, { videos: [{ name: "A title from Instagram", metrics: { views: "1200" } }] }, "My project");
+  expect(result.videos).toEqual(["My project"]);
+  expect(Object.keys(readStats(dir).videos)).toEqual(["My project"]);
+  expect(readStats(dir).videos["My project"]!.source).not.toBe("IMPORTED");
+  expect(() => applyImport(dir, { videos: [{name:"one"},{name:"two"}] }, "My project")).toThrow(/one video/);
+  expect(Object.keys(readStats(dir).videos)).toEqual(["My project"]);
+});

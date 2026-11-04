@@ -1,12 +1,12 @@
 // One question to the AI the creator picked, outside the edit: the statistics chat, a stats screenshot to read,
 // a reference to describe. No adam-studio tools; pictures are read from disk (Claude's Read tool, Codex's -i).
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { claudeBin } from "./claude";
 import { codexBin } from "./codex";
 import { readEvent } from "../app/feed";
 import type { Engine } from "./settings";
 
-export type AskAI = (q: { prompt: string; images?: string[] }) => Promise<string>;
+export type AskAI = (q: { prompt: string; images?: string[]; signal?: AbortSignal }) => Promise<string>;
 
 /** The command line for one plain question; exported for the tests. */
 export function aiCommand(engine: Engine, model: string, prompt: string, images: string[] = []): { cmd: string; args: string[] } {
@@ -38,16 +38,26 @@ export function jsonIn<T>(text: string): T | null {
 }
 
 export function aiRunner(engine: () => Engine, model: () => string, timeoutMs = 240_000, env: () => Record<string, string> = () => ({})): AskAI {
-  return ({ prompt, images = [] }) => new Promise((done, fail) => {
+  return ({ prompt, images = [], signal }) => new Promise((done, fail) => {
+    if (signal?.aborted) { fail(signal.reason); return; }
     const { cmd, args } = aiCommand(engine(), model(), prompt, images);
-    const p = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"], windowsHide: true, env: { ...process.env, ...env() } });
+    const p = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"], windowsHide: true, detached: process.platform !== "win32", env: { ...process.env, ...env() } });
     let out = "", err = "";
-    const kill = setTimeout(() => { p.kill(); fail(new Error("the AI took too long to answer")); }, timeoutMs);
+    const terminate = () => {
+      if (!p.pid) return;
+      if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(p.pid), "/T", "/F"], { windowsHide: true });
+      else { try { process.kill(-p.pid, "SIGTERM"); } catch { p.kill(); } }
+    };
+    const abort = () => { terminate(); };
+    signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted) abort();
+    const kill = setTimeout(() => { terminate(); fail(new Error("the AI took too long to answer")); }, timeoutMs);
     p.stdout.on("data", (d) => (out += d));
     p.stderr.on("data", (d) => (err += d));
-    p.on("error", (e) => { clearTimeout(kill); fail(new Error(`could not start the AI: ${e.message}`)); });
+    p.on("error", (e) => { clearTimeout(kill); signal?.removeEventListener("abort", abort); fail(new Error(`could not start the AI: ${e.message}`)); });
     p.on("close", () => {
-      clearTimeout(kill);
+      clearTimeout(kill); signal?.removeEventListener("abort", abort);
+      if (signal?.aborted) { fail(signal.reason); return; }
       // lastSaid keeps the whole answer here: the feed's short form is for the activity line only.
       const full = fullAnswer(out);
       if (full) done(full); else fail(new Error(lastSaid(out) || err.trim().split("\n").pop() || "the AI gave no answer"));

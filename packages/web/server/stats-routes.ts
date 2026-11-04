@@ -131,13 +131,15 @@ export async function statsRoute(c: Ctx): Promise<boolean> {
     }
     // The stats of other videos (a screenshot or an export): the AI reads every video, advises, updates the rules.
     if (path === "/api/stats/import" && method === "POST") {
+      const target = url.searchParams.get("video") ?? undefined;
+      if (target && !videosOf(root, readStats(dir)).some(v => v.name === target && (v.exported || v.stats.source !== "IMPORTED"))) throw new StatsError("Select one of your videos before importing statistics.");
       const file = await saveBody(c.req, join(dir, "stats-imports"), url.searchParams.get("name") ?? "", IMPORT_FILES);
       const image = isImage(file);
       let said: string;
-      try { said = await ai({ prompt: importPrompt(readStats(dir), image ? null : readFileSync(file, "utf8"), uiLang(join(dir, "ui.json"))), images: image ? [file] : [] }); }
+      try { said = await ai({ prompt: importPrompt(readStats(dir), image ? null : readFileSync(file, "utf8"), uiLang(join(dir, "ui.json"))) + (target ? `\nThe creator selected project ${JSON.stringify(target)}. Read exactly one video. Its statistics will be attached to this project. Do not combine multiple videos.` : ""), images: image ? [file] : [] }); }
       catch { throw new StatsError("Adam could not open this file. Try a screenshot (PNG or JPG) of the same stats page."); }
       const answer = jsonIn<ImportAnswer>(said);
-      const done = answer ? applyImport(dir, answer) : null;
+      const done = answer ? applyImport(dir, answer, target) : null;
       if (!done?.videos.length) throw new StatsError("no video's numbers were found in this file. Drop the statistics page of a video (views, watch time, likes...), as exported by Instagram, TikTok or YouTube, or a screenshot of it.");
       send(200, { ...all(), imported: done }); return true;
     }
