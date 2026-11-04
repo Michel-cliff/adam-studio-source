@@ -58,7 +58,7 @@ export class JobManager {
     return job;
   }
 
-  projectNames(): string[] { return [...new Set([...this.jobs.values()].filter(j => j.label === "New project" || j.label === "Lay out the cards").map(j => j.project))]; }
+  projectNames(): string[] { return [...new Set([...this.jobs.values()].filter(j => j.state === "running" && (j.label === "New project" || j.label === "Lay out the cards")).map(j => j.project))]; }
 
   get(id: string): JobView | undefined { return this.jobs.get(id); }
 

@@ -16,9 +16,11 @@ export function placeTextInThirds(tl: Timeline): Timeline {
     const faces = facesDuring(e.fromFrame, e.durationFrames);
     const top = H * THIRD_BANDS.titleTop;
     const bottom = Math.min(H * THIRD_BANDS.titleBottom, ...faces.map(f => f[1] * H - margin));
-    if (bottom - top < H * 0.035) { warnings.push(`title ${e.id}: no room above the head in the upper third`); return []; }
-    const box = Math.min(H * 0.16, bottom - top);
-    const cy = Math.min(Math.max(H * 0.15, top + box / 2), bottom - box / 2);
+    // No room above the head: the title stays, small at the very top, over the forehead rather than gone.
+    const tight = bottom - top < H * 0.035;
+    if (tight) warnings.push(`title ${e.id}: no room above the head in the upper third`);
+    const box = tight ? H * 0.07 : Math.min(H * 0.16, bottom - top);
+    const cy = tight ? top + box / 2 : Math.min(Math.max(H * 0.15, top + box / 2), bottom - box / 2);
     return [{ ...e, x: 0.5, y: cy / H, textMaxHeight: box }];
   });
   const captions = tl.captions.flatMap(c => {
@@ -26,7 +28,8 @@ export function placeTextInThirds(tl: Timeline): Timeline {
     const faces = facesDuring(c.fromFrame, c.durationFrames);
     const top = Math.max(H * THIRD_BANDS.captionTop, ...faces.map(f => (f[1] + f[3]) * H + margin));
     const bottom = H * THIRD_BANDS.captionBottom - margin;
-    if (top + half * 2 > bottom) { warnings.push(`caption ${c.id}: no room below the face in the lower third`); return []; }
+    // No room below the face: the subtitle stays, as low as the band allows (on the chin, under the mouth), never gone.
+    if (top + half * 2 > bottom) warnings.push(`caption ${c.id}: no room below the face in the lower third`);
     const cy = Math.min(Math.max(H * 0.76, top + half), bottom - half);
     return [{ ...c, x: 0.5, y: cy / H }];
   });

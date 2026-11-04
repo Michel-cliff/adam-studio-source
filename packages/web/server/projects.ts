@@ -99,6 +99,7 @@ export function projectView(root: string, name: string): Omit<ProjectView, "jobs
 /** Imports exist as jobs before analysis can write a valid project.json. */
 export function pendingProject(name: string, jobs: import("./types").JobView[]): ProjectView | null {
  const job = jobs.find(j => j.label === "New project" || j.label === "Lay out the cards");
- if (!job) return null;
+ // A finished import whose project is gone (moved to the trash) is over; a failed one keeps its log reachable.
+ if (!job || job.state === "done") return null;
  return { name, ok: true, importing: true, modified: job.startedAt, takes: [], renders: [], proposals: [], jobs, workflow: null, durationMs: null, assets: [] };
 }

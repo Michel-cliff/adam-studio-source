@@ -19,9 +19,22 @@ describe("the default upper and lower thirds", () => {
     expect(title.y + title.textMaxHeight! / out.height / 2).toBeLessThan(0.25);
     expect(cap.y - 0.0445 * out.width * 1.15 / out.height).toBeGreaterThan(0.72);
   });
-  it("does not cover a full-height face when no legal position exists", () => {
+  it("never loses a subtitle or a title when no position clears the face, and says so", () => {
     const out = placeTextInThirds(timeline([0, 0.01, 1, 0.94]));
-    expect(out.elements).toHaveLength(0); expect(out.captions).toHaveLength(0); expect(out.warnings).toHaveLength(2);
+    expect(out.captions).toHaveLength(1); expect(out.elements).toHaveLength(1); expect(out.warnings).toHaveLength(2);
+    // The caption sits as low as its band allows, the title small at the very top.
+    const half = 2 * 0.0445 * out.width * 1.15 / 2 / out.height;
+    expect(out.captions[0]!.y + half).toBeLessThanOrEqual(0.85);
+    expect(out.captions[0]!.y).toBeGreaterThan(0.76);
+    const t = out.elements[0]!;
+    expect(t.textMaxHeight! / out.height).toBeLessThanOrEqual(0.08);
+    expect(t.y - t.textMaxHeight! / out.height / 2).toBeGreaterThanOrEqual(0.05);
+  });
+  it("keeps a two-line subtitle clear of the mouth on a large close-up", () => {
+    const out = placeTextInThirds(timeline([0.3, 0.3, 0.4, 0.5]));
+    const half = 2 * 0.0445 * out.width * 1.15 / 2 / out.height;
+    expect(out.captions).toHaveLength(1);
+    expect(out.captions[0]!.y - half).toBeGreaterThan(0.3 + 0.5 * 0.82);
   });
   it("preserves an explicitly free layout", () => {
     const tl = timeline(); tl.style.textLayout = "free"; expect(placeTextInThirds(tl)).toBe(tl);
