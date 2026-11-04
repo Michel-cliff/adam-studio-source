@@ -61,13 +61,12 @@ for(const name of ['adam_analysis','adam_capcut'])copy(join(payload,'py',name===
 writeFileSync(join(payload,'third-party-packages.json'),JSON.stringify(notices,null,2));
 // What the tools' own folders do not carry: their licence, and for yt-dlp what its bundled executable is under.
 console.log('Preparing third-party notices');
-const fetchText=async url=>{const r=await fetch(url);if(!r.ok)throw Error(`${url}: ${r.status}`);return r.text();};
 const toolVersion=name=>execFileSync(join(bin,name+'.exe'),['--version'],{encoding:'utf8',windowsHide:true}).split(/\r?\n/)[0].trim();
 mkdirSync(join(payload,'licenses/yt-dlp'),{recursive:true});mkdirSync(join(payload,'licenses/deno'),{recursive:true});
-writeFileSync(join(payload,'licenses/yt-dlp/LICENSE-source.txt'),await fetchText('https://raw.githubusercontent.com/yt-dlp/yt-dlp/master/LICENSE'));
-writeFileSync(join(payload,'licenses/yt-dlp/COPYING-GPL-3.0.txt'),await fetchText('https://www.gnu.org/licenses/gpl-3.0.txt'));
+copy(join(here,'third-party/yt-dlp-LICENSE.txt'),join(payload,'licenses/yt-dlp/LICENSE-source.txt'));
+copy(join(here,'third-party/GPL-3.0.txt'),join(payload,'licenses/yt-dlp/COPYING-GPL-3.0.txt'));
 writeFileSync(join(payload,'licenses/yt-dlp/NOTICE.txt'),`yt-dlp ${toolVersion('yt-dlp')}\nThe source code of yt-dlp is under the Unlicense. The standalone executable shipped here bundles GPL components with PyInstaller, and is distributed under the GPL version 3 or later (see COPYING-GPL-3.0.txt).\nSource code: https://github.com/yt-dlp/yt-dlp\n`);
-writeFileSync(join(payload,'licenses/deno/LICENSE.md'),await fetchText('https://raw.githubusercontent.com/denoland/deno/main/LICENSE.md'));
+copy(join(here,'third-party/deno-LICENSE.md'),join(payload,'licenses/deno/LICENSE.md'));
 writeFileSync(join(payload,'licenses/deno/VERSION.txt'),toolVersion('deno')+'\nSource code: https://github.com/denoland/deno\n');
 copy(join(here,'THIRD-PARTY.md'),join(payload,'licenses/THIRD-PARTY.md'));
 copy(join(root,'LICENSE'),join(payload,'licenses/ADAM-STUDIO-LICENSE.txt'));
