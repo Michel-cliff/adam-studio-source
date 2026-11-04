@@ -1,0 +1,20 @@
+ADAM STUDIO pour Windows (64 bits)
+
+INSTALLER
+1. Décompresse ce ZIP, puis lance AdamStudio-Setup.exe.
+2. Windows peut afficher « Windows a protégé votre ordinateur » : l'application n'est pas encore signée.
+   Clique sur « Informations complémentaires », puis « Exécuter quand même ».
+3. Adam Studio s'ouvre, et se retrouve ensuite dans le menu Démarrer.
+
+SI L'APPLICATION NE DÉMARRE PAS OU QUE L'IMPORT ÉCHOUE
+Installe Microsoft Visual C++ Redistributable (x64) : https://aka.ms/vc14/vc_redist.x64.exe
+
+À SAVOIR
+- Ta vidéo doit déjà être coupée : Adam fait le montage, jamais la coupe.
+- Le premier import télécharge les modèles d'analyse (environ 1,6 Go) : prévois une connexion internet
+  et quelques minutes.
+- Pour les étapes guidées par l'IA, il te faut ton propre compte Claude ou Codex.
+  Tu peux changer d'IA depuis la page principale.
+- L'export CapCut est expérimental et demande CapCut Desktop.
+
+Une question ? hello@contact.cliffiscurious.com

@@ -65,6 +65,7 @@ writeFileSync(join(payload,'runtime.json'),JSON.stringify({version:1,node:'bin/n
 const env={...process.env,PYTHONNOUSERSITE:'1',PYTHONDONTWRITEBYTECODE:'1'};delete env.PYTHONHOME;delete env.PYTHONPATH;
 execFileSync(join(py,'python.exe'),['-I','-c','import sys,numpy,torch,cv2,faster_whisper,simple_lama_inpainting,adam_analysis,adam_capcut,imageio;print("PACKAGED_PYTHON_OK",sys.prefix)'],{cwd:payload,env,stdio:'inherit',windowsHide:true});
 execFileSync(join(py,'python.exe'),['-I','-c','import sys;sys.path.insert(0,sys.argv[1]);import draft_profiles,pyJianYingDraft,pyJianYingDraft.text_segment;p=draft_profiles.get_draft_profile();assert p.name=="capcut_legacy",p.name;print("PACKAGED_CAPCUT_OK",p.name)',join(payload,'capcut-lab')],{cwd:payload,env,stdio:'inherit',windowsHide:true});
+for(const dir of ['capcut-lab','capcut-lab/pyJianYingDraft','capcut-lab/settings'])rmSync(join(payload,dir,'__pycache__'),{recursive:true,force:true});
 execFileSync(join(bin,'node.exe'),['--version'],{stdio:'inherit',windowsHide:true});execFileSync(join(bin,'ffmpeg.exe'),['-v','error','-version'],{stdio:'pipe',windowsHide:true});
 console.log('RUNTIME_READY '+payload);
 function find(dir,name){for(const entry of readdirSync(dir,{withFileTypes:true})){const p=join(dir,entry.name);if(entry.name===name)return p;if(entry.isDirectory()){const hit=find(p,name);if(hit)return hit;}}}
