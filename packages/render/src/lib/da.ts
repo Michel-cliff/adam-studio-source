@@ -121,6 +121,7 @@ export function daStatus(da: CreatorDA): { step: DaStep; set: boolean }[] {
 
 /** Where the house fonts are installed for this user. */
 export function fontsDir(): string {
+  if (process.env.ADAM_FONTS) return process.env.ADAM_FONTS; // the installed app brings its own
   if (process.platform === "win32") return join(process.env.ADAM_HOST_LOCALAPPDATA || process.env.LOCALAPPDATA || "", "Microsoft", "Windows", "Fonts");
   if (process.platform === "darwin") return join(homedir(), "Library", "Fonts");
   return join(homedir(), ".local", "share", "fonts");

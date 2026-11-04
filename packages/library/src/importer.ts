@@ -17,6 +17,7 @@ const slug = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,
  */
 export async function importAsset(projectDir: string, src: ImportSource, id?: string): Promise<Imported> {
   if (!src.path && !src.url) throw new Error("give a path or a url");
+  if (src.cutout && process.env.ADAM_PACKAGED) throw new Error("cut-outs are not available in the installed app yet: import the image as it is");
   const name = src.path ? basename(src.path) : basename(new URL(src.url!).pathname) || "download";
   const kind = src.kind ?? kindOf(name);
   if (!kind) throw new Error(`cannot tell what ${name} is: give kind (video, image, audio, font, lottie)`);

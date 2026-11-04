@@ -5,8 +5,9 @@ import { basename, extname, join } from "node:path";
 import { fontsDir } from "@adam-studio/render/src/lib/da";
 import { ToolError } from "./store";
 
+const hostFontsDir = () => { const saved = process.env.ADAM_FONTS; delete process.env.ADAM_FONTS; try { return fontsDir(); } finally { if (saved !== undefined) process.env.ADAM_FONTS = saved; } };
 type Ctx = { req: IncomingMessage; url: URL; method: string; dir: string; send: (s: number, b: unknown) => void; body: () => Promise<Record<string, any>> };
-const fontList = (dir: string) => [fontsDir(), join(dir, "editor-fonts")].flatMap(folder => !existsSync(folder) ? [] : readdirSync(folder).filter(n => /\.(ttf|otf)$/i.test(n)).map(n => ({ family: basename(n, extname(n)).replace(/-[a-f\d]{12}$/, ""), file: join(folder, n) })))
+const fontList = (dir: string) => [...new Set([fontsDir(), hostFontsDir(), join(dir, "editor-fonts")])].flatMap(folder => !existsSync(folder) ? [] : readdirSync(folder).filter(n => /\.(ttf|otf)$/i.test(n)).map(n => ({ family: basename(n, extname(n)).replace(/-[a-f\d]{12}$/, ""), file: join(folder, n) })))
   .sort((a, b) => a.family.localeCompare(b.family));
 
 export async function editorRoute(c: Ctx): Promise<boolean> {

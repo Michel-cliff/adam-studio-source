@@ -18,3 +18,15 @@ describe("importing an image as a paper cut-out", () => {
     expect(Number(fmt.split(",")[0])).toBeLessThan(320);
   }, 120000);
 });
+
+describe("in the installed app", () => {
+  it("says plainly that cut-outs are not available, before copying anything", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "adam-cut-"));
+    const src = join(dir, "disc.jpg");
+    process.env.ADAM_PACKAGED = "1";
+    try {
+      await expect(importAsset(dir, { path: src, cutout: true }, "disc")).rejects.toThrow(/not available in the installed app/);
+      expect(existsSync(join(dir, "assets"))).toBe(false);
+    } finally { delete process.env.ADAM_PACKAGED; }
+  });
+});

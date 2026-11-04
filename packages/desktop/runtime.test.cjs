@@ -21,3 +21,17 @@ test('empty or partial host model caches do not suppress a required download',()
  const snapshot=path.join(host,'.cache/huggingface/hub/models--mobiuslabsgmbh--faster-whisper-large-v3-turbo/snapshots/rev');fs.mkdirSync(snapshot,{recursive:true});fs.writeFileSync(path.join(snapshot,'model.bin'),'');
  const r=packagedRuntime(resources,data,{ADAM_HOST_HOME:host});assert.equal(r.env.HF_HOME,path.join(data,'models/huggingface'));
 });
+
+test('the bundled fonts land in a folder that survives updates, and a font already there is kept',()=>{
+ const resources=fixture(),data=path.join(resources,'user'),fonts=path.join(resources,'payload/fonts');
+ fs.mkdirSync(fonts,{recursive:true});fs.writeFileSync(path.join(fonts,'Anton-Regular.ttf'),'bundled');
+ const r=packagedRuntime(resources,data,{});
+ assert.equal(r.env.ADAM_FONTS,path.join(data,'fonts'));
+ const file=path.join(data,'fonts/Anton-Regular.ttf');assert.equal(fs.readFileSync(file,'utf8'),'bundled');
+ fs.writeFileSync(file,'kept');packagedRuntime(resources,data,{});assert.equal(fs.readFileSync(file,'utf8'),'kept');
+});
+test('the CapCut export uses the bundled library, never a folder of the machine',()=>{
+ const resources=fixture(),data=path.join(resources,'user');
+ const r=packagedRuntime(resources,data,{ADAM_CAPCUT_LAB:'C:\\elsewhere'});
+ assert.equal(r.env.ADAM_CAPCUT_LAB,path.join(resources,'payload/capcut-lab'));
+});

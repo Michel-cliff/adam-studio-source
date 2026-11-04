@@ -19,7 +19,10 @@ function packagedRuntime(resources,userData,originalEnv=process.env){
  const skillSource=join(root,'skills/adam-studio'),skillHome=originalEnv.USERPROFILE||originalEnv.HOME||require('node:os').homedir();
  const skillTarget=join(originalEnv.CLAUDE_CONFIG_DIR||join(skillHome,'.claude'),'skills/adam-studio');
  if(existsSync(join(skillSource,'SKILL.md'))&&!existsSync(join(skillTarget,'SKILL.md'))){mkdirSync(dirname(skillTarget),{recursive:true});cpSync(skillSource,skillTarget,{recursive:true,force:false,errorOnExist:true});}
- const env={...originalEnv,ADAM_APP_ROOT:root,ADAM_PACKAGED:'1',ADAM_TOOLS:tools,ADAM_ANALYSIS_PYTHON:python,ADAM_CAPCUT_PYTHON:python,ADAM_BROWSER_EXECUTABLE:browser,ADAM_CACHE_DIR:cache,ADAM_NODE:node,PYTHONNOUSERSITE:'1',PYTHONDONTWRITEBYTECODE:'1',HF_HOME:hf,TORCH_HOME:torch,XDG_CACHE_HOME:cache};
+ // House fonts: copied once where projects can keep pointing at them, whatever the version installed.
+ const fontsTarget=join(userData,'fonts'),bundledFonts=join(root,'fonts');mkdirSync(fontsTarget,{recursive:true});
+ for(const name of list(bundledFonts)){const to=join(fontsTarget,name);if(!existsSync(to))cpSync(join(bundledFonts,name),to);}
+ const env={...originalEnv,ADAM_FONTS:fontsTarget,ADAM_CAPCUT_LAB:join(root,'capcut-lab'),ADAM_APP_ROOT:root,ADAM_PACKAGED:'1',ADAM_TOOLS:tools,ADAM_ANALYSIS_PYTHON:python,ADAM_CAPCUT_PYTHON:python,ADAM_BROWSER_EXECUTABLE:browser,ADAM_CACHE_DIR:cache,ADAM_NODE:node,PYTHONNOUSERSITE:'1',PYTHONDONTWRITEBYTECODE:'1',HF_HOME:hf,TORCH_HOME:torch,XDG_CACHE_HOME:cache};
  const key=Object.keys(env).find(k=>k.toLowerCase()==='path')||'PATH';env[key]=[dirname(node),dirname(python),tools,env[key]||''].join(';');delete env.PYTHONHOME;delete env.PYTHONPATH;delete env.ELECTRON_RUN_AS_NODE;
  return {root,node,env};
 }

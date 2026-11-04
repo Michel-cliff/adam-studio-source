@@ -118,7 +118,7 @@ tool("look_at", "Shows a file or URL as a picture: four frames of a video, an im
     return { content: [{ type: "text" as const, text: `${l.kind}: ${l.note}` }, ...(l.jpeg ? [{ type: "image" as const, data: l.jpeg, mimeType: "image/jpeg" }] : [])] };
   });
 
-tool("import_asset", "Copies a file (path) or downloads one (url) into the project's assets folder, records credits, and adds it as an asset. cutout: an image comes in as a paper cut-out (background removed, transparent PNG); show it with an image element whose props.paper is true. Fonts are copied only (use them in the style).",
+tool("import_asset", "Copies a file (path) or downloads one (url) into the project's assets folder, records credits, and adds it as an asset. cutout: an image comes in as a paper cut-out (background removed, transparent PNG; not available in the installed app); show it with an image element whose props.paper is true. Fonts are copied only (use them in the style).",
   { project, source: z.strictObject({ path: z.string().optional(), url: z.string().optional(), kind: kind.optional(), title: z.string().optional(), license: z.string().optional(), creator: z.string().optional(), page: z.string().optional(), cutout: z.boolean().optional() }), id: z.string().optional() },
   async ({ project: p, source, id }) => {
     const dir = dirOf(p);

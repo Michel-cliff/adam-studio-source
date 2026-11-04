@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { writeFileSync } from "node:fs";
-import { daFirstPass, daStatus, daStyle, listDAs, newDA, PALETTE, readDA, setStep, useDA, videoColor, withDA, withVideoDA } from "../../src/lib/da";
+import { defaultStyle } from "../../src/takes";
+import { daFirstPass, daStatus, daStyle, fontsDir, listDAs, newDA, PALETTE, readDA, setStep, useDA, videoColor, withDA, withVideoDA } from "../../src/lib/da";
 
 const FONTS = "C:/Fonts";
 
@@ -107,5 +108,19 @@ describe("from-scratch reference skeleton", () => {
     expect(daStyle(da, FONTS)).toMatchObject({ motion: { stable: true }, fx: { zoomBlur: 8 }, caption: { intro: "none" } });
     setStep(dir, "motion", "light");
     expect(daStyle(readDA(dir), FONTS)).toMatchObject({ motion: { stable: true, push: 0.006 } });
+  });
+});
+
+describe("the house fonts in the installed app", () => {
+  it("come from the folder the app gave them, and make the default style", () => {
+    const dir = mkdtempSync(join(tmpdir(), "adam fonts-"));
+    writeFileSync(join(dir, "Anton-Regular.ttf"), "x"); writeFileSync(join(dir, "Manrope-Variable.ttf"), "x");
+    process.env.ADAM_FONTS = dir;
+    try {
+      expect(fontsDir()).toBe(dir);
+      const style = defaultStyle("C:/Windows/Fonts/arialbd.ttf");
+      expect(style.fonts.title).toEqual({ family: "Anton", file: join(dir, "Anton-Regular.ttf") });
+      expect(style.fonts.caption).toEqual({ family: "Manrope", file: join(dir, "Manrope-Variable.ttf") });
+    } finally { delete process.env.ADAM_FONTS; }
   });
 });

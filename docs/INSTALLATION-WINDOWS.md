@@ -24,7 +24,8 @@ Les projets, DA et réglages existants d’Adam sont réutilisés. La désinstal
 
 - Cible vérifiée : Windows x64. Aucun paquet macOS, Windows ARM ou Linux livré ici.
 - Version non signée : la réputation et les avertissements Windows d’un fichier téléchargé restent à traiter avant une distribution publique.
-- L’export CapCut est expérimental et demande toujours le laboratoire CapCut séparé ; il n’est pas embarqué. L’export MP4 est le parcours principal de cette version.
+- L’export CapCut est embarqué mais expérimental, et demande CapCut Desktop sur la machine. L’export MP4 reste le parcours principal de cette version.
+- Le détourage d’images n’est pas disponible dans la version installée.
 - Les modèles ne sont pas téléchargés pendant l’installation et les fournisseurs IA nécessitent une connexion et un compte utilisateur.
 - Pas de système de mises à jour automatiques configuré pour cette première version.
 - Les essais locaux avec un environnement réduit ne remplacent pas la validation sur une machine Windows vierge, avec différents processeurs et réglages de sécurité.

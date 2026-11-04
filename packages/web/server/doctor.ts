@@ -60,7 +60,7 @@ const fontDirs = (c: Ctx) => c.platform === "win32"
   ? [join(c.localAppData, "Microsoft", "Windows", "Fonts"), "C:\\Windows\\Fonts"]
   : c.platform === "darwin" ? [join(c.home, "Library", "Fonts"), "/Library/Fonts"] : [join(c.home, ".local", "share", "fonts"), "/usr/share/fonts"];
 function missingFonts(c: Ctx): string[] {
-  const files = fontDirs(c).flatMap((d) => c.probe.list(d)).map((f) => f.toLowerCase().replace(/[^a-z]/g, ""));
+  const files = [...fontDirs(c), ...(process.env.ADAM_FONTS ? [process.env.ADAM_FONTS] : [])].flatMap((d) => c.probe.list(d)).map((f) => f.toLowerCase().replace(/[^a-z]/g, ""));
   return FONTS.filter((f) => !files.some((x) => x.startsWith(f.name.toLowerCase().replace(/[^a-z]/g, "")))).map((f) => f.name);
 }
 

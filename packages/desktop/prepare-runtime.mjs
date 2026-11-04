@@ -31,6 +31,17 @@ for(const [path,pkg]of Object.entries(lock.packages)){
 for(const name of names)copy(join(payload,'packages',name),join(payload,'node_modules/@adam-studio',name));
 copy(join(root,'node_modules/.remotion'),join(payload,'node_modules/.remotion'));
 if(existsSync(join(root,'node_modules/.bin/tsx.cmd'))){mkdirSync(join(payload,'node_modules/.bin'),{recursive:true});for(const name of ['tsx','tsx.cmd','tsx.ps1'])if(existsSync(join(root,'node_modules/.bin',name)))copy(join(root,'node_modules/.bin',name),join(payload,'node_modules/.bin',name));}
+console.log('Preparing house fonts and the CapCut library');
+const hostFonts=join(process.env.LOCALAPPDATA||'','Microsoft/Windows/Fonts');
+mkdirSync(join(payload,'fonts'),{recursive:true});mkdirSync(join(payload,'licenses/fonts'),{recursive:true});
+for(const [file,folder]of [['Anton-Regular.ttf','anton'],['DMSerifDisplay-Regular.ttf','dmserifdisplay'],['Manrope-Variable.ttf','manrope']]){
+ const from=join(hostFonts,file);if(!existsSync(from))throw Error(`House font missing on this machine: ${file}. Install the fonts with npm run setup.`);
+ copy(from,join(payload,'fonts',file));
+ const licence=await fetch(`https://raw.githubusercontent.com/google/fonts/main/ofl/${folder}/OFL.txt`);if(!licence.ok)throw Error(`Font licence not found for ${folder}`);
+ writeFileSync(join(payload,'licenses/fonts',`${folder}-OFL.txt`),await licence.text());
+}
+const capcutLab=process.env.ADAM_CAPCUT_LAB||join(process.env.USERPROFILE||'','ClaudeCapcut/VectCutAPI');
+for(const name of ['pyJianYingDraft','draft_profiles.py','settings','template','LICENSE']){if(!existsSync(join(capcutLab,name)))throw Error(`CapCut library incomplete: ${name} missing in ${capcutLab}`);copy(join(capcutLab,name),join(payload,'capcut-lab',name));}
 console.log('Preparing Node and multimedia tools');
 mkdirSync(bin,{recursive:true});copy(process.execPath,join(bin,'node.exe'));
 const npmRoot=join(dirname(process.execPath),'node_modules/npm');if(!existsSync(npmRoot))throw Error('Build host npm runtime missing');copy(npmRoot,join(bin,'node_modules/npm'));
@@ -48,11 +59,12 @@ const site=join(py,'Lib/site-packages');mkdirSync(site,{recursive:true});
 for(const env of ['analysis','capcut']){const source=join(root,'py',env,'.venv/Lib/site-packages');for(const entry of readdirSync(source)){if(env==='capcut'&&!/^(imageio|PIL|pillow)/i.test(entry))continue;if(entry.endsWith('.pth')||entry.startsWith('__editable__')||excluded.has(entry)||existsSync(join(site,entry)))continue;copy(join(source,entry),join(site,entry));}}
 for(const name of ['adam_analysis','adam_capcut'])copy(join(payload,'py',name==='adam_analysis'?'analysis':'capcut',name),join(site,name));
 writeFileSync(join(payload,'third-party-packages.json'),JSON.stringify(notices,null,2));
-writeFileSync(join(payload,'BUILD-NOTICE.txt'),'Internal Windows x64 build. No user projects, credentials, model caches or private reference media included. Models download on first use. AI accounts and the experimental CapCut lab are not bundled. Third-party licenses remain with their packages; complete distribution review before public release.\n');
+writeFileSync(join(payload,'BUILD-NOTICE.txt'),'Internal Windows x64 build. No user projects, credentials, model caches or private reference media included. Models download on first use. AI accounts are not bundled. Third-party licenses remain with their packages; complete distribution review before public release.\n');
 const chrome=find(join(payload,'node_modules/.remotion'),'chrome-headless-shell.exe');if(!chrome)throw Error('Remotion browser missing');
 writeFileSync(join(payload,'runtime.json'),JSON.stringify({version:1,node:'bin/node.exe',python:'python/python.exe',browser:relative(payload,chrome)},null,2));
 const env={...process.env,PYTHONNOUSERSITE:'1',PYTHONDONTWRITEBYTECODE:'1'};delete env.PYTHONHOME;delete env.PYTHONPATH;
 execFileSync(join(py,'python.exe'),['-I','-c','import sys,numpy,torch,cv2,faster_whisper,simple_lama_inpainting,adam_analysis,adam_capcut,imageio;print("PACKAGED_PYTHON_OK",sys.prefix)'],{cwd:payload,env,stdio:'inherit',windowsHide:true});
+execFileSync(join(py,'python.exe'),['-I','-c','import sys;sys.path.insert(0,sys.argv[1]);import draft_profiles,pyJianYingDraft,pyJianYingDraft.text_segment;p=draft_profiles.get_draft_profile();assert p.name=="capcut_legacy",p.name;print("PACKAGED_CAPCUT_OK",p.name)',join(payload,'capcut-lab')],{cwd:payload,env,stdio:'inherit',windowsHide:true});
 execFileSync(join(bin,'node.exe'),['--version'],{stdio:'inherit',windowsHide:true});execFileSync(join(bin,'ffmpeg.exe'),['-v','error','-version'],{stdio:'pipe',windowsHide:true});
 console.log('RUNTIME_READY '+payload);
 function find(dir,name){for(const entry of readdirSync(dir,{withFileTypes:true})){const p=join(dir,entry.name);if(entry.name===name)return p;if(entry.isDirectory()){const hit=find(p,name);if(hit)return hit;}}}
