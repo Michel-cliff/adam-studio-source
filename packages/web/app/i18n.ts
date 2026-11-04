@@ -1,17 +1,18 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
 import { FR } from "./i18n-fr";
+import { initialLang, LANG_KEY, type Lang } from "./lang-default";
 import { toFrench, translatePage } from "./translate";
 
 // The interface in English or French: the words of the shell, steps and main actions.
-export type Lang = "en" | "fr";
+export type { Lang };
 
-let lang: Lang = (() => { try { return localStorage.getItem("adam.lang") === "fr" ? "fr" : "en"; } catch { return "en"; } })();
+let lang: Lang = (() => { try { return initialLang(localStorage.getItem(LANG_KEY)); } catch { return "fr"; } })();
 const subs = new Set<() => void>();
 export const t = (s: string) => (lang === "fr" ? FR[s] ?? toFrench(s) ?? s : s);
 export function setLang(l: Lang) {
   lang = l;
-  try { localStorage.setItem("adam.lang", l); } catch { /* private mode */ }
+  try { localStorage.setItem(LANG_KEY, l); } catch { /* private mode */ }
   document.documentElement.lang = l;
   subs.forEach((f) => f());
   translatePage(l === "fr");

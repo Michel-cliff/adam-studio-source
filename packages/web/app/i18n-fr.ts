@@ -560,6 +560,7 @@ export const FR: Record<string, string> = {
   "Face camera": "Face caméra",
   "Tutorial": "Tuto",
   "Motion design": "Motion design",
+  "Download": "Télécharger",
   "Text only": "Texte seul",
   "Name": "Nom",
   "cancel": "annuler",

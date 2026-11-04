@@ -91,7 +91,7 @@ export type UiLang = (typeof LANGS)[number];
 /** The language of the creator's interface when they ask: what Adam writes for them follows it. */
 export function uiLang(file = SETTINGS_FILE): UiLang {
   const l = read(file).lang;
-  return LANGS.includes(l as UiLang) ? (l as UiLang) : "en";
+  return LANGS.includes(l as UiLang) ? (l as UiLang) : "fr";
 }
 
 export function setUiLang(l: string, file = SETTINGS_FILE): void {

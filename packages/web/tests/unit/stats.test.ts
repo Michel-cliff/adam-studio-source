@@ -154,7 +154,8 @@ describe("the AI for questions outside the edit", () => {
     expect(pic.args[1]).toMatch(/Read these files[\s\S]*C:\/s\.png/);
     expect(pic.args).toEqual(expect.arrayContaining(["--tools", "Read", "--allowedTools", "Read", "--model", "sonnet"]));
     const codex = aiCommand("codex", "default", "read it", ["C:/s.png"]);
-    expect(codex.args.slice(-3)).toEqual(["-i", "C:/s.png", "read it"]);
+    // -i takes several files: without the separator Codex swallows the prompt as one more image.
+    expect(codex.args.slice(-4)).toEqual(["-i", "C:/s.png", "--", "read it"]);
   });
   it("takes the whole final answer, and the JSON in it", () => {
     expect(fullAnswer('{"type":"result","result":"Long answer\\n\\nwith two paragraphs."}')).toBe("Long answer\n\nwith two paragraphs.");

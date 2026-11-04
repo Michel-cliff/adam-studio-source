@@ -12,7 +12,9 @@ export type AskAI = (q: { prompt: string; images?: string[]; signal?: AbortSigna
 export function aiCommand(engine: Engine, model: string, prompt: string, images: string[] = []): { cmd: string; args: string[] } {
   if (engine === "codex") {
     return { cmd: codexBin(), args: ["exec", "--json", "--skip-git-repo-check", "--ephemeral", "--sandbox", "read-only", "-c", 'approval_policy="never"',
-      ...(model === "default" ? [] : ["-m", model]), ...images.flatMap((i) => ["-i", i]), prompt] };
+      ...(model === "default" ? [] : ["-m", model]), ...images.flatMap((i) => ["-i", i]),
+      // -i takes several files: without the separator Codex swallows the prompt as one more image ("No prompt provided").
+      ...(images.length ? ["--"] : []), prompt] };
   }
   const see = images.length ? `\n\nRead these files first with the Read tool:\n${images.map((i) => `- ${i}`).join("\n")}` : "";
   return { cmd: claudeBin(), args: ["-p", prompt + see, "--output-format", "stream-json", "--verbose", ...(model === "default" ? [] : ["--model", model]),
