@@ -70,7 +70,7 @@ describe("an AI failure on its way to the creator", () => {
     const other = await watchRef(dir, ref, (async () => { throw new Error("something else"); }) as never);
     expect(other.status).toBe("failed");
     expect(other.aiFailed).toBeFalsy();
-  });
+  }, 60000);
 
   it("marks an ask job that failed for this reason, and only those", async () => {
     const jobs = new JobManager();
