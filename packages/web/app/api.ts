@@ -1,3 +1,7 @@
+export const AI_FAILURE = "adam-ai-failure";
+/** The AI failed for a reason the creator can act on: the page offers to switch AI. */
+export const reportAiFailure = (text: string) => { dispatchEvent(new CustomEvent(AI_FAILURE, { detail: text })); };
+
 export async function api<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
   const r = await fetch(`/api${path}`, {
     method: init.method ?? "GET",
@@ -5,6 +9,7 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
     body: init.body === undefined ? undefined : JSON.stringify(init.body),
   });
   const data = await r.json().catch(() => ({}));
+  if (data.aiFailure) reportAiFailure(data.error);
   if (!r.ok) throw new Error(data.error ?? `${r.status} ${r.statusText}`);
   return data as T;
 }

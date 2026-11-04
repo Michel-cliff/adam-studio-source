@@ -2,7 +2,7 @@ import { createWriteStream, existsSync, mkdirSync, readFileSync, rmSync } from "
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { basename, extname, isAbsolute, join, relative } from "node:path";
 import { pipeline } from "node:stream/promises";
-import { jsonIn, type AskAI } from "./ai";
+import { AiError, jsonIn, type AskAI } from "./ai";
 import { serveFile } from "./files";
 import { safeName } from "./guards";
 import { listProjects } from "./projects";
@@ -171,7 +171,7 @@ export async function statsRoute(c: Ctx): Promise<boolean> {
     if ((m = path.match(/^\/api\/stats\/refs\/([\w]+)\/retry$/)) && method === "POST") {
       const ref = readStats(dir).refs.find((r) => r.id === m![1]);
       if (!ref) throw new StatsError("no such reference");
-      void watchRef(dir, updateRef(dir, ref.id, { status: "watching", error: undefined }), ai);
+      void watchRef(dir, updateRef(dir, ref.id, { status: "watching", error: undefined, aiFailed: undefined }), ai);
       send(202, all()); return true;
     }
     // What Claude saw in a reference, kept as rules: to follow ("use") or never to do ("donts").
@@ -199,6 +199,7 @@ export async function statsRoute(c: Ctx): Promise<boolean> {
     if ((m = path.match(/^\/api\/stats\/rules\/([\w]+)$/)) && method === "PUT") { setRule(dir, m[1]!, await c.body()); send(200, all()); return true; }
     if ((m = path.match(/^\/api\/stats\/rules\/([\w]+)$/)) && method === "DELETE") { removeRule(dir, m[1]!); send(200, all()); return true; }
   } catch (e) {
+    if (e instanceof AiError) throw e;
     send(400, { error: (e as Error).message }); return true;
   }
   return false;

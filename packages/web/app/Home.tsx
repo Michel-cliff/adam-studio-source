@@ -1,3 +1,4 @@
+import { ClaudeBar } from "./ClaudeBar";
 import { t as uiText } from "./i18n";
 import { useEffect, useState } from "react";
 import type { ProjectView } from "../server/types";
@@ -216,6 +217,8 @@ export function Home() {
             <div className="kv"><span>Last render</span><b>{p.renders[0] ? new Date(p.renders[0].mtime).toLocaleDateString([], { day: "numeric", month: "short" }) : "none"}</b></div>
             <a className="act fill" href={`#/p/${enc(p.name)}`}><span>{t("OPEN IN STUDIO")} · {t(g[0]!.toUpperCase() + g.slice(1)).toUpperCase()}</span><span>→</span></a>
           </>}
+          <div className="kv sep"><span>{t("AI")}</span></div>
+          <div className="kv claude"><ClaudeBar stamp="home" /></div>
           <div className="kv sep">
             {editRoot ? (
               <input aria-label="Projects folder" value={root} onChange={(e) => setRoot(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void saveRoot(); if (e.key === "Escape") setEditRoot(false); }} autoFocus />

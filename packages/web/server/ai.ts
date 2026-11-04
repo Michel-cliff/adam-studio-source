@@ -2,9 +2,15 @@
 // a reference to describe. No adam-studio tools; pictures are read from disk (Claude's Read tool, Codex's -i).
 import { spawn, spawnSync } from "node:child_process";
 import { claudeBin } from "./claude";
+import { aiFailureOf, aiFailureText, type AiFailure } from "./ai-errors";
 import { codexBin } from "./codex";
 import { readEvent } from "../app/feed";
 import type { Engine } from "./settings";
+
+/** The AI could not answer for a reason the creator can act on; the message says it plainly. */
+export class AiError extends Error {
+  constructor(message: string, readonly failure: AiFailure) { super(message); }
+}
 
 export type AskAI = (q: { prompt: string; images?: string[]; signal?: AbortSignal }) => Promise<string>;
 
@@ -39,7 +45,12 @@ export function jsonIn<T>(text: string): T | null {
   try { return JSON.parse(text.slice(start, end + 1)) as T; } catch { return null; }
 }
 
-export function aiRunner(engine: () => Engine, model: () => string, timeoutMs = 240_000, env: () => Record<string, string> = () => ({})): AskAI {
+export function aiRunner(engine: () => Engine, model: () => string, timeoutMs = 240_000, env: () => Record<string, string> = () => ({}), lang: () => "en" | "fr" = () => "en"): AskAI {
+  /** A clear error when we know what happened, the tool's own words otherwise. */
+  const failure = (raw: string, fallback = raw): Error => {
+    const f = aiFailureOf(raw);
+    return f ? new AiError(aiFailureText(f, engine(), lang()), f) : new Error(fallback);
+  };
   return ({ prompt, images = [], signal }) => new Promise((done, fail) => {
     if (signal?.aborted) { fail(signal.reason); return; }
     const { cmd, args } = aiCommand(engine(), model(), prompt, images);
@@ -53,16 +64,16 @@ export function aiRunner(engine: () => Engine, model: () => string, timeoutMs = 
     const abort = () => { terminate(); };
     signal?.addEventListener("abort", abort, { once: true });
     if (signal?.aborted) abort();
-    const kill = setTimeout(() => { terminate(); fail(new Error("the AI took too long to answer")); }, timeoutMs);
+    const kill = setTimeout(() => { terminate(); fail(failure("the AI took too long to answer")); }, timeoutMs);
     p.stdout.on("data", (d) => (out += d));
     p.stderr.on("data", (d) => (err += d));
-    p.on("error", (e) => { clearTimeout(kill); signal?.removeEventListener("abort", abort); fail(new Error(`could not start the AI: ${e.message}`)); });
+    p.on("error", (e) => { clearTimeout(kill); signal?.removeEventListener("abort", abort); fail(failure(`could not start the AI: ${e.message}`)); });
     p.on("close", () => {
       clearTimeout(kill); signal?.removeEventListener("abort", abort);
       if (signal?.aborted) { fail(signal.reason); return; }
       // lastSaid keeps the whole answer here: the feed's short form is for the activity line only.
       const full = fullAnswer(out);
-      if (full) done(full); else fail(new Error(lastSaid(out) || err.trim().split("\n").pop() || "the AI gave no answer"));
+      if (full) done(full); else fail(failure(`${out}\n${err}`, lastSaid(out) || err.trim().split("\n").pop() || "the AI gave no answer"));
     });
   });
 }

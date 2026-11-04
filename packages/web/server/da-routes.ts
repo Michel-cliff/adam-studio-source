@@ -3,7 +3,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { IncomingMessage } from "node:http";
-import type { AskAI } from "./ai";
+import { AiError, type AskAI } from "./ai";
 import { importDA, uploadDAReference } from "./da-import";
 import { saveDA } from "@adam-studio/render/src/lib/da";
 import { resolve } from "@adam-studio/model";
@@ -73,7 +73,7 @@ export async function daRoute(c: Ctx): Promise<boolean> {
       const da = await importDA(daDir, String(b.name ?? ""), b.ids, c.ai, lang);
       writeFileSync(join(daDir, "da-onboarded"), "done");
       send(200, { da, status: daStatus(da), list: listDAs(daDir) });
-    } catch (e) { send(400, { error: (e as Error).message }); } return true;
+    } catch (e) { if (e instanceof AiError) throw e; send(400, { error: (e as Error).message }); } return true;
   }
   if ((m = path.match(/^\/api\/da\/([^/]+)$/)) && method === "DELETE") {
     try { deleteDA(daDir, decodeURIComponent(m[1]!)); const da = readDA(daDir); send(200, { da, status: daStatus(da), list: listDAs(daDir) }); }

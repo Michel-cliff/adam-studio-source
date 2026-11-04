@@ -9,6 +9,7 @@ export type { Lang };
 
 let lang: Lang = (() => { try { return initialLang(localStorage.getItem(LANG_KEY)); } catch { return "fr"; } })();
 const subs = new Set<() => void>();
+export const getLang = () => lang;
 export const t = (s: string) => (lang === "fr" ? FR[s] ?? toFrench(s) ?? s : s);
 export function setLang(l: Lang) {
   lang = l;

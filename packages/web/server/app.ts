@@ -17,7 +17,8 @@ import { askCommand, claudeBin } from "./claude";
 import { codexAskCommand, codexBin, installed, parseCodexUsage } from "./codex";
 import { stepContext } from "./context";
 import { libraryRoute } from "./library-routes";
-import { aiRunner, type AskAI } from "./ai";
+import { AiError, aiRunner, type AskAI } from "./ai";
+import { aiFailureText } from "./ai-errors";
 import { learnedFor } from "./stats";
 import { Autopilot } from "./autopilot";
 import type { JobView } from "./types";
@@ -84,7 +85,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
   const capcutPython = opts.capcutPython ?? (() => venvPython("capcut", "ADAM_CAPCUT_PYTHON"));
   const dist = opts.dist ?? join(WEB, "dist");
   // The AI for questions outside the edit (statistics): the one the creator picked, with its model.
-  const ai = opts.ai ?? aiRunner(() => engine(settingsFile), () => (engine(settingsFile) === "codex" ? codexModel(settingsFile) : claudeModel(settingsFile)), 240_000);
+  const ai = opts.ai ?? aiRunner(() => engine(settingsFile), () => (engine(settingsFile) === "codex" ? codexModel(settingsFile) : claudeModel(settingsFile)), 240_000, () => ({}), () => uiLang(settingsFile));
   const codexQuota = new CodexQuota();
   const claudeQuota = new ClaudeQuota(dirname(settingsFile));
   const clients = new Set<(d: unknown) => void>();
@@ -133,6 +134,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     close: (dir) => { closeCurrentStep(dir); },
     ask: async (name, dir, step, prompt) => {
       const job = await ended((done) => askJob(name, dir, step, prompt, "propose", [], done));
+      if (job.ai) throw new AiError(aiFailureText(job.ai, engine(settingsFile), uiLang(settingsFile)), job.ai);
       if (job.state !== "done") throw new Error(`Generation ${job.state}: ${job.label}`);
     },
     render: async (name, dir) => (await ended((done) => jobs.start(name, buildCommand("render", dir, {}, capcutPython()), done))).state === "done",
@@ -481,6 +483,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     }
     route(req, res, port).catch((e: unknown) => {
       if (res.headersSent) { res.end(); return; }
+      if (e instanceof AiError) return send(res, 503, { error: e.message, aiFailure: true });
       if (e instanceof HttpError) return send(res, e.status, { error: e.message });
       if (e instanceof ActionError || e instanceof ToolError) return send(res, 400, { error: e.message });
       if (e instanceof BusyError) return send(res, 409, { error: e.message });

@@ -4,7 +4,7 @@ import { execFile } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { jsonIn, type AskAI } from "./ai";
+import { AiError, jsonIn, type AskAI } from "./ai";
 import { uiLang } from "./settings";
 import { readStats, topicOf, TOPICS, trends, updateRef, type Beat, type Ref, type Saw, type Topic } from "./stats";
 
@@ -76,7 +76,7 @@ export async function watchRef(dir: string, ref: Ref, ai: AskAI): Promise<Ref> {
     const seen = jsonIn<Seen>(answer);
     if (!seen?.saw?.length) throw new Error("the AI did not describe the video");
     return updateRef(dir, ref.id, {
-      status: "watched", error: undefined, title: String(seen.title ?? title ?? ref.name).slice(0, 60), shot: pics[0],
+      status: "watched", error: undefined, aiFailed: undefined, title: String(seen.title ?? title ?? ref.name).slice(0, 60), shot: pics[0],
       saw: seen.saw.slice(0, 6).map((s) => ({ k: String(s.k).toUpperCase().slice(0, 10), v: String(s.v).slice(0, 240) })),
       beats: (seen.beats ?? []).slice(0, 6).map((b) => ({ label: String(b.label).slice(0, 24), weight: Math.min(4, Math.max(1, Number(b.weight) || 1)), kind: String(b.kind ?? "other") })),
       traits: (seen.traits ?? []).slice(0, 5).map((t) => String(t).slice(0, 80)),
@@ -84,6 +84,7 @@ export async function watchRef(dir: string, ref: Ref, ai: AskAI): Promise<Ref> {
       ...(title && ref.url ? { name: title.slice(0, 60) } : {}),
     });
   } catch (e) {
-    return updateRef(dir, ref.id, { status: "failed", error: (e as Error).message.split("\n").find((l) => /ERROR|error/.test(l))?.slice(0, 200) ?? (e as Error).message.slice(0, 200) });
+    if (e instanceof AiError) return updateRef(dir, ref.id, { status: "failed", error: e.message, aiFailed: true });
+    return updateRef(dir, ref.id, { status: "failed", aiFailed: undefined, error: (e as Error).message.split("\n").find((l) => /ERROR|error/.test(l))?.slice(0, 200) ?? (e as Error).message.slice(0, 200) });
   }
 }

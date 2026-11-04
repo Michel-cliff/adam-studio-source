@@ -3,12 +3,13 @@ import { Edit } from "@adam-studio/render/edit";
 import type { RenderProps } from "@adam-studio/render/src/props";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JobEvent, JobView, ProjectView, ProposalView } from "../server/types";
-import { api, enc, fileUrl, go, ms } from "./api";
+import { aiFailureText } from "../server/ai-errors";
+import { api, enc, fileUrl, go, ms, reportAiFailure } from "./api";
 import { AssetsPanel, dropInto, mention } from "./Assets";
 import { ClaudeBar, ENGINE_EVENT } from "./ClaudeBar";
 import { aiOf, readEvent } from "./feed";
 import { ConnectorsPanel, SkillsPanel } from "./Connectors";
-import { t, useLang } from "./i18n";
+import { getLang, t, useLang } from "./i18n";
 import { reportSupportJob } from "./SupportPrompt";
 import { JobLog } from "./JobLog";
 import { askStep, GROUPS, groupOf, groupState, openGroup, type GroupId } from "./steps";
@@ -84,7 +85,11 @@ function ClaudeFeed({ job, onEnd }: { job: JobView; onEnd: () => void }) {
     ev.onmessage = (m) => {
       const e = JSON.parse(m.data) as JobEvent;
       if (e.type === "output") take(e.text);
-      else { setState(e.job.state); ev.close(); onEnd(); }
+      else {
+        setState(e.job.state); ev.close(); onEnd();
+        const who = aiOf(e.job.label);
+        if (e.job.ai && who) reportAiFailure(aiFailureText(e.job.ai, who.ai.toLowerCase() === "codex" ? "codex" : "claude", getLang()));
+      }
     };
     return () => ev.close();
   }, [job.id]);

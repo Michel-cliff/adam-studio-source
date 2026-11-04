@@ -1,5 +1,7 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import type { Command } from "./actions";
+import { aiOf } from "../app/feed";
+import { aiFailureOf } from "./ai-errors";
 import type { Hint, JobEvent, JobView } from "./types";
 
 const MAX_OUTPUT = 200_000;
@@ -41,6 +43,9 @@ export class JobManager {
       if (job.state !== "running") return;
       job.state = this.stopping.delete(job.id) ? "stopped" : code === 0 ? "done" : "failed";
       job.hint = job.state === "failed" ? hintOf(job.output) : null;
+      // Only an ask job can fail for this reason: other logs may mention a limit for another reason.
+      const ai = job.state === "failed" && aiOf(job.label) ? aiFailureOf(job.output) : null;
+      if (ai) job.ai = ai;
       job.endedAt = Date.now();
       this.procs.delete(job.id);
       emit({ type: "end", job: { ...job } });

@@ -1,3 +1,5 @@
+import { flashAiSwitch } from "./AiFailureBar";
+import { reportAiFailure } from "./api";
 import { t as uiText } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { api, enc } from "./api";
@@ -6,7 +8,7 @@ import { t, useLang } from "./i18n";
 type Msg = { who: "you" | "ai"; text: string };
 type VideoStats = { metrics: Record<string, string>; note: string; links: string[]; chat: Msg[]; source?: string };
 type Video = { name: string; exported: boolean; where: string; stats: VideoStats };
-type Ref = { id: string; name: string; source: string; status: "watching" | "watched" | "failed"; error?: string; title?: string;
+type Ref = { id: string; name: string; source: string; status: "watching" | "watched" | "failed"; error?: string; aiFailed?: boolean; title?: string;
   saw: { k: string; v: string }[]; beats: { label: string; weight: number; kind: string }[]; shot?: string };
 type Rule = { id: string; topic: string; text: string; source: string; on: boolean };
 type All = { videos: Video[]; refs: Ref[]; rules: Rule[]; trends: { trait: string; count: number; of: number }[]; metrics: { k: string; label: string }[] };
@@ -50,6 +52,7 @@ function useAiName() {
 async function upload(path: string, file: File) {
   const r = await fetch(`/api${path}${path.includes("?") ? "&" : "?"}name=${enc(file.name)}`, { method: "POST", body: file });
   const j = await r.json();
+  if (j.aiFailure) reportAiFailure(j.error);
   if (!r.ok) throw new Error(j.error ?? r.statusText);
   return j;
 }
@@ -257,7 +260,7 @@ function References({ s }: { s: ReturnType<typeof useAll> }) {
             <span className="mono">{r.source} · {r.status === "watching" ? "WATCHING…" : r.status.toUpperCase()}</span></div>
           <div className="ref-scroll">
           {r.status === "watching" && <p className="note"><i className="pulse" /> DOWNLOADING, TAKING FRAMES, THEN THE AI DESCRIBES IT. A MINUTE OR TWO.</p>}
-          {r.status === "failed" && <p className="error">{r.error} <button type="button" className="link" onClick={() => void s.call(`/stats/refs/${r.id}/retry`, "POST")}>Try again</button></p>}
+          {r.status === "failed" && <p className="error">{r.error} {r.aiFailed && <><a className="link" href="#/" onClick={() => flashAiSwitch()}>{t("Switch AI")}</a> · </>}<button type="button" className="link" onClick={() => void s.call(`/stats/refs/${r.id}/retry`, "POST")}>Try again</button></p>}
           {r.status === "watched" && <>
             <div className="refbody">
               <div className="frame">{r.shot && <img src={fileUrl(r.shot)} alt="" />}</div>

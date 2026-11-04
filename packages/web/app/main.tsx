@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AiFailureBar } from "./AiFailureBar";
 import { SupportPrompt } from "./SupportPrompt";
 import { Onboarding } from "./Onboarding";
 import { DaSpace } from "./DaSpace";
@@ -73,6 +74,7 @@ function App() {
       <SetupNote />
       <Onboarding />
       <SupportPrompt />
+      <AiFailureBar />
     </div>
   );
 }

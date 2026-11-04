@@ -1,6 +1,6 @@
 export type JobState = "running" | "done" | "failed" | "stopped";
 export type Hint = "force" | "replace" | null;
-export interface JobView { id: string; project: string; label: string; state: JobState; output: string; startedAt: number; endedAt?: number; hint: Hint; link?: string }
+export interface JobView { id: string; project: string; label: string; state: JobState; output: string; startedAt: number; endedAt?: number; hint: Hint; link?: string; ai?: import("./ai-errors").AiFailure }
 export type JobEvent = { type: "output"; text: string } | { type: "end"; job: JobView };
 
 export type CacheState = "done" | "missing" | "on demand";
