@@ -1,9 +1,10 @@
-const {app,BrowserWindow,dialog,Menu,screen,shell,nativeImage}=require('electron');
+const {app,autoUpdater,BrowserWindow,dialog,Menu,screen,shell,nativeImage}=require('electron');
 const {fork,spawn,spawnSync}=require('node:child_process');
 const {join,dirname,basename}=require('node:path');
 const {readFileSync,writeFileSync,mkdirSync}=require('node:fs');
 const {randomBytes}=require('node:crypto');
 const {fitWindow,isLocal,isExternal}=require('./policy.cjs');
+const {canCheck,startUpdates}=require('./updates.cjs');
 // Squirrel invokes these hooks during per-user install/update/uninstall. Never open the Studio for them.
 if(app.isPackaged && process.argv.some(a=>['--squirrel-install','--squirrel-updated','--squirrel-uninstall','--squirrel-obsolete'].includes(a))){
  const event=process.argv.find(a=>['--squirrel-install','--squirrel-updated','--squirrel-uninstall','--squirrel-obsolete'].includes(a));
@@ -44,11 +45,14 @@ function saved(){try{return JSON.parse(readFileSync(stateFile(),'utf8'));}catch{
 function save(){if(!win||win.isDestroyed())return;try{mkdirSync(app.getPath('userData'),{recursive:true});writeFileSync(stateFile(),JSON.stringify({bounds:win.getNormalBounds(),maximized:win.isMaximized(),zoom:win.webContents.getZoomFactor()}));}catch(e){console.error('Window state:',e.message);}}
 function killBackend(){if(!child||child.exitCode!==null||forceKilled)return;forceKilled=true;if(process.platform==='win32'&&child.pid)spawnSync('taskkill',['/pid',String(child.pid),'/T','/F'],{windowsHide:true});else child.kill('SIGTERM');}
 function request(type){return new Promise((resolve,reject)=>{const id=++seq;const timer=setTimeout(()=>{pending.delete(id);reject(Error('Backend timeout'));},5000);pending.set(id,v=>{clearTimeout(timer);resolve(v);});child.send({type,id});});}
-async function stop(){
- if(quitting)return;quitting=true;save();
+async function release(){
+ quitting=true;save();
  await new Promise(resolve=>{if(!child||child.exitCode!==null)return resolve();const timer=setTimeout(resolve,4000);child.once('message',m=>{if(m.type==='stopped'){clearTimeout(timer);resolve();}});child.once('exit',()=>{clearTimeout(timer);resolve();});child.send({type:'shutdown'});});
- killBackend();if(win&&!win.isDestroyed())win.destroy();app.quit();
+ killBackend();
 }
+async function stop(){if(quitting)return;await release();if(win&&!win.isDestroyed())win.destroy();app.quit();}
+// quitAndInstall closes the windows and quits by itself, and must be the one to do it: Squirrel then swaps the version and relaunches.
+async function installUpdate(){if(quitting)return;await release();try{autoUpdater.quitAndInstall();}catch(error){console.error('Update:',error);app.quit();}}
 async function close(){
  if(checking||quitting)return;checking=true;
  try{
@@ -83,7 +87,9 @@ app.whenReady().then(async()=>{
  win.webContents.on('will-navigate',(e,url)=>{if(!isLocal(url,origin))e.preventDefault();});
  win.webContents.on('will-redirect',(e,url)=>{if(!isLocal(url,origin))e.preventDefault();});
  win.webContents.setWindowOpenHandler(({url})=>{if(isLocal(url,origin))win.webContents.downloadURL(url);else if(isExternal(url))void shell.openExternal(url);return {action:'deny'};});
- Menu.setApplicationMenu(Menu.buildFromTemplate([{label:lang==='fr'?'Application':'Application',submenu:[{label:lang==='fr'?'Quitter':'Quit',click:()=>void close()}]},{label:lang==='fr'?'Édition':'Edit',submenu:[{role:'undo'},{role:'redo'},{type:'separator'},{role:'cut'},{role:'copy'},{role:'paste'},{role:'selectAll'}]},{label:lang==='fr'?'Affichage':'View',submenu:[{role:'reload'},{role:'resetZoom'},{role:'zoomIn'},{role:'zoomOut'},{role:'togglefullscreen'}]}]));
+ const updates=canCheck({packaged:app.isPackaged,smoke,argv:process.argv})?startUpdates({autoUpdater,version:app.getVersion(),lang,busy:async()=>(await request('status')).busy,ask:async({message,detail,buttons})=>(await dialog.showMessageBox(win,{type:'info',title:'Adam Studio',message,detail,buttons,defaultId:0,cancelId:buttons.length-1,noLink:true})).response,restart:()=>void installUpdate(),log:error=>console.error('Update:',error?.message||error)}):null;
+ const appMenu=[...(updates?[{label:lang==='fr'?'Rechercher les mises à jour':'Check for updates',click:()=>updates.check(true)}]:[]),...(runtime?[{label:lang==='fr'?'Licences':'Licences',click:()=>void shell.openPath(join(root,'licenses'))}]:[]),{type:'separator'},{label:lang==='fr'?'Quitter':'Quit',click:()=>void close()}];
+ Menu.setApplicationMenu(Menu.buildFromTemplate([{label:lang==='fr'?'Application':'Application',submenu:appMenu},{label:lang==='fr'?'Édition':'Edit',submenu:[{role:'undo'},{role:'redo'},{type:'separator'},{role:'cut'},{role:'copy'},{role:'paste'},{role:'selectAll'}]},{label:lang==='fr'?'Affichage':'View',submenu:[{role:'reload'},{role:'resetZoom'},{role:'zoomIn'},{role:'zoomOut'},{role:'togglefullscreen'}]}]));
  win.on('close',e=>{if(!quitting){e.preventDefault();void close();}});
  let saveTimer;for(const event of ['move','resize','maximize','unmaximize'])win.on(event,()=>{clearTimeout(saveTimer);saveTimer=setTimeout(save,300);});
  const adapt=()=>{if(win&&!win.isDestroyed()&&!win.isMaximized())win.setBounds(fitWindow(win.getBounds(),screen.getAllDisplays().map(d=>d.workArea)));};

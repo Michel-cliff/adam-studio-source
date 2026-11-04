@@ -16,5 +16,8 @@ Installe Microsoft Visual C++ Redistributable (x64) : https://aka.ms/vc14/vc_red
 - Pour les étapes guidées par l'IA, il te faut ton propre compte Claude ou Codex.
   Tu peux changer d'IA depuis la page principale.
 - L'export CapCut est expérimental et demande CapCut Desktop.
+- Les mises à jour se téléchargent toutes seules. Adam Studio te demande avant de redémarrer et ne le fait
+  jamais pendant un rendu. Si tu préfères attendre, elle s'installe au prochain démarrage.
+- Licences des composants : menu Application, puis Licences.
 
 Une question ? hello@contact.cliffiscurious.com

@@ -35,3 +35,12 @@ test('the CapCut export uses the bundled library, never a folder of the machine'
  const r=packagedRuntime(resources,data,{ADAM_CAPCUT_LAB:'C:\\elsewhere'});
  assert.equal(r.env.ADAM_CAPCUT_LAB,path.join(resources,'payload/capcut-lab'));
 });
+
+test('an update refreshes the skill it installed, but never one the creator changed or brought',()=>{
+ const resources=fixture(),profile=path.join(resources,'p'),data=path.join(resources,'user');
+ const source=path.join(resources,'payload/skills/adam-studio');fs.mkdirSync(source,{recursive:true});fs.writeFileSync(path.join(source,'SKILL.md'),'v1');
+ const env={USERPROFILE:profile,HOME:profile},skill=path.join(profile,'.claude/skills/adam-studio/SKILL.md');
+ packagedRuntime(resources,data,env);assert.equal(fs.readFileSync(skill,'utf8'),'v1');
+ fs.writeFileSync(path.join(source,'SKILL.md'),'v2');packagedRuntime(resources,data,env);assert.equal(fs.readFileSync(skill,'utf8'),'v2');
+ fs.writeFileSync(skill,'mine');fs.writeFileSync(path.join(source,'SKILL.md'),'v3');packagedRuntime(resources,data,env);assert.equal(fs.readFileSync(skill,'utf8'),'mine');
+});

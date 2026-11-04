@@ -58,3 +58,42 @@ export function connectCodex(file: string, server: { command: string; args: stri
     'default_tools_approval_mode = "approve"'].join("\n");
   writeFileSync(file, `${text ? `${text}\n\n` : ""}${block}\n`);
 }
+
+type Server = { command: string; args: string[] };
+// An update installs into a new app-x.y.z folder, and Squirrel removes the old one. Only what this installed app wrote
+// matches: a connector pointing at a development checkout belongs to the developer.
+const INSTALLED = /[\\/]AdamStudio[\\/]app-[^\\/]+[\\/]/;
+const stale = (command: unknown, server: Server) => typeof command === "string" && INSTALLED.test(command) && command !== server.command;
+
+export const connectorFiles = () => ({
+  claude: claudeDesktopConfig(),
+  codex: codexConfig(),
+  claudeCode: join(process.env.CLAUDE_CONFIG_DIR || hostHome(), ".claude.json"),
+});
+
+/** After an update, moves the connectors the creator already has to this version. Adds none, and a broken file is left as it is. */
+export function refreshConnectors(server: Server, files: { claude: string; codex: string; claudeCode: string }, runClaude: (args: string[]) => void): string[] {
+  const done: string[] = [];
+  const attempt = (name: string, step: () => boolean) => {
+    try { if (step()) done.push(name); } catch (error) { console.error(`Connector ${name}:`, (error as Error).message); }
+  };
+  attempt("Claude Desktop", () => {
+    if (!existsSync(files.claude) || !stale(JSON.parse(readFileSync(files.claude, "utf8")).mcpServers?.["adam-studio"]?.command, server)) return false;
+    connectClaudeDesktop(files.claude, server);
+    return true;
+  });
+  attempt("Codex", () => {
+    if (!existsSync(files.codex)) return false;
+    const section = readFileSync(files.codex, "utf8").match(/\[mcp_servers\.adam-studio\][\s\S]*?(?=\n\[|$)/)?.[0] ?? "";
+    if (!stale(section.match(/^command\s*=\s*['"](.*)['"]\s*$/m)?.[1], server)) return false;
+    connectCodex(files.codex, server);
+    return true;
+  });
+  attempt("Claude Code", () => {
+    if (!existsSync(files.claudeCode) || !stale(JSON.parse(readFileSync(files.claudeCode, "utf8")).mcpServers?.["adam-studio"]?.command, server)) return false;
+    runClaude(["mcp", "remove", "--scope", "user", "adam-studio"]);
+    runClaude(["mcp", "add", "--scope", "user", "adam-studio", "--", server.command, ...server.args]);
+    return true;
+  });
+  return done;
+}

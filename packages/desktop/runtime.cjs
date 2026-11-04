@@ -1,4 +1,20 @@
-const {join,dirname,resolve,relative,isAbsolute}=require('node:path');const {readFileSync,existsSync,mkdirSync,readdirSync,statSync,cpSync}=require('node:fs');
+const {join,dirname,resolve,relative,isAbsolute}=require('node:path');const {readFileSync,writeFileSync,existsSync,mkdirSync,readdirSync,statSync,cpSync,rmSync}=require('node:fs');const {createHash}=require('node:crypto');
+function folderHash(dir){
+ const hash=createHash('sha256');
+ const walk=(at,rel)=>{for(const name of readdirSync(at).sort()){const full=join(at,name),path=rel+'/'+name;if(statSync(full).isDirectory())walk(full,path);else{hash.update(path+'\0');hash.update(readFileSync(full));hash.update('\0');}}};
+ walk(dir,'');return hash.digest('hex');
+}
+// The skill follows the app through updates, unless the creator changed it or brought their own: what was installed is remembered by its hash.
+function installSkill(source,target,memory){
+ if(!existsSync(join(source,'SKILL.md')))return;
+ const bundled=folderHash(source),remember=()=>writeFileSync(memory,JSON.stringify({hash:bundled}));
+ let installed='';try{installed=JSON.parse(readFileSync(memory,'utf8')).hash||'';}catch{}
+ const copy=()=>{mkdirSync(dirname(target),{recursive:true});cpSync(source,target,{recursive:true,force:true});remember();};
+ if(!existsSync(join(target,'SKILL.md')))return copy();
+ const current=folderHash(target);
+ if(current===bundled)return remember();
+ if(current===installed){rmSync(target,{recursive:true,force:true});copy();}
+}
 function packagedRuntime(resources,userData,originalEnv=process.env){
  const root=join(resources,'payload'),manifest=JSON.parse(readFileSync(join(root,'runtime.json'),'utf8'));
  const locate=value=>{if(typeof value!=='string'||isAbsolute(value)||relative(root,resolve(root,value)).startsWith('..'))throw Error('Chemin de moteur invalide');return resolve(root,value);};
@@ -18,7 +34,7 @@ function packagedRuntime(resources,userData,originalEnv=process.env){
  const torch=torchCandidates.reduce((best,folder)=>torchScore(folder)>torchScore(best)?folder:best,torchDefault);
  const skillSource=join(root,'skills/adam-studio'),skillHome=originalEnv.USERPROFILE||originalEnv.HOME||require('node:os').homedir();
  const skillTarget=join(originalEnv.CLAUDE_CONFIG_DIR||join(skillHome,'.claude'),'skills/adam-studio');
- if(existsSync(join(skillSource,'SKILL.md'))&&!existsSync(join(skillTarget,'SKILL.md'))){mkdirSync(dirname(skillTarget),{recursive:true});cpSync(skillSource,skillTarget,{recursive:true,force:false,errorOnExist:true});}
+ try{installSkill(skillSource,skillTarget,join(userData,'skill-installed.json'));}catch(error){console.error('Skill:',error.message);}
  // House fonts: copied once where projects can keep pointing at them, whatever the version installed.
  const fontsTarget=join(userData,'fonts'),bundledFonts=join(root,'fonts');mkdirSync(fontsTarget,{recursive:true});
  for(const name of list(bundledFonts)){const to=join(fontsTarget,name);if(!existsSync(to))cpSync(join(bundledFonts,name),to);}

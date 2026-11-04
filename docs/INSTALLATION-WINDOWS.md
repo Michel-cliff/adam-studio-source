@@ -60,3 +60,19 @@ AdamStudio.exe --smoke-test
 Ce mode crée un profil temporaire, vérifie la fenêtre, l’API locale et l’arrêt d’une tâche simulée, puis ferme l’application.
 
 Avant une distribution publique : compléter la revue des licences des binaires embarqués, signer le programme et l’installeur, tester installation/mise à jour/désinstallation dans une machine virtuelle propre, puis préparer un canal de mises à jour signé.
+
+## Publier une mise à jour
+
+L'application installée regarde les versions publiées sur le dépôt public `Michel-cliff/adam-studio-releases`, 15 secondes après le démarrage puis toutes les 6 heures, via `update.electronjs.org`. Ce dépôt ne contient que des versions publiées, jamais le code.
+
+1. Monter `version` dans `packages/desktop/package.json` (par exemple `0.1.1`).
+2. Garder `packages/desktop/out/make/squirrel.windows/x64` tel quel : le paquet précédent y sert à calculer le paquet delta. Ne pas supprimer ce dossier entre deux versions.
+3. Lancer `npm run desktop:make` depuis un shell sans `ELECTRON_RUN_AS_NODE`.
+4. Sur `adam-studio-releases`, créer une version publiée (ni brouillon, ni pré-version) avec le tag `v0.1.1`, et y joindre `RELEASES`, les fichiers `.nupkg` de cette version, `AdamStudio-Setup.exe` et le ZIP. Le nom du tag doit être une version semver, sinon le service l'ignore.
+5. Tester sur une machine qui a la version précédente : menu Application, puis Rechercher les mises à jour.
+
+Règles côté application : le téléchargement se fait en arrière-plan, la question de redémarrage n'apparaît jamais pendant un rendu, « Plus tard » installe au prochain démarrage. Une erreur de vérification reste silencieuse sauf si le créateur a lancé la recherche depuis le menu.
+
+Après une mise à jour, les connecteurs Claude Desktop, Codex et Claude Code qui pointaient vers l'ancien dossier `app-x.y.z` sont réécrits, et la skill `adam-studio` est remplacée seulement si le créateur ne l'a pas modifiée.
+
+Un projet ouvert par une version récente puis rouvert par une version plus ancienne n'est pas garanti : la compatibilité va vers l'avant.
