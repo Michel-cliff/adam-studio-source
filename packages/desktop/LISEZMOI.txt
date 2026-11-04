@@ -20,4 +20,17 @@ Installe Microsoft Visual C++ Redistributable (x64) : https://aka.ms/vc14/vc_red
   jamais pendant un rendu. Si tu préfères attendre, elle s'installe au prochain démarrage.
 - Licences des composants : menu Application, puis Licences.
 
+TES DONNÉES
+- Tes vidéos et tes projets restent sur ton ordinateur. Adam Studio ne nous envoie rien.
+- Quand tu utilises une étape guidée par l'IA, la transcription et les images nécessaires partent vers le
+  service que tu as connecté (Claude ou Codex), sous ses propres conditions, avec ton propre compte.
+- L'application contacte aussi internet pour télécharger les modèles, chercher les mises à jour et récupérer
+  les liens ou les ressources en ligne que tu lui demandes.
+
+RESPONSABILITÉ
+Adam Studio est gratuit et fourni en l'état, sans garantie de fonctionnement continu ou sans erreur.
+Garde une copie de tes vidéos et vérifie le résultat avant de le publier. Dans les limites permises par la
+loi applicable, nous n'acceptons aucune responsabilité pour les pertes ou les désagréments liés à son
+utilisation. Tes droits légaux restent inchangés.
+
 Une question ? hello@contact.cliffiscurious.com
