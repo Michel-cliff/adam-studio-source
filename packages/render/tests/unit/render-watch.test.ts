@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { progressReporter, stallGuard } from "../../src/lib/render-watch";
+import { MAX_TABS, renderAttempts, progressReporter, stallGuard } from "../../src/lib/render-watch";
 
 describe("a long render", () => {
   beforeEach(() => { vi.useFakeTimers(); });
@@ -28,5 +28,20 @@ describe("a long render", () => {
     const guard = stallGuard(stuck, 60000, 1000, Date.now);
     guard.stop(); vi.advanceTimersByTime(120000);
     expect(stuck).not.toHaveBeenCalled();
+  });
+});
+
+describe("how a video is rendered", () => {
+  it("tries the graphics card first, then the processor alone: a card that fails never costs the export", () => {
+    expect(renderAttempts(false, {})).toEqual([{ gl: "angle", label: "graphics card" }, { gl: null, label: "processor" }]);
+  });
+  it("keeps the processor for a transparent layer, whose alpha CapCut reads", () => {
+    expect(renderAttempts(true, {})).toEqual([{ gl: null, label: "processor" }]);
+  });
+  it("can be forced to the processor", () => {
+    expect(renderAttempts(false, { ADAM_RENDER_GL: "off" })).toEqual([{ gl: null, label: "processor" }]);
+  });
+  it("uses few tabs: measured, more than four gain nothing and cost memory", () => {
+    expect(MAX_TABS).toBe(4);
   });
 });

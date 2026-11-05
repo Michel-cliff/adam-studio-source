@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, renameSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve as resolvePath } from "node:path";
+import { basename, dirname, join, resolve as resolvePath } from "node:path";
 import { lint, repairCuts, resolve, type Project, type Timeline } from "@adam-studio/model";
 import { analysisPython, ensureAnalysis } from "../analysis";
 import { bundleWithMedia, renderVideo } from "../engine";
@@ -83,11 +83,38 @@ export async function renderCommand(projectDir: string, opts: { out?: string; fr
   checks.warnings.push(...confidenceWarnings(readable, wordConfidence(dir, [...new Set(readable.clips.map((c) => c.asset))])));
   for (const w of checks.warnings) console.log(`warning: ${w}`);
   if (checks.blocking.length && !opts.frames) throw new CliError(`Export refused: ${checks.blocking.join("; ")}.`);
-  await renderVideo(serveUrl, { timeline: readable, media: plan.media, fonts: plan.fonts }, out, parseFrames(opts.frames), { scale });
+  // Made under a hidden name, and put in place only once finished: nothing half made can be opened, and the previous
+  // video stays playable meanwhile.
+  const part = join(dirname(out), `.${basename(out, ".mp4")}.part.mp4`);
+  await renderVideo(serveUrl, { timeline: readable, media: plan.media, fonts: plan.fonts }, part, parseFrames(opts.frames), { scale });
   // A text-only video sits on its ink background on purpose: no black-picture check for it.
-  if (!opts.frames) finishSound(out, { picture: project.format !== "text" });
-  console.log(`wrote ${out}`);
-  return out;
+  if (!opts.frames) finishSound(part, { picture: project.format !== "text", refusedAs: out.replace(/\.mp4$/i, ".refused.mp4") });
+  const placed = moveIntoPlace(part, out);
+  console.log(`wrote ${placed}`);
+  return placed;
+}
+
+const pause = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
+/**
+ * Puts a finished video at its place. A video open in a player cannot be replaced on Windows: it waits a moment, then
+ * gives the new video a dated name rather than lose minutes of rendering.
+ */
+export function moveIntoPlace(from: string, to: string, opts: { waitMs?: number; rename?: (a: string, b: string) => void; now?: Date } = {}): string {
+  const rename = opts.rename ?? renameSync;
+  const until = Date.now() + (opts.waitMs ?? 15000);
+  for (;;) {
+    try { rename(from, to); return to; } catch (error) {
+      if (!["EPERM", "EBUSY", "EACCES"].includes((error as NodeJS.ErrnoException).code ?? "")) throw error;
+      if (Date.now() >= until) break;
+      pause(Math.min(500, Math.max(1, until - Date.now())));
+    }
+  }
+  const stamp = (opts.now ?? new Date()).toISOString().slice(0, 16).replace(/[-:]/g, "").replace("T", "-");
+  const other = to.replace(/\.mp4$/i, ` ${stamp}.mp4`);
+  rename(from, other);
+  console.log(`note: ${basename(to)} is open in another program: the new video is saved as ${basename(other)}`);
+  return other;
 }
 
 const hasSound = (file: string) => {
@@ -100,7 +127,7 @@ const hasSound = (file: string) => {
  * checked. A failed check refuses the export: the file is renamed .refused.mp4, so it never passes for a finished
  * video, and the reasons are given.
  */
-export function finishSound(out: string, opts: { picture?: boolean } = {}): void {
+export function finishSound(out: string, opts: { picture?: boolean; refusedAs?: string } = {}): void {
   if (!hasSound(out)) return;
   // The noise floor is judged on the processed voice, before the final gain lifts everything (+10 dB on a real take).
   const floor = noiseFloor(out);
@@ -115,6 +142,6 @@ export function finishSound(out: string, opts: { picture?: boolean } = {}): void
   const silent = silenceShare(out);
   if (silent > 0.15) issues.push(`${Math.round(silent * 100)} % of the video is total silence (more than 15 %)`);
   if (!issues.length) return;
-  renameSync(out, out.replace(/\.mp4$/i, ".refused.mp4"));
+  renameSync(out, opts.refusedAs ?? out.replace(/\.mp4$/i, ".refused.mp4"));
   throw new CliError(`Export refused: ${issues.join("; ")}.`);
 }

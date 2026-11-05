@@ -39,8 +39,13 @@ def voice_filter(floor: float) -> str:
     return ",".join(chain)
 
 
+# A third faster than medium on a 4K phone take (20 s against 30 s for 30 s of video), same size, 45 dB PSNR against it.
+# Hardware decoding was tried: six times slower here, the frames have to come back from the card.
+PRESET = "veryfast"
+
+
 def encode(fps: int, audio_kbps: int) -> list[str]:
-    return ["-r", str(fps), "-c:v", "libx264", "-crf", "18", "-preset", "medium", "-g", str(fps), "-bf", "0",
+    return ["-r", str(fps), "-c:v", "libx264", "-crf", "18", "-preset", PRESET, "-g", str(fps), "-bf", "0",
             "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", f"{audio_kbps}k"]
 
 
