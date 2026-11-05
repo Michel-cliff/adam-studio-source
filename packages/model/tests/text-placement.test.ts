@@ -40,3 +40,10 @@ describe("the default upper and lower thirds", () => {
     const tl = timeline(); tl.style.textLayout = "free"; expect(placeTextInThirds(tl)).toBe(tl);
   });
 });
+
+it("leaves a title asked behind the head where it was put: above the head, nothing would pass in front of it", () => {
+  const tl = timeline();
+  const behind = { ...tl, elements: tl.elements.map((e) => (e.kind === "title" ? { ...e, layer: "behind-subject" as const, y: 0.315 } : e)) };
+  const title = placeTextInThirds(behind).elements.find((e) => e.kind === "title")!;
+  expect(title.y).toBe(0.315);
+});

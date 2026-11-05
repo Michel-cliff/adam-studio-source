@@ -1,3 +1,4 @@
+import { editStamp, videoStamp } from "@adam-studio/render/src/lib/edit-stamp";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 import { parseProject } from "@adam-studio/model";
@@ -18,9 +19,17 @@ function readProject(dir: string): { raw: Raw | null; error?: string } {
 function renders(dir: string): RenderView[] {
   const folder = join(dir, "renders");
   if (!existsSync(folder)) return [];
+  const now = editStamp(dir);
+  const edited = existsSync(join(dir, "project.json")) ? statSync(join(dir, "project.json")).mtimeMs : 0;
   // Not the work file of a render under way, and not a video the checks refused: neither passes for a finished video.
   return readdirSync(folder).filter((f) => f.toLowerCase().endsWith(".mp4") && !f.startsWith(".") && !/\.refused\.mp4$/i.test(f))
-    .map((f) => { const s = statSync(join(folder, f)); return { file: `renders/${f}`, size: s.size, mtime: s.mtimeMs }; })
+    .map((f) => {
+      const s = statSync(join(folder, f));
+      const made = videoStamp(join(folder, f));
+      // A video from before stamps: all there is to go on is its date.
+      const stale = made !== null ? made !== now : s.mtimeMs < edited;
+      return { file: `renders/${f}`, size: s.size, mtime: s.mtimeMs, stale };
+    })
     .sort((a, b) => b.mtime - a.mtime);
 }
 

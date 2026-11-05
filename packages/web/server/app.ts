@@ -5,7 +5,8 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net";
 import { homedir } from "node:os";
 import { basename, dirname, extname, join } from "node:path";
-import { addConnector, askServers, listConnectors, removeConnector, setEnabled } from "./connectors";
+import { checkConnector } from "./connector-health";
+import { addConnector, askServers, connectorConfig, listConnectors, removeConnector, setEnabled } from "./connectors";
 import { listSkills } from "./skills";
 import { ActionError, addCommand, buildCommand, checkVideos, newProjectCommand, textProjectCommand, VIDEO_EXT } from "./actions";
 import { serveFile } from "./files";
@@ -242,6 +243,12 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     // Skills Claude Code has, and the connectors (MCP servers) Claude may use from the studio.
     if (path === "/api/skills" && method === "GET") return send(res, 200, listSkills(home));
     if (path === "/api/connectors" && method === "GET") return send(res, 200, listConnectors(home, connectorsFile));
+    if (path === "/api/connectors/health" && method === "GET") {
+      const name = url.searchParams.get("name") ?? "";
+      const config = connectorConfig(name, home, connectorsFile);
+      if (!config) throw new HttpError(404, "no such connector");
+      return send(res, 200, await checkConnector(name, config as never, home));
+    }
     if (path === "/api/connectors" && method === "PUT") {
       const b = await body(req);
       if (!Array.isArray(b.enabled)) throw new HttpError(400, "enabled must be a list of names");

@@ -211,8 +211,10 @@ function Wrap({ name, view, onChanged }: { name: string; view: ProjectView; onCh
   const job = view.jobs.find((j) => isActive(j) && EXPORTS.includes(j.label));
   const last = view.jobs.find((j) => EXPORTS.includes(j.label));
   const failed = !job && last?.state === "failed" ? last : null;
-  // The video no longer shows the edit: the creator changed something since.
-  const stale = Boolean(latest && view.modified && view.modified > latest.mtime);
+  // The video no longer shows the edit: what plays here is the edit as it stands, until the creator exports it again.
+  const stale = Boolean(latest?.stale);
+  const [showOld, setShowOld] = useState(false);
+  useEffect(() => { if (!stale) setShowOld(false); }, [stale]);
   // Stays on this page: the progress shows here, and any other page can be opened meanwhile.
   const start = async (options: Record<string, unknown> = {}) => {
     setError("");
@@ -223,9 +225,9 @@ function Wrap({ name, view, onChanged }: { name: string; view: ProjectView; onCh
   return (
     <section aria-label="Final video" className="wrap">
       <div className="wrap-video">
-        {latest && !job ? <video className="frame lit" controls preload="metadata" src={fileUrl(name, latest.file, latest.mtime)} />
+        {latest && !job && (!stale || showOld) ? <video className="frame lit" controls preload="metadata" src={fileUrl(name, latest.file, latest.mtime)} />
           : <Screen name={name} view={view} proposal={null} variant={null} className="frame lit" />}
-        {(!latest || stale || job) && <span className="wrap-tag mono">{t(job ? "PREVIEW · EXPORT IN PROGRESS" : latest ? "LAST EXPORT · OLDER THAN YOUR CHANGES" : "PREVIEW · NOT EXPORTED YET")}</span>}
+        {(!latest || stale || job) && <span className="wrap-tag mono">{t(job ? "PREVIEW · EXPORT IN PROGRESS" : !latest ? "PREVIEW · NOT EXPORTED YET" : showOld ? "LAST EXPORT · OLDER THAN YOUR CHANGES" : "PREVIEW · YOUR CHANGES, NOT IN THE MP4 YET")}</span>}
       </div>
       <div className="wrap-side">
         <h1>{name} {latest && !stale ? "IS READY" : ""}</h1>
@@ -243,7 +245,8 @@ function Wrap({ name, view, onChanged }: { name: string; view: ProjectView; onCh
             <TaskBar percent={job.state === "running" ? job.progress ?? 0 : 0} />
             <p className="mono note">{t(job.state === "queued" ? "Another heavy task finishes first. This one starts by itself." : "You can leave this page: the export goes on.")}</p>
           </div>
-        ) : <button type="button" className="act fill big" onClick={() => void start()}>{t("EXPORT")} {format === "mp4" ? "MP4" : "CAPCUT"}</button>}
+        ) : <button type="button" className="act fill big" onClick={() => void start()}>{stale && format === "mp4" ? t("UPDATE THE MP4") : `${t("EXPORT")} ${format === "mp4" ? "MP4" : "CAPCUT"}`}</button>}
+        {stale && !job && <p className="mono note">{t("YOUR VIDEO CHANGED SINCE THE LAST EXPORT.")} <button type="button" className="link" onClick={() => setShowOld(!showOld)}>{t(showOld ? "see my changes" : "see the last export")}</button></p>}
         {failed && (
           <div className="export-failed">
             <p className="error">{failureOf(failed.output)}</p>

@@ -12,7 +12,8 @@ export function placeTextInThirds(tl: Timeline): Timeline {
   const warnings = [...tl.warnings];
   const facesDuring = (start: number, duration: number) => tl.clips.filter(c => c.face && c.fromFrame < start + duration && c.fromFrame + c.durationFrames > start).map(c => c.face!);
   const elements = tl.elements.flatMap(e => {
-    if (e.kind !== "title") return [e];
+    // A title asked behind the head stays where it was put: moved above the head, nothing would pass in front of it.
+    if (e.kind !== "title" || e.layer === "behind-subject") return [e];
     const faces = facesDuring(e.fromFrame, e.durationFrames);
     const top = H * THIRD_BANDS.titleTop;
     const bottom = Math.min(H * THIRD_BANDS.titleBottom, ...faces.map(f => f[1] * H - margin));

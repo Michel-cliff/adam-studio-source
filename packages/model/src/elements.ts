@@ -43,7 +43,8 @@ export function resolveElements(ctx: ResolveContext): { elements: TimelineElemen
       });
       continue;
     }
-    const slot = el.slot === "auto" ? (el.kind === "title" ? "title" : "center") : el.slot;
+    // A panel left to itself goes up with the titles: in the centre it sits on the eyes of whoever speaks.
+    const slot = el.slot === "auto" ? (el.kind === "title" || el.kind === "hud.panel" ? "title" : "center") : el.slot;
     const { x, y } = ctx.place(slot, el.position);
     elements.push({ id: el.id, kind: el.kind, layer: el.layer, fromFrame, durationFrames: toFrame - fromFrame, trimStartMs, x, y, ...(el.scale !== undefined ? { scale: el.scale } : {}), ...(el.rotation !== undefined ? { rotation: el.rotation } : {}), ...(el.opacity !== undefined ? { opacity: el.opacity } : {}), props: el.props });
   }

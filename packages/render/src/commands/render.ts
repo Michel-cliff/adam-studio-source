@@ -6,6 +6,7 @@ import { analysisPython, ensureAnalysis } from "../analysis";
 import { bundleWithMedia, renderVideo } from "../engine";
 import { exportChecks } from "../lib/checks";
 import { confidenceWarnings, wordConfidence } from "../lib/confidence";
+import { editStamp, writeVideoStamp } from "../lib/edit-stamp";
 import { homedir } from "node:os";
 import { applyAccent } from "../lib/accent";
 import { withVideoDA } from "../lib/da";
@@ -58,6 +59,8 @@ export function ensureScaledTakes(dir: string, project: Project, timeline: Timel
 }
 
 export async function renderCommand(projectDir: string, opts: { out?: string; frames?: string; force: boolean; analyze?: boolean; scale?: number }): Promise<string> {
+  // Taken before reading: a change made from here on is not in this video, and the studio will say so.
+  const stamp = editStamp(resolvePath(projectDir));
   const loaded = loadProject(projectDir);
   const { dir, style } = loaded;
   // Never a cut inside a word: an edge that falls in one moves out of it before anything is computed.
@@ -90,6 +93,7 @@ export async function renderCommand(projectDir: string, opts: { out?: string; fr
   // A text-only video sits on its ink background on purpose: no black-picture check for it.
   if (!opts.frames) finishSound(part, { picture: project.format !== "text", refusedAs: out.replace(/\.mp4$/i, ".refused.mp4") });
   const placed = moveIntoPlace(part, out);
+  if (!opts.frames) writeVideoStamp(placed, stamp);
   console.log(`wrote ${placed}`);
   return placed;
 }

@@ -33,7 +33,7 @@ export function makeSynthetic(dir: string, opts: { withProposal?: boolean } = {}
   ffmpeg([
     "-f", "lavfi", "-i", "color=c=red:s=540x1920:r=30:d=4",
     "-f", "lavfi", "-i", "color=c=blue:s=540x1920:r=30:d=4",
-    "-f", "lavfi", "-i", "sine=frequency=440:duration=4",
+    "-f", "lavfi", "-i", "sine=frequency=440:duration=4,volume='if(lt(mod(t,1),0.6),0.3,0.003)':eval=frame",
     "-filter_complex", "[0:v][1:v]hstack=inputs=2[v]", "-map", "[v]", "-map", "2:a",
     "-c:v", "libx264", "-g", "30", "-bf", "0", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", join(cache, "edit.mp4"),
   ]);

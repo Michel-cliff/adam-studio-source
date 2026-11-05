@@ -1073,3 +1073,6 @@ a.rcard { color: var(--cream); }
 .new-form .nf { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--dim); }
 .new-form .nf input, .new-form .nf select { width: 100%; min-height: 34px; color: var(--cream); }
 .new-form > .act { margin-top: 6px; width: 100%; }
+
+/* A connector turned on that does not work is not "on". */
+.tile small.warn { color: #FF8A80; }

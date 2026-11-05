@@ -3,7 +3,7 @@
 Rules for placing every piece of on-screen text (hook titles, captions, key words, numbers, calls to action) in a
 vertical short video for Reels, TikTok and Shorts. Coordinates are for a 1080 x 1920 frame; scale them for other
 sizes. Source: ReelCuts, "Text placement matters more than you think. Use the safe zone" (YouTube Shorts, 26 s),
-combined with the safe area Adam Studio already uses.
+combined with the safe area and the bands Adam Studio uses.
 
 ## 1. Why placement matters
 
@@ -15,25 +15,26 @@ combined with the safe area Adam Studio already uses.
 
 ## 2. The safe zone
 
-- Keep all text and graphics inside the safe zone: x from 72 to 900, y from 269 to 1248.
-- The left margin (72 px) and the right margin (180 px) differ on purpose: the right side carries the app buttons.
-- The top band (0 to 269) holds the platform header. The bottom band (1248 to 1920) holds the post caption, the
-  account name and the progress bar: never place text there.
-- No text box may touch the edge of the safe zone: keep at least 24 px of breathing room inside it.
+- Keep every group of text whole inside its band below: its full height counts, not only its anchor.
+- The last 15 % of the frame (below y 1632) belong to the platform's caption, account name and progress bar: never place text there.
+- The right margin (180 px) is wider than the left one (72 px): the right side carries the app buttons.
+- No text box may touch the edge of its band: keep at least 24 px of breathing room inside it.
 
-## 3. Where each kind of text goes (thirds of the safe zone)
+## 3. Where each kind of text goes
+
+The bands are those of the code (`THIRD_BANDS` in `packages/model/src/text-placement.ts`) and of `da-par-defaut.md`, which decide if this page ever differs from them.
 
 | Zone | y range (1080 x 1920) | Use it for |
 |---|---|---|
-| Top third | 269 to 600 | Titles: the hook text of the first seconds, the topic of the video, a section title |
+| Upper band | 106 to 576, centre aimed at 288 | Titles: the hook text of the first seconds, the topic of the video, a section title, above the head |
 | Centre | 600 to 950 | Impact: one key word, one number, one short punchline, shown big |
-| Lower third | 950 to 1248 | Captions (the spoken words), labels, sources |
-| Very bottom | below 1248 | Never: the app's own caption covers it |
+| Lower band | 1344 to 1632, centre aimed at 1459 | Captions (the spoken words), under the face |
+| Very bottom | below 1632 | Never: the app's own caption covers it |
 
-- Captions live in the lower third, never lower than y 1248. Raise them when the speaker's hands or an object sit there.
+- Captions stay under the face in the lower band. Raise them inside the band when the hands or an object sit there.
 - The centre is for impact, and only for a moment: a word or number that lands with the line that says it, then
   leaves. Never keep a text block in the centre for long.
-- One text zone at a time besides the captions: a title in the top third and an impact word in the centre do not
+- One text zone at a time besides the captions: a title in the upper band and an impact word in the centre do not
   share the screen.
 
 ## 4. Horizontal position and width
@@ -45,9 +46,9 @@ combined with the safe area Adam Studio already uses.
 
 ## 5. The face comes first
 
-- Never cover the eyes or the mouth. When the speaker is framed high, captions go lower in the lower third and titles
-  sit just above the head, still inside the safe zone.
-- Text behind the speaker (cut-out effect) may overlap the body, never the face.
+- Text in front never covers the eyes or the mouth. When the speaker is framed high, the title gets smaller to fit above the head.
+- A title behind the head is the one exception, and only when the creator asks for it: the head passes in front of it, so the
+  face stays whole. It keeps the position it was given, and the first render computes the matte.
 
 ## 6. Size and readability
 
@@ -69,6 +70,6 @@ combined with the safe area Adam Studio already uses.
 
 1. Pause on three frames (start, middle, end) and check that no text touches the edges of the frame.
 2. Picture the app interface over the video: nothing under the bottom band or the right-side buttons.
-3. Titles in the top third, impact in the centre, captions in the lower third.
+3. Titles in the upper band, impact in the centre, captions in the lower band.
 4. Eyes and mouth visible on every frame with text.
 5. Every text readable on a phone held at arm's length.

@@ -14,8 +14,7 @@ Read this first; do not re-explore what is written here. Keep replies short, no 
 
 ## Commands
 
-- Web tests: `cd packages/web && npm test` (unit only, one file at a time: run in parallel they time out and step on each other). `tests/e2e/panel.test.ts` "creates a project
-  from rushes" fails on timeout already: not a regression, say so, do not chase it.
+- Web tests: `cd packages/web && npm test` (unit only, one file at a time: run in parallel they time out and step on each other).
 - Types: `npx tsc --noEmit -p .` in the package. Model schema JSON: `npm run export-schemas -w @adam-studio/model`
   (other schema files show as modified only by line endings: do not commit them).
 - UI build: `cd packages/web && npm run build` (the server serves `dist/`; a page reload picks it up, no restart).

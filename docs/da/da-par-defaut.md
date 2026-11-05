@@ -129,8 +129,9 @@ Les groupes gardent leur hauteur complète dans ces bandes, pas seulement leur p
 sa taille pour tenir au-dessus de la tête. Le calcul de lisibilité reste chargé de l’ombre, du contour ou de la
 plaque. Les résultats d’un ancien cache ne peuvent pas déplacer les sous-titres hors de leur bande.
 
-Lorsqu’un visage occupe toute une bande sans espace disponible, le texte concerné est masqué avec un avertissement
-dans la timeline, plutôt que posé sur les yeux ou la bouche. L’aperçu utilise les visages du cache valide ; le rendu
+Lorsqu’un visage occupe toute une bande sans espace disponible, le texte reste, avec un avertissement dans la timeline :
+le titre petit tout en haut, le sous-titre au plus bas de sa bande. Un texte n’est jamais retiré. Un titre placé derrière
+la tête, à la demande du créateur, garde sa position : la tête passe devant lui. L’aperçu utilise les visages du cache valide ; le rendu
 et la préparation CapCut calculent la lisibilité si nécessaire. Un aperçu sans analyse utilise les bandes fixes.
 
 Le mode `textLayout=free`, choisi volontairement dans l’inspecteur, respecte les positions manuelles. Déplacer,

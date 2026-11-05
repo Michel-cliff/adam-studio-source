@@ -4,6 +4,7 @@ import { t } from "./i18n";
 
 type Connector = { name: string; type: string; source: "claude-code" | "built-in" | "added"; enabled: boolean };
 export type Skill = { name: string; description: string };
+type Health = { state: "ok" | "sign-in" | "down"; detail?: string };
 
 // Line pictograms for the tiles: a known tool gets its own, the others one picked from their name.
 const PICTO: Record<string, string> = {
@@ -25,12 +26,12 @@ const picto = (name: string) => {
   return GENERIC[h % GENERIC.length]!;
 };
 
-function Tile({ name, on, onLabel, onClick, title }: { name: string; on: boolean; onLabel: string; onClick: () => void; title?: string }) {
+function Tile({ name, on, onLabel, onClick, title, warn }: { name: string; on: boolean; onLabel: string; onClick: () => void; title?: string; warn?: boolean }) {
   return (
     <button type="button" className="tile" aria-pressed={on} onClick={onClick} title={title}>
       <svg width="46" height="46" viewBox="0 0 48 48" aria-hidden="true"><path d={picto(name)} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /><circle cx="38" cy="10" r="4" fill={on ? "var(--green)" : "transparent"} /></svg>
       <span>{name}</span>
-      <small className={on ? "on" : ""}>{on ? onLabel : "OFF"}</small>
+      <small className={on ? (warn ? "warn" : "on") : ""}>{on ? onLabel : "OFF"}</small>
     </button>
   );
 }
@@ -55,10 +56,24 @@ export function ConnectorsPanel({ onClose, onCount }: { onClose: () => void; onC
   const [list, setList] = useState<Connector[] | null>(null);
   const [url, setUrl] = useState("");
   const [note, setNote] = useState("");
-  const set = (l: Connector[]) => { setList(l); onCount?.(l.filter((c) => c.enabled).length); };
+  // ON means it answered: each connector turned on is asked, and says itself what is missing.
+  const [health, setHealth] = useState<Record<string, Health | "checking">>({});
+  const check = (name: string) => {
+    setHealth((h) => ({ ...h, [name]: "checking" }));
+    api<Health>(`/connectors/health?name=${enc(name)}`).then((r) => setHealth((h) => ({ ...h, [name]: r })), (e) => setHealth((h) => ({ ...h, [name]: { state: "down", detail: e.message } })));
+  };
+  const set = (l: Connector[]) => {
+    setList(l); onCount?.(l.filter((c) => c.enabled).length);
+    setHealth((h) => { for (const c of l) if (c.enabled && !h[c.name]) check(c.name); return h; });
+  };
+  const label = (name: string) => { const h = health[name]; return !h || h === "checking" ? "…" : h.state === "ok" ? "ON" : h.state === "sign-in" ? t("SIGN-IN NEEDED") : t("NOT ANSWERING"); };
+  const problem = (list ?? []).filter((c) => c.enabled).map((c) => [c.name, health[c.name]] as const).find(([, h]) => h && h !== "checking" && h.state !== "ok");
+  const problemText = problem ? `${problem[0]} · ${(problem[1] as Health).state === "sign-in" ? t("Sign in to it from your AI (in Claude: /mcp), then come back.") : `${t("It does not answer. Start it, then come back.")}${(problem[1] as Health).detail ? ` (${(problem[1] as Health).detail})` : ""}`}` : "";
   useEffect(() => { api<Connector[]>("/connectors").then(set, (e) => setNote(e.message)); }, []);
   const toggle = async (c: Connector) => {
     const enabled = (list ?? []).filter((x) => (x.name === c.name ? !c.enabled : x.enabled)).map((x) => x.name);
+    // Turned on again: asked again, it may have been started since.
+    setHealth((h) => { const { [c.name]: _, ...rest } = h; return rest; });
     try { set(await api<Connector[]>("/connectors", { method: "PUT", body: { enabled } })); } catch (e) { setNote((e as Error).message); }
   };
   // A server added by URL is named after its host (mcp.higgsfield.ai gives higgsfield).
@@ -72,9 +87,9 @@ export function ConnectorsPanel({ onClose, onCount }: { onClose: () => void; onC
     try { set(await api<Connector[]>(`/connectors/${enc(c.name)}`, { method: "DELETE" })); } catch (e) { setNote((e as Error).message); }
   };
   return (
-    <Term title="connectors" note={note || "CONNECTED TOOLS ADAM MAY USE IN THIS PROJECT."} onClose={onClose}>
+    <Term title="connectors" note={note || problemText || "CONNECTED TOOLS ADAM MAY USE IN THIS PROJECT."} onClose={onClose}>
       <div className="tiles">
-        {list?.map((c) => <Tile key={c.name} name={c.name} on={c.enabled} onLabel="ON" onClick={() => void toggle(c)}
+        {list?.map((c) => <Tile key={c.name} name={c.name} on={c.enabled} onLabel={label(c.name)} warn={label(c.name) !== "ON"} onClick={() => void toggle(c)}
           title={c.source === "added" ? "Added here. Right-click to remove." : c.source === "claude-code" ? "From Claude Code's settings" : "Built in"} />)}
         {list && list.length === 0 && <p className="tnote">No MCP server yet. Add one below.</p>}
       </div>
