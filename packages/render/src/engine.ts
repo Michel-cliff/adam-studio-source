@@ -3,8 +3,9 @@ import { cpus, freemem } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bundle } from "@remotion/bundler";
-import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
+import { renderMedia, renderStill, selectComposition, makeCancelSignal } from "@remotion/renderer";
 import { activeVideoSources, safeConcurrency } from "./lib/concurrency";
+import { progressReporter, STALL_MS, stallGuard } from "./lib/render-watch";
 import { prepareMedia, type MediaPlan } from "./media";
 import { COMPOSITION_ID, type RenderProps } from "./props";
 
@@ -42,7 +43,20 @@ export async function renderVideo(
     : // BT.709 limited range, like the takes: Remotion's default (full-range BT.601) shifts brightness in CapCut.
       ({ codec: "h264", colorSpace: "bt709" } as const);
   // scale renders the 1080 x 1920 layout at n times its pixels (4K with 2); the takes come from edit@<n>x.mp4.
-  await renderMedia({ browserExecutable: process.env.ADAM_BROWSER_EXECUTABLE, composition, serveUrl, outputLocation: outFile, inputProps: props, frameRange, concurrency, scale: opts.scale ?? 1, ...output });
+  // A render shows where it is, and a stuck one ends with a reason: it never just stays silent.
+  const report = progressReporter();
+  const { cancelSignal, cancel } = makeCancelSignal();
+  let stuck = false;
+  const guard = stallGuard(() => { stuck = true; cancel(); });
+  try {
+    await renderMedia({
+      browserExecutable: process.env.ADAM_BROWSER_EXECUTABLE, composition, serveUrl, outputLocation: outFile, inputProps: props, frameRange, concurrency, scale: opts.scale ?? 1, cancelSignal, ...output,
+      onProgress: ({ progress }) => { guard.ping(progress); const line = report(progress); if (line) console.log(line); },
+    });
+  } catch (error) {
+    if (stuck) throw new Error(`the render stopped moving for ${STALL_MS / 60000} minutes: close other heavy programs, then export again`);
+    throw error;
+  } finally { guard.stop(); }
 }
 
 export async function renderFrame(serveUrl: string, props: RenderProps, frame: number, outFile: string): Promise<void> {
