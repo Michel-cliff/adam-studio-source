@@ -1,4 +1,17 @@
-ADAM STUDIO pour Windows (64 bits)
+ADAM STUDIO pour Windows (64 bits) / for Windows (64-bit)
+https://www.cliffiscurious.com
+
+English version below.
+
+============================================================
+FRANÇAIS
+============================================================
+
+MERCI
+Merci d'avoir téléchargé Adam Studio !
+Adam Studio est un projet indépendant. Son but : rendre le montage vidéo plus simple grâce à l'IA, pour que
+tu passes moins de temps sur la technique et plus de temps sur ce que tu veux raconter.
+Plus d'informations sur mon travail : https://www.cliffiscurious.com
 
 INSTALLER
 1. Décompresse ce ZIP, puis lance AdamStudio-Setup.exe.
@@ -34,3 +47,48 @@ loi applicable, nous n'acceptons aucune responsabilité pour les pertes ou les d
 utilisation. Tes droits légaux restent inchangés.
 
 Une question ? hello@contact.cliffiscurious.com
+
+============================================================
+ENGLISH
+============================================================
+
+THANK YOU
+Thank you for downloading Adam Studio!
+Adam Studio is an independent project. Its goal: to make video editing simpler with the help of AI, so you
+spend less time on the technical side and more time on what you want to tell.
+More about my work: https://www.cliffiscurious.com
+
+INSTALL
+1. Unzip this file, then run AdamStudio-Setup.exe.
+2. Windows may show "Windows protected your PC": the application is not signed yet.
+   Click "More info", then "Run anyway".
+3. Adam Studio opens, and is then available from the Start menu.
+
+IF THE APP DOES NOT START OR THE IMPORT FAILS
+Install the Microsoft Visual C++ Redistributable (x64): https://aka.ms/vc14/vc_redist.x64.exe
+
+GOOD TO KNOW
+- Your video must already be cut: Adam edits, it never cuts.
+- The first import downloads the analysis models (about 1.6 GB): make sure you have an internet connection
+  and a few minutes.
+- For the AI-guided steps, you need your own Claude or Codex account.
+  You can switch AI from the main page.
+- The CapCut export is experimental and requires CapCut Desktop.
+- Updates download by themselves. Adam Studio asks before restarting and never does so during a render.
+  If you prefer to wait, the update installs the next time you start the app.
+- Component licences: Application menu, then Licences.
+
+YOUR DATA
+- Your videos and projects stay on your computer. Adam Studio sends us nothing.
+- When you use an AI-guided step, the transcript and the images it needs are sent to the service you
+  connected (Claude or Codex), under its own terms, with your own account.
+- The app also contacts the internet to download the models, check for updates and fetch the links or
+  online resources you ask it for.
+
+LIABILITY
+Adam Studio is free and provided as is, with no guarantee of continuous or error-free operation.
+Keep a copy of your videos and check the result before you publish it. To the extent permitted by
+applicable law, we accept no liability for any loss or inconvenience linked to its use.
+Your legal rights are unchanged.
+
+A question? hello@contact.cliffiscurious.com
