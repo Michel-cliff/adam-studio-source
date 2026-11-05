@@ -6,17 +6,17 @@ const lintRules = { minDurationMs: 0, maxDurationMs: 60000, maxPauseMs: 350 };
 export const EMPTY_PROPS: RenderProps = {
   timeline: {
     format: "9:16", width: 1080, height: 1920, fps: 30, durationFrames: 1,
-    clips: [], elements: [], captions: [], beats: [], audio: [], orphans: [], warnings: [],
+    clips: [], elements: [], captions: [], beats: [], audio: [], speech: [], orphans: [], warnings: [],
     style: {
       name: "empty",
       fonts: { caption: { family: "sans-serif", file: "none" }, title: { family: "sans-serif", file: "none" } },
       colors: { text: "#FFFFFF", highlight: "#FFD100", accent: "#FF6B35", ink: "#0E0C0A" },
-      motion: { speed: 1 },
+      motion: { speed: 1, stable: true },
     fillers: {},
     grade: { warmth: 0, contrast: 0, saturation: 0, brightness: 0, vignette: 0 },
     inserts: { bw: 0, grain: 0, bloom: 0 },
     fx: { grain: 0, scanlines: { window: 0, burst: 0, burstFrames: 3 }, zoomBlur: 0 },
-      caption: { size: 0.05, stroke: 0.08, shadow: true, maxCharsPerLine: 22, intro: "miniZoom" },
+      caption: { size: 0.05, stroke: 0.08, shadow: true, maxCharsPerLine: 22, intro: "miniZoom", highlightAs: "color" },
       slots: { "9:16": {}, "16:9": {} },
       lint: { "9:16": lintRules, "16:9": lintRules },
     },

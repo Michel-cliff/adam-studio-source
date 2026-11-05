@@ -6,7 +6,8 @@ import { missingAnalysis } from "../media";
 import { CliError, formatErrors, loadProject } from "../project-io";
 import { addTakes, defaultStyle, findSystemFont, nextAssetIds } from "../takes";
 
-type Opts = { lang?: string; format?: string; style?: string; name?: string };
+type Opts = { lang?: string; format?: string; style?: string; name?: string; video?: string };
+const VIDEOS = ["facecam", "motion", "tutorial"];
 
 /** Analyzes the videos not yet in the project (cheap steps), merges them, validates and writes project.json. */
 function analyzeAndAdd(dir: string, project: ProjectInput, videos: string[], opts: Opts): ProjectInput {
@@ -29,10 +30,12 @@ export function newCommand(dir: string, videos: string[], opts: Opts): void {
   if (existsSync(join(dir, "project.json"))) throw new CliError(`${dir} already has a project.json: use adam add`);
   const format = opts.format ?? "9:16";
   if (format !== "9:16" && format !== "16:9") throw new CliError(`--format must be 9:16 or 16:9, got "${format}"`);
+  const video = opts.video ?? "facecam";
+  if (!VIDEOS.includes(video)) throw new CliError(`--video must be ${VIDEOS.join(", ")} (a text-only video is made with adam text), got "${video}"`);
   mkdirSync(dir, { recursive: true });
   const style = opts.style ? JSON.parse(readFileSync(resolvePath(opts.style), "utf8")) : defaultStyle(findSystemFont());
   writeFileSync(join(dir, "style.json"), `${JSON.stringify(style, null, 2)}\n`);
-  const project: ProjectInput = { version: 1, name: opts.name ?? basename(dir), canvas: { format, fps: 30 }, style: "style.json", assets: [], story: [] };
+  const project: ProjectInput = { version: 1, name: opts.name ?? basename(dir), canvas: { format, fps: 30 }, format: video as ProjectInput["format"], style: "style.json", assets: [], story: [] };
   const done = analyzeAndAdd(dir, project, videos, opts);
   console.log(`${dir}: ${done.assets!.length} takes, ${Object.values(done.transcript!.words!).flat().length} words`);
 }

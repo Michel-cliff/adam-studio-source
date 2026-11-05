@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { repairCuts } from "../src/cutrepair";
 import { resolve } from "../src/resolve";
 import { TimelineSchema } from "../src/schema/timeline";
 import type { ElementInput } from "../src/schema/project";
@@ -102,5 +103,74 @@ describe("resolve: audio and style", () => {
   it("applies project style overrides on top of the style", () => {
     const tl = resolve(makeProject({ styleOverrides: { colors: { highlight: "#00FF00" } } }), style);
     expect(tl.style.colors).toEqual({ text: "#FFFFFF", highlight: "#00FF00", accent: "#FF6B35", ink: "#0E0C0A" });
+  });
+});
+
+describe("speech spans", () => {
+  it("lists when words are said in the edit, sorted, merged, inside the video", () => {
+    const t = resolve(makeProject(), makeStyle());
+    expect(t.speech.length).toBeGreaterThan(0);
+    const end = (t.durationFrames * 1000) / t.fps;
+    t.speech.forEach(([a, b], i) => {
+      expect(a).toBeLessThan(b);
+      expect(a).toBeGreaterThanOrEqual(0);
+      expect(b).toBeLessThanOrEqual(end + 1);
+      if (i) expect(a).toBeGreaterThan(t.speech[i - 1]![1]);
+    });
+  });
+});
+
+describe("cuts inside a word", () => {
+  // Words a.w0 = 1000-1500, a.w1 = 1800-2300, a.w2 = 2600-3100 (helpers).
+  const spans = (story: { id: string; asset: string; inMs: number; outMs: number }[]) => {
+    const r = repairCuts(makeProject({ story }));
+    return { clips: r.project.story.map((c) => [c.inMs, c.outMs]), moved: r.moved };
+  };
+
+  it("gives a word cut in two to the clip that holds most of it, and moves the other edge out of it", () => {
+    // "un" (1800-2300) split at 1900: the second clip holds 400 of its 500 ms.
+    const r = spans([{ id: "c1", asset: "a", inMs: 0, outMs: 1900 }, { id: "c2", asset: "a", inMs: 1900, outMs: 4000 }]);
+    expect(r.clips).toEqual([[0, 1760], [1760, 4000]]);
+    expect(r.moved).toHaveLength(2);
+  });
+
+  it("never plays a word twice and leaves clean cuts alone", () => {
+    expect(spans([{ id: "c1", asset: "a", inMs: 0, outMs: 1650 }, { id: "c2", asset: "a", inMs: 2450, outMs: 4000 }]).moved).toEqual([]);
+  });
+});
+
+describe("the default push", () => {
+  const shots = (story: { id: string; asset: string; inMs: number; outMs: number; zoom?: { base: number; driftPerSec: number } }[]) =>
+    resolve(makeProject({ story }), makeStyle()).clips.map((c) => c.zoom);
+
+  it("pushes slowly, one shot in, the next back out, never past 8 % in a shot", () => {
+    const [a, b, c] = shots([{ id: "c1", asset: "a", inMs: 0, outMs: 4000 }, { id: "c2", asset: "a", inMs: 4000, outMs: 8000 }, { id: "c3", asset: "a", inMs: 8000, outMs: 9500 }]);
+    expect(a).toEqual({ base: 1, driftPerSec: 0.012 });
+    expect(b!.base).toBeCloseTo(1.048, 6);
+    expect(b!.driftPerSec).toBeCloseTo(-0.012, 6);
+    expect(c!.driftPerSec).toBeCloseTo(0.012, 6);
+    const [long] = shots([{ id: "c1", asset: "a", inMs: 0, outMs: 9900 }]);
+    expect(long!.base + long!.driftPerSec * 9.9).toBeLessThanOrEqual(1.08 + 1e-9);
+  });
+
+  it("leaves a zoom the creator or Adam set alone", () => {
+    expect(shots([{ id: "c1", asset: "a", inMs: 0, outMs: 4000, zoom: { base: 1.3, driftPerSec: 0 } }])[0]).toEqual({ base: 1.3, driftPerSec: 0 });
+  });
+});
+
+describe("the push as a style setting", () => {
+  const story = [{ id: "c1", asset: "a", inMs: 0, outMs: 4000 }];
+  it("follows the style's motion.push, and none at all at 0", () => {
+    expect(resolve(makeProject({ story, styleOverrides: { motion: { push: 0.006 } } }), makeStyle()).clips[0]!.zoom).toEqual({ base: 1, driftPerSec: 0.006 });
+    expect(resolve(makeProject({ story, styleOverrides: { motion: { push: 0 } } }), makeStyle()).clips[0]!.zoom).toEqual({ base: 1, driftPerSec: 0 });
+  });
+});
+
+describe("editorial title placement", () => {
+  it("puts a title in the upper title band by default, preserving explicit centre and positions", () => {
+    const title = { kind: "title", anchor: { atMs: 0 }, durationMs: 1000, props: { connector: "et surtout", phases: [{ startMs: 0, endMs: 1000, lines: [{ text: "Une idée" }, { text: "Plus claire" }] }] } };
+    const p = makeProject({ elements: [{ ...title, id: "auto" }, { ...title, id: "centre", slot: "center" }, { ...title, id: "custom", position: { x: 0.4, y: 0.2 } }] });
+    const tl = resolve(p, makeStyle());
+    expect(tl.elements.map(e => [e.id, e.x, e.y])).toEqual([["auto", 0.5, 0.3], ["centre", 0.5, 0.5], ["custom", 0.4, 0.2]]);
   });
 });

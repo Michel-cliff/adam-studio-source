@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolve } from "../src/resolve";
-import { WorkflowError, applyPatch, decide, newWorkflow } from "../src/workflow";
+import { WorkflowError, applyPatch, decide, newWorkflow, switchVariant, withVariant, withoutVariant } from "../src/workflow";
 import { makeProject, makeStyle } from "./helpers";
 
 /** A fully defaulted element: valid both as project input and as an already-parsed Element for applyPatch. */
@@ -117,6 +117,84 @@ describe("resolve with a virtual variant", () => {
 
   it("names a bad proposal or variant", () => {
     const style = makeStyle();
-    expect(() => resolve(guided(), style, { apply: { proposal: "p2", variant: "C" } })).toThrow('proposal "p2" has no variant C');
+    expect(() => resolve(guided(), style, { apply: { proposal: "p2", variant: "C" } })).toThrow('the visuals proposal has no variant C');
+  });
+});
+
+describe("switchVariant", () => {
+  it("takes back what the chosen variant did and applies another one, keeping what other steps did", () => {
+    let p = decide(guided(), "p1", "A");
+    expect(p.story[0]!.outMs).toBe(5000);
+    p = { ...p, proposals: [...p.proposals, { id: "p3", step: "captions", reason: "", status: "pending", history: [], variants: [
+      { key: "A", label: "big", patch: { setStyle: { captions: { size: 90, font: "Anton" } }, addCaptions: [{ words: ["s.w0", "s.w1"], text: "hi", highlight: [] }] } },
+      { key: "B", label: "small", patch: { setStyle: { captions: { size: 60 } } } },
+    ] }] };
+    p = { ...p, workflow: undefined, styleOverrides: { captions: { color: "white" } } };
+    p = decide(p, "p3", "A");
+    expect(p.styleOverrides).toEqual({ captions: { color: "white", size: 90, font: "Anton" } });
+    expect(p.captions).toHaveLength(1);
+    p = switchVariant(p, "p3", "B");
+    expect(p.styleOverrides).toEqual({ captions: { color: "white", size: 60 } });
+    expect(p.captions).toHaveLength(0);
+    expect(p.proposals.find((x) => x.id === "p3")!.status).toEqual({ accepted: "B" });
+    p = switchVariant(p, "p1", "C");
+    expect(p.story[0]!.outMs).toBe(9500);
+    expect(p.styleOverrides).toEqual({ captions: { color: "white", size: 60 } });
+  });
+  it("removes the elements a variant added and puts back the ones it removed", () => {
+    let p = makeProject({ elements: [text("old")], proposals: [{ id: "v", step: "visuals", reason: "", variants: [
+      { key: "A", label: "swap", patch: { removeElements: ["old"], addElements: [text("new")] } },
+      { key: "B", label: "add", patch: { addElements: [text("other")] } },
+    ] }] });
+    p = decide(p, "v", "A");
+    expect(p.elements.map((e) => e.id)).toEqual(["new"]);
+    p = switchVariant(p, "v", "B");
+    expect(p.elements.map((e) => e.id).sort()).toEqual(["old", "other"]);
+  });
+  it("refuses a proposal that is not accepted", () => {
+    expect(() => switchVariant(guided(), "p1", "B")).toThrow(WorkflowError);
+  });
+});
+
+describe("switching a variant chosen before reverts were kept", () => {
+  it("takes back what the variant added (elements, captions, style) from its patch", () => {
+    let p = makeProject({ styleOverrides: {}, proposals: [{ id: "old", step: "visuals", reason: "", variants: [
+      { key: "A", label: "one", patch: { addElements: [text("a1")], setStyle: { caption: { size: 0.07 } } } },
+      { key: "B", label: "two", patch: { addElements: [text("b1")] } },
+    ] }] });
+    p = decide(p, "old", "A");
+    const { revert: _, ...legacy } = p.proposals[0]!;
+    p = { ...p, proposals: [legacy] };
+    p = switchVariant(p, "old", "B");
+    expect(p.elements.map((e) => e.id)).toEqual(["b1"]);
+    expect(p.styleOverrides).toEqual({});
+  });
+  it("names the step and the letter, never the proposal id, in its errors", () => {
+    expect(() => switchVariant(guided(), "p1", "B")).toThrow(/^the cuts proposal has no chosen variant/);
+  });
+});
+
+describe("withVariant", () => {
+  it("previews a variant of a decided proposal in place of the chosen one, not on top of it", () => {
+    let p = makeProject({ elements: [], proposals: [{ id: "v", step: "visuals", reason: "", variants: [
+      { key: "A", label: "one", patch: { addElements: [text("a1")] } },
+      { key: "B", label: "two", patch: { addElements: [text("b1")] } },
+    ] }] });
+    expect(withVariant(p, "v", "B").elements.map((e) => e.id)).toEqual(["b1"]);
+    p = decide(p, "v", "A");
+    expect(withVariant(p, "v", "B").elements.map((e) => e.id)).toEqual(["b1"]);
+    expect(withVariant(p, "v", "A").elements.map((e) => e.id)).toEqual(["a1"]);
+  });
+});
+
+describe("withoutVariant", () => {
+  it("takes back the chosen variant of a decided proposal, leaves a pending one as it is", () => {
+    let p = makeProject({ elements: [], proposals: [{ id: "v", step: "hook", reason: "", variants: [
+      { key: "A", label: "one", patch: { addElements: [text("a1")] } },
+      { key: "B", label: "two", patch: { addElements: [text("b1")] } },
+    ] }] });
+    expect(withoutVariant(p, "v")).toBe(p);
+    p = decide(p, "v", "A");
+    expect(withoutVariant(p, "v").elements).toEqual([]);
   });
 });

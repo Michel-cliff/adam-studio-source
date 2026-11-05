@@ -1,11 +1,12 @@
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { exportSchemas, type Decision } from "@adam-studio/model";
-import { addCommand, checkVideos, newProjectCommand } from "@adam-studio/web/server/actions";
+import { addCommand, checkVideos, newProjectCommand, textProjectCommand } from "@adam-studio/web/server/actions";
 import { safeName } from "@adam-studio/web/server/guards";
 import { listProjects } from "@adam-studio/web/server/projects";
-import { projectsRoot } from "@adam-studio/web/server/settings";
+import { projectsRoot, SETTINGS_FILE, uiLang } from "@adam-studio/web/server/settings";
+import { daFirstPass, readDA } from "@adam-studio/render/src/lib/da";
 import { z } from "zod";
 import { nameInRoot, runAction, runSetup, stills, tail } from "./run";
 import { importAsset, lookAt } from "@adam-studio/library/src/importer";
@@ -23,6 +24,9 @@ Explicit requests from the creator: edit directly (apply_patch, update_item, set
 Creative choices: propose one to three variants (A, B, C) with propose; the creator reviews them in the control panel
 (npm run ui) or you render them with run review; decide records the choice. Guided steps run in order: cuts, structure,
 captions, hook, beats, visuals, sound, look. Every write is validated and backed up: undo puts back the previous version.
+Preserve the existing story and captions in unsolicited proposals, including hooks: no cuts, trimming or setStory.
+Every variant is checked by propose before saving. If it fails, repair the invalid variant and call propose again before announcing success.
+Use stable smooth zooms and blur, no shake, whip, glitch or strobing by default.
 Creator taste so far: default effect animations feel a bit fast; lean slower (style motion.speed below 1 slows every effect).
 Effects: element kinds hud.panel, hud.stat, lottie, camera.zoom (punch-in), camera.window (4:3 window on a flat colour);
 image intro/outro fade, pop, pixel, step, window, glitch; style fx {grain, scanlines, zoomBlur}; transitions flash, whip,
@@ -100,10 +104,10 @@ tool("save_series", "Starts a series from a project: its style, the images and s
 
 const kind = z.enum(["video", "image", "audio", "font", "lottie"]);
 
-tool("search_assets", "Searches the creator's Inspiration folder first (their own references: videos, images, sounds, fonts, Lottie, notes), then, with online, Pixabay (images, videos) and Freesound (CC0 sounds).",
-  { query: z.string(), kind: kind.optional(), online: z.boolean().optional() },
-  async ({ query, kind: k, online }) => {
-    const local = searchLocal(query, k as LibraryKind | undefined).slice(0, 30).map(({ path, kind: kk, title, notes, durationMs, rel }) => ({ path, kind: kk, title, rel, notes: notes.slice(0, 300), durationMs }));
+tool("search_assets", "Searches the creator's Inspiration folder first (their own references: videos, images, sounds, fonts, Lottie, notes), then, with online, Pixabay (images, videos) and Freesound (CC0 sounds). category narrows to one reference folder: typo, plans (shots), sous-titres (caption styles), images-textures-palettes, sons (sounds), interdits (don'ts: what the creator never wants, never use them as material).",
+  { query: z.string(), kind: kind.optional(), online: z.boolean().optional(), category: z.enum(["typo", "plans", "sous-titres", "images-textures-palettes", "sons", "interdits", "other"]).optional() },
+  async ({ query, kind: k, online, category }) => {
+    const local = searchLocal(query, k as LibraryKind | undefined, inspirationRoot(), category).slice(0, 30).map(({ path, kind: kk, title, notes, durationMs, rel, category: c }) => ({ path, kind: kk, title, rel, category: c, notes: notes.slice(0, 300), durationMs }));
     const web = online && k ? await searchOnline(query, k as LibraryKind) : { items: [], notes: online ? ["give a kind to search online"] : [] };
     return text(JSON.stringify({ inspiration: inspirationRoot(), local, online: web.items, notes: web.notes }, null, 1));
   });
@@ -114,8 +118,8 @@ tool("look_at", "Shows a file or URL as a picture: four frames of a video, an im
     return { content: [{ type: "text" as const, text: `${l.kind}: ${l.note}` }, ...(l.jpeg ? [{ type: "image" as const, data: l.jpeg, mimeType: "image/jpeg" }] : [])] };
   });
 
-tool("import_asset", "Copies a file (path) or downloads one (url) into the project's assets folder, records credits, and adds it as an asset. Fonts are copied only (use them in the style).",
-  { project, source: z.strictObject({ path: z.string().optional(), url: z.string().optional(), kind: kind.optional(), title: z.string().optional(), license: z.string().optional(), creator: z.string().optional(), page: z.string().optional() }), id: z.string().optional() },
+tool("import_asset", "Copies a file (path) or downloads one (url) into the project's assets folder, records credits, and adds it as an asset. cutout: an image comes in as a paper cut-out (background removed, transparent PNG; not available in the installed app); show it with an image element whose props.paper is true. Fonts are copied only (use them in the style).",
+  { project, source: z.strictObject({ path: z.string().optional(), url: z.string().optional(), kind: kind.optional(), title: z.string().optional(), license: z.string().optional(), creator: z.string().optional(), page: z.string().optional(), cutout: z.boolean().optional() }), id: z.string().optional() },
   async ({ project: p, source, id }) => {
     const dir = dirOf(p);
     const a = await importAsset(dir, source, id);
@@ -127,7 +131,7 @@ tool("import_asset", "Copies a file (path) or downloads one (url) into the proje
 tool("first_pass", "Automatic first pass of a project: writes the mechanical proposals (cuts: fillers, failed takes, dead air; captions) and returns a brief (the edit as sentences with word ids, frameworks, Inspiration, style) for you to write the creative proposals (structure, hook, beats, visuals, sound, look) with propose.",
   { project }, ({ project: p }) => {
     const dir = dirOf(p);
-    const r = firstPassIn(dir);
+    const r = firstPassIn(dir, uiLang(), daFirstPass(readDA(dirname(SETTINGS_FILE))));
     return text(`${firstPassBrief(dir, root(), r.summary)}\n\nlint now: ${r.lint.join(" | ") || "clean"}`);
   });
 
@@ -142,20 +146,25 @@ tool("still", "Renders frames of the edit (or of a variant, \"p1:B\") and shows 
     ]) };
   });
 
-tool("run", "Runs analyze, render, review or capcut (export) and waits for it; shown live in the control panel when it is open. Options: analyze {assets, steps, force}; render {force}; review {step}; capcut {name, force, replace}.",
-  { project, action: z.enum(["analyze", "render", "review", "capcut"]), options: z.record(z.string(), z.unknown()).optional() },
+tool("run", "Runs analyze, render, review or capcut (export) and waits for it; shown live in the control panel when it is open. Options: analyze {assets, steps, force}; render {force}; review {step}; capcut {name, force, replace}; cards (a text-only video: its cards laid out again from its script.json, which replaces cards edited by hand).",
+  { project, action: z.enum(["analyze", "render", "review", "capcut", "cards"]), options: z.record(z.string(), z.unknown()).optional() },
   async ({ project: p, action, options }) => {
     if (action === "capcut" && options?.replace) throw new ToolError("replace overwrites edits the creator made in CapCut: ask them, and let them press Replace in the panel");
     const job = await runAction(dirOf(p), root(), action, options ?? {});
     return { isError: job.state !== "done", content: [{ type: "text" as const, text: tail(job) }] };
   });
 
-tool("create_project", "Creates a project in the projects folder from rushes (absolute paths) and runs the import analysis.",
-  { name: z.string(), videos: z.array(z.string()).min(1), format: z.enum(["9:16", "16:9"]).default("9:16"), lang: z.string().optional() },
-  async ({ name, videos, format, lang }) => {
+tool("create_project", "Creates a project in the projects folder from rushes (absolute paths) and runs the import analysis. video: face camera (default), tutorial (keeps 0.40 s pauses, no push) or motion design. A text-only video (video: text) needs no rushes: give its script, one line per card (a number, a « quote », A vs B, a list with - , one word on its own; the words are kept as written).",
+  { name: z.string(), videos: z.array(z.string()).default([]), format: z.enum(["9:16", "16:9"]).default("9:16"), lang: z.string().optional(),
+    video: z.enum(["facecam", "motion", "tutorial", "text"]).default("facecam"), script: z.string().optional() },
+  async ({ name, videos, format, lang, video, script }) => {
     if (!safeName(name)) throw new ToolError(`not a valid project name: "${name}"`);
     const dir = join(root(), name);
-    const job = await runSetup("new", name, newProjectCommand(dir, checkVideos(videos), format, lang), { name, videos, format, lang });
+    if (video === "text") {
+      const job = await runSetup("new", name, textProjectCommand(dir, script ?? ""), { name, video });
+      return { isError: job.state !== "done", content: [{ type: "text" as const, text: tail(job) }] };
+    }
+    const job = await runSetup("new", name, newProjectCommand(dir, checkVideos(videos), format, lang, undefined, video), { name, videos, format, lang, video });
     return { isError: job.state !== "done", content: [{ type: "text" as const, text: tail(job) }] };
   });
 

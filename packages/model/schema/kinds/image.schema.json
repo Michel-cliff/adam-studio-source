@@ -37,6 +37,21 @@
       "type": "number",
       "minimum": 0,
       "maximum": 2
+    },
+    "paper": {
+      "default": false,
+      "type": "boolean"
+    },
+    "frame": {
+      "type": "string",
+      "enum": [
+        "sticker",
+        "fig",
+        "notch",
+        "loading",
+        "folder",
+        "auto"
+      ]
     }
   },
   "required": [

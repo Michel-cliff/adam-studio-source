@@ -81,8 +81,11 @@ export const ElementSchema = z
     durationMs: Ms.optional(),
     untilWord: z.string().min(1).optional(),
     untilEnd: z.boolean().optional(),
-    slot: z.string().default("center"),
+    slot: z.string().default("auto"),
     position: z.strictObject({ x: Unit, y: Unit }).optional(),
+    scale: z.number().min(0.1).max(4).optional(),
+    rotation: z.number().min(-180).max(180).optional(),
+    opacity: Unit.optional(),
     props: z.record(z.string(), z.unknown()).default({}),
   })
   .refine(
@@ -122,6 +125,16 @@ export const ProposalStatusSchema = z.union([
   z.literal("rejected"),
   z.strictObject({ accepted: VariantKeySchema }),
 ]);
+// What an accepted variant changed, kept so another variant can replace it later: the story and structure before,
+// the elements it removed, the element ids and captions it added, the style values it overwrote (null: not set before).
+export const RevertSchema = z.strictObject({
+  story: z.array(ClipSchema).optional(),
+  structure: StructureSchema.nullable().optional(),
+  removed: z.array(ElementSchema).default([]),
+  added: z.array(z.string()).default([]),
+  captions: z.array(CaptionSchema).default([]),
+  style: z.record(z.string(), z.unknown()).default({}),
+});
 export const ProposalSchema = z.strictObject({
   id: z.string().min(1),
   step: StepIdSchema,
@@ -129,6 +142,7 @@ export const ProposalSchema = z.strictObject({
   reason: z.string().default(""),
   variants: z.array(VariantSchema).max(3),
   status: ProposalStatusSchema.default("pending"),
+  revert: RevertSchema.optional(),
   history: z
     .array(z.strictObject({
         variants: z.array(VariantSchema),
@@ -142,6 +156,8 @@ export const ProjectSchema = z.strictObject({
   version: z.literal(1),
   name: z.string().min(1),
   canvas: CanvasSchema,
+  // What the video is (default art direction): face camera, motion design, tutorial, or cards from a script alone.
+  format: z.enum(["facecam", "motion", "tutorial", "text"]).default("facecam"),
   style: z.string().min(1),
   styleOverrides: z.record(z.string(), z.unknown()).default({}),
   assets: z.array(AssetSchema),

@@ -1,0 +1,141 @@
+/* Adaptive desktop workspace. Content panels scroll; controls keep their own space. */
+.page { padding:clamp(12px,2vw,30px); gap:clamp(8px,1vw,14px); min-height:100dvh; }
+.page > nav, .page > .marks, .page > .subbar, .page > .head, .page > .askbar-wrap { flex-shrink:0; }
+.page > .foot { position:static; margin:0; padding-bottom:0; flex:none; flex-wrap:wrap; gap:8px 20px; max-height:18dvh; overflow:auto; }
+.page > .foot .hint { min-width:0; overflow-wrap:anywhere; }
+.cols > *, .editor-workspace > *, .wrap > *, .story-view > *, .talk > *, .perf > * { min-width:0; min-height:0; }
+.topnav { gap:clamp(4px,1vw,12px); font-size:clamp(11px,1.1vw,16px); }
+.topnav a { min-width:0; padding:7px clamp(4px,.7vw,10px); overflow-wrap:anywhere; }
+.subnav { flex-wrap:wrap; gap:8px 20px; }
+.subnav a, .subnav button { font-size:clamp(16px,1.8vw,25px); }
+.subbar, .center .head { flex-wrap:wrap; }
+.page h1 { font-size:clamp(24px,3vw,44px); overflow-wrap:anywhere; }
+.cols { gap:clamp(14px,2vw,34px); }
+.page:has(:is(.studio-cols,.projects-cols,.stats-cols,.learned-cols,.library-cols,.da-space,.editor-shell)) { height:100dvh; min-height:0; overflow:hidden; }
+.page > :is(.studio-cols,.projects-cols,.stats-cols,.learned-cols,.library-cols) { flex:1 1 0; min-height:0; }
+.studio-cols { grid-template-columns:clamp(160px,17vw,290px) minmax(0,1fr) clamp(210px,22vw,330px); }
+.projects-cols { grid-template-columns:clamp(210px,22vw,340px) minmax(0,1fr) clamp(220px,22vw,330px); }
+.stats-cols, .learned-cols { grid-template-columns:clamp(200px,21vw,320px) minmax(0,1fr) clamp(210px,22vw,330px); }
+.library-cols { grid-template-columns:minmax(0,1fr) clamp(220px,24vw,340px); }
+.studio-cols .center, .stats-cols .center, .learned-cols .center, .projects-cols .center { overflow:auto; scrollbar-width:thin; }
+.cols .status { min-height:0; overflow:auto; padding-bottom:12px; scrollbar-width:thin; }
+.studio-cols .steps { min-height:0; overflow:auto; }
+.studio-cols .step { font-size:clamp(14px,1.5vw,22px); }
+.studio-cols .center .head, .studio-cols .nextline { flex:none; }
+.studio-cols .center .head h1 { white-space:normal; }
+.studio-cols .variants { container-type:size; flex:1 1 0; min-height:220px; grid-template-columns:repeat(3,minmax(0,1fr)); align-items:start; overflow:auto; padding:10px 4px; }
+.studio-cols .variant { min-width:0; min-height:0; }
+.studio-cols .variant .shot-btn, .studio-cols .variant.on > .shot { height:min(calc(100cqh - 90px),calc(100cqw / var(--ar,.5625))); min-height:70px; max-height:none; max-width:100%; width:auto; }
+.studio-cols .variant .shot-btn > .shot { height:100%; }
+.studio-cols .variant .vlabel { flex:none; margin-top:5px; padding:5px; overflow-wrap:anywhere; }
+.studio-cols .variant .vlabel span { font-size:clamp(11px,.95vw,14px); }
+.studio-cols .story-view { min-height:220px; grid-template-columns:minmax(0,max-content) minmax(300px,1fr); gap:clamp(10px,2vw,28px); }
+/* As tall as the room left, its width from the format of the video: a narrower frame letterboxed the player. */
+.studio-cols .story-video .frame { height:clamp(180px,calc(100dvh - 392px),640px); max-width:100%; width:auto; flex:none; }
+.studio-cols .script textarea { min-height:80px; }
+.scriptacts, .script .chathead { flex:none; flex-wrap:wrap; gap:6px; }
+.scriptacts .act { white-space:normal; }
+.wrap { grid-template-columns:minmax(130px,.7fr) minmax(0,1fr); gap:clamp(12px,2vw,32px); overflow:auto; }
+.wrap-video > :is(.frame,video) { max-width:100%; height:auto; max-height:55dvh; }
+.recent { min-height:0; overflow:auto; gap:clamp(10px,1.5vw,22px); }
+.recent .frame, .recent video { max-width:100%; }
+.perf { grid-template-columns:clamp(65px,8vw,120px) minmax(0,1fr); gap:clamp(10px,1.5vw,24px); }
+.perf .frame { width:100%; }
+.stats-cols .talk { min-height:240px; }
+.stats-cols .stats-video-list, .projects-cols .side-list .list-scroll { max-height:50dvh; }
+.refacts { flex-wrap:wrap; gap:8px; }
+.library-cols .cabinet { overflow:auto; scrollbar-width:thin; }
+.library-cols .drawer { height:auto; min-height:220px; flex:1 0 220px; }
+.da-space { height:auto; min-height:0; }
+.da-intro { grid-template-columns:fit-content(560px) auto; justify-content:start; gap:24px; }
+.da-create, .da-current { min-width:0; min-height:0; overflow:auto; }
+.editor-shell { grid-template-rows:minmax(180px,1fr) 9px auto clamp(100px,var(--track-height,240px),36dvh); }
+.editor-workspace { grid-template-columns:clamp(190px,20vw,280px) minmax(0,1fr) clamp(230px,24vw,340px); }
+.timeline-tools { flex-wrap:wrap; overflow:visible; gap:6px 10px; }
+.timeline-zoom { min-width:0; }
+.timeline-zoom input { min-width:50px; width:clamp(50px,8vw,130px); }
+.page:has(.editor-shell) > .subbar .tl-title { flex-wrap:wrap; gap:6px 12px; font-size:clamp(18px,2vw,27px); }
+.vi-save, .vi-actions, .preview-heading, .editor-preview .transport { flex-wrap:wrap; height:auto; }
+.da-box { max-width:calc(100dvw - 24px); max-height:calc(100dvh - 24px); }
+.term { max-width:calc(100dvw - 24px); max-height:75dvh; overflow:auto; }
+@media(max-width:1099px) {
+ .studio-cols, .studio-cols.no-aside { grid-template-columns:minmax(0,1fr) minmax(190px,25%); grid-template-rows:auto minmax(0,1fr); }
+ .studio-cols .steps { grid-column:1/-1; flex-direction:row; overflow-x:auto; overflow-y:hidden; }
+ .studio-cols .step { flex:0 0 auto; white-space:nowrap; }
+ .projects-cols { grid-template-columns:minmax(190px,28%) minmax(0,1fr); overflow:auto; }
+ .projects-cols .home-status { grid-column:1/-1; min-height:200px; }
+ .projects-cols .center { min-height:300px; }
+ .stats-cols, .learned-cols, .page:has(.stats-subnav) > .cols { grid-template-columns:minmax(190px,27%) minmax(0,1fr); overflow:auto; }
+ .stats-cols > .status, .learned-cols > .status { grid-column:1/-1; min-height:160px; }
+ .stats-cols > .center, .learned-cols > .center { min-height:380px; }
+ .stats-cols .talk { grid-template-columns:1fr; min-height:380px; }
+ .stats-cols .notecol { min-height:120px; }
+ .library-cols { grid-template-columns:minmax(0,1fr) minmax(190px,28%); }
+ .editor-workspace { grid-template-columns:minmax(160px,22%) minmax(0,1fr) minmax(190px,28%); }
+ .da-intro { grid-template-columns:1fr; gap:12px; }
+}
+@media(max-width:760px), (max-height:640px) {
+ .page:has(:is(.studio-cols,.projects-cols,.stats-cols,.learned-cols,.library-cols,.da-space,.editor-shell)) { height:auto; min-height:100dvh; overflow:visible; }
+ .topnav { display:flex; flex-wrap:wrap; align-items:center; }
+ .topnav > a { flex:1 1 26%; }
+ .page > .foot { max-height:none; }
+ .page > :is(.studio-cols,.projects-cols,.stats-cols,.learned-cols,.library-cols), .page:has(.stats-subnav) > .cols { display:flex; flex-direction:column; overflow:visible; }
+ .studio-cols .steps { flex-direction:row; flex-shrink:0; }
+ .cols .center, .cols .status, .projects-cols .home-status { min-height:0; overflow:visible; }
+ .cols .status { max-height:none; }
+ .studio-cols .variants { container-type:normal; flex:none; min-height:0; grid-template-columns:repeat(3,minmax(0,1fr)); overflow:visible; }
+ .studio-cols .variant .shot-btn, .studio-cols .variant.on > .shot { height:min(42dvh,calc(100cqw / var(--ar,.5625))); }
+ .studio-cols .story-view { min-height:360px; }
+ .studio-cols .script { min-height:300px; }
+ .studio-cols .story-video .frame { height:min(360px,50dvh); }
+ .askbar-wrap { position:static; }
+ .askbar { flex-wrap:wrap; }
+ .askbar input { min-width:0; flex-basis:65%; }
+ .projects-cols .side-list, .stats-cols .stats-video-sidebar { min-height:0; max-height:none; overflow:visible; }
+ .project-controls, .stats-import-dock { overflow:visible; margin-top:12px; }
+ .projects-cols .side-list .list-scroll, .stats-cols .stats-video-list { flex:none; max-height:50dvh; }
+ .recent { flex:none; }
+ .stats-cols > .center, .learned-cols > .center { min-height:0; }
+ .stats-cols .talk { display:flex; flex-direction:column; min-height:440px; }
+ .stats-cols .chatbox { min-height:280px; }
+ .stats-cols .notecol { min-height:150px; }
+ .ref-scroll { flex:none; overflow:visible; }
+ .da-space { display:flex; flex-direction:column; overflow:visible; height:auto; }
+ .da-create, .da-current { overflow:visible; }
+ .editor-shell { overflow:visible; flex:none; display:flex; flex-direction:column; gap:8px; }
+ .editor-workspace { display:flex; flex-direction:column; }
+ .editor-left { min-height:250px; max-height:45dvh; order:2; }
+ .editor-preview { min-height:360px; height:55dvh; order:1; }
+ .visual-inspector { max-height:55dvh; min-height:240px; order:3; }
+ .editor-shell .timeline-scroll { height:clamp(160px,var(--track-height,240px),45dvh); flex:none; }
+ .timeline-tools { overflow:visible; }
+ .timeline-resizer { display:none; }
+ .da-box { display:flex; flex-direction:column; overflow:auto; padding:14px; gap:12px; }
+ .wrap { grid-template-columns:1fr; }
+ .take { grid-template-columns:1fr; }
+}
+@media(max-width:480px) {
+ .page { padding:12px; }
+ .studio-cols .variants { grid-template-columns:1fr; gap:18px; }
+ .studio-cols .variant .shot-btn, .studio-cols .variant.on > .shot { height:min(55dvh,calc(100cqw / var(--ar,.5625))); }
+ .studio-cols .story-view { display:flex; flex-direction:column; }
+ .story-video { min-height:260px; }
+ .recent { grid-template-columns:1fr; }
+ .perf { grid-template-columns:70px minmax(0,1fr); }
+ .ftab { max-width:100%; }
+ .subbar .toggle { margin-left:0; }
+ .modebar { gap:8px; }
+ .tour-card { right:12px; bottom:12px; max-height:calc(100dvh - 24px); }
+}
+
+/* Never compress status content or mobile sections into the following panel. */
+.cols .status > * { flex-shrink:0; }
+@media(max-width:760px), (max-height:640px) {
+ .page > :is(.studio-cols,.projects-cols,.stats-cols,.learned-cols,.library-cols), .page:has(.stats-subnav) > .cols { flex:none; }
+ .page > :is(.studio-cols,.projects-cols,.stats-cols,.learned-cols,.library-cols) > * { flex:none; height:auto; min-height:0; max-height:none; }
+ .stats-cols .stats-import-dock, .projects-cols .project-controls { max-height:none; flex:none; }
+ .stats-cols .stats-video-sidebar { overflow:visible; }
+ .stats-cols .talk { flex:none; }
+ .stats-cols .notecol textarea { min-height:110px; }
+ .stats-cols .msgs { min-height:120px; max-height:35dvh; }
+}

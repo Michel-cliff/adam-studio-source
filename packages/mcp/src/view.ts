@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { resolve } from "@adam-studio/model";
+import { uiLang } from "@adam-studio/web/server/settings";
 import { lintLines, load, ToolError } from "@adam-studio/web/server/store";
 
 const s = (ms: number) => (ms / 1000).toFixed(2);
@@ -12,11 +13,35 @@ export function projectSummary(dir: string): string {
   const words = Object.fromEntries(Object.entries(project.transcript.words).map(([a, w]) => [a, `${w.length} words (get_transcript)`]));
   return JSON.stringify({
     dir,
+    // What Adam writes for the creator (labels, titles, captions) is in this language unless they name another.
+    creatorLanguage: uiLang() === "fr" ? "French" : "English",
     durationMs: Math.round((timeline.durationFrames * 1000) / timeline.fps),
     lint: lintLines(dir, project, timeline),
     ...project,
     transcript: { lang: project.transcript.lang, words },
-  }, null, 1);
+    proposals: project.proposals.map(compactProposal),
+  });
+}
+
+type Proposal = ReturnType<typeof load>["project"]["proposals"][number];
+
+/**
+ * A proposal as the AI needs it, read again on every turn: a pending one whole (it may refill it), a decided one as
+ * its choice, the other labels and the creator's notes (their taste). Without this, the history's copies of the
+ * variants were most of the project: 66 000 of 77 000 characters on a real one.
+ */
+function compactProposal(p: Proposal) {
+  const { history, revert: _, ...rest } = p;
+  if (p.status === "pending") return rest;
+  const key = p.status === "rejected" ? null : p.status.accepted;
+  const notes = history.flatMap((h) => (h.note ? [h.note] : []));
+  return {
+    id: p.id, step: p.step, ...(p.reason ? { reason: p.reason } : {}),
+    status: key ? `accepted ${key}` : "rejected",
+    ...(key ? { chosen: p.variants.find((v) => v.key === key)?.label ?? key } : {}),
+    others: p.variants.filter((v) => v.key !== key).map((v) => `${v.key} ${v.label}`),
+    ...(notes.length ? { notes } : {}),
+  };
 }
 
 /** One line per word ("c01.w12 1.23-1.50 bonjour") with the pauses between them, optionally for one take and a time range. */

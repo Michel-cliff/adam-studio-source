@@ -84,4 +84,9 @@ export function askServers(home = homedir(), file = CONNECTORS_FILE): { servers:
   return { servers, tools: Object.keys(servers).map((n) => `mcp__${n}`) };
 }
 
+/** The full config of one connector, for the check; never sent to the interface. */
+export function connectorConfig(name: string, home = homedir(), file = CONNECTORS_FILE): Server | null {
+  return load(file).added[name] ?? claudeServers(home)[name] ?? BUILT_IN[name] ?? null;
+}
+
 export const connectorsAvailable = (home = homedir()) => existsSync(join(home, ".claude.json"));

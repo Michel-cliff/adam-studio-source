@@ -1,13 +1,14 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join } from "node:path";
 import {
-  applyPatch, closeStep, decide, deepMerge, lint, parseProject, parseStyle, PatchSchema, ProposalSchema, resolve,
+  applyPatch, closeStep, decide, deepMerge, switchVariant, lint, parseProject, parseStyle, PatchSchema, ProposalSchema, resolve,
   type Decision, type Plain, type Project, type Style, type Timeline,
 } from "@adam-studio/model";
 import { applySeries } from "@adam-studio/model";
 import { listSeries, loadSeries } from "@adam-studio/render/src/series";
 import { cutWords, tightenPauses } from "./cuts";
-import { firstPass, type FirstPassSummary } from "./firstpass";
+import { moveCaption, moveElement, moveStory, resizeElement } from "./moves";
+import { firstPass, type FirstPassParams, type FirstPassSummary } from "./firstpass";
 import { safeName } from "./guards";
 
 export class ToolError extends Error {}
@@ -100,6 +101,43 @@ export function updateItem(dir: string, collection: "story" | "elements", id: st
   return save(dir, raw);
 }
 
+/** Applies inspector fields and project styling together: one validation, one undo step. */
+export function inspectIn(dir: string, input: Plain) {
+  const raw = loadRaw(dir);
+  const kind = input.kind;
+  if (kind !== "style") {
+    const collection = kind === "clip" ? "story" : kind === "element" ? "elements" : kind === "caption" ? "captions" : null;
+    if (!collection) throw new ToolError("unknown inspector selection");
+    const list = raw[collection] as Plain[];
+    const i = kind === "caption" ? Number(input.index) : list.findIndex(x => x.id === input.id);
+    if (!Number.isInteger(i) || i < 0 || i >= list.length) throw new ToolError("the selection no longer exists");
+    const value = input.value as Plain;
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new ToolError("the selection must be an object");
+    if (kind !== "caption" && value.id !== list[i]!.id) throw new ToolError("an id cannot be changed");
+    if (kind === "clip") {
+      const asset = (raw.assets as Plain[]).find(a => a.id === value.asset);
+      const duration = (asset?.meta as Plain | undefined)?.durationMs;
+      if (typeof duration === "number" && Number(value.outMs) > duration) throw new ToolError("the clip extends beyond its source");
+    }
+    list[i] = value;
+  }
+  const patch = input.style;
+  if (patch && typeof patch === "object" && !Array.isArray(patch)) raw.styleOverrides = deepMerge((raw.styleOverrides ?? {}) as Plain, patch as Plain);
+  return save(dir, raw);
+}
+
+/** Splits source timing without losing word anchors, framing or audio. */
+export function splitIn(dir: string, id: string, offsetMs: number) {
+  const raw = loadRaw(dir), list = raw.story as Plain[];
+  const i = list.findIndex(c => c.id === id), c = list[i];
+  if (!c) throw new ToolError("no clip to split");
+  const fps = Number((raw.canvas as Plain).fps), min = Math.ceil(1000 / fps);
+  if (!Number.isFinite(offsetMs) || offsetMs < min || offsetMs > Number(c.outMs) - Number(c.inMs) - min) throw new ToolError("leave at least one frame on each side of the cut");
+  const cut = Math.round(Number(c.inMs) + offsetMs);
+  list.splice(i, 1, { ...c, outMs: cut, transitionOut: { kind: "cut" } }, { ...c, id: `${id}.split.${crypto.randomUUID().slice(0, 8)}`, inMs: cut });
+  return save(dir, raw);
+}
+
 /** Sets (or, with value undefined, removes) the value at a JSON Pointer such as /captions/0/text. */
 export function setValue(dir: string, pointer: string, value: unknown) {
   if (!pointer.startsWith("/")) throw new ToolError(`a JSON Pointer starts with "/", got "${pointer}"`);
@@ -125,20 +163,53 @@ export function propose(dir: string, input: unknown) {
   if (!p.success) throw new ToolError(`not a valid proposal: ${p.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`);
   const proposal = p.data;
   if (proposal.variants.length === 0) throw new ToolError("a proposal needs one to three variants");
+  const { style } = load(dir);
+  // A variant must show what its label promises: an element anchored on a cut word is hidden from the edit.
+  const hiddenIn = (project: Project) => {
+    const before = new Set(resolve(project, style).orphans);
+    return proposal.variants.flatMap((v) => {
+      let orphans: string[];
+      try {
+        const applied = applyPatch(project, v.patch);
+        const parsed = parseProject(applied);
+        if (!parsed.ok) throw errors("variant project", parsed.errors);
+        orphans = resolve(parsed.value, style).orphans;
+      } catch (e) {
+        throw new ToolError(`variant ${v.key} cannot be previewed or applied: ${(e as Error).message}. Repair this variant and call propose again before announcing it is ready.`);
+      }
+      const added = orphans.filter((o) => !before.has(o));
+      return added.length ? [`variant ${v.key}: ${added.join(", ")}`] : [];
+    });
+  };
   return edit(dir, (project) => {
-    const i = project.proposals.findIndex((x) => x.id === proposal.id);
-    if (i < 0) return { ...project, proposals: [...project.proposals, { ...proposal, status: "pending", history: [] }] };
-    const old = project.proposals[i]!;
-    if (old.status !== "pending" || old.variants.length > 0) {
-      throw new ToolError(`proposal "${proposal.id}" exists and is ${old.status === "pending" ? "waiting for a decision" : "decided"}: use another id`);
+    const next = proposeInto(project, proposal);
+    const hidden = hiddenIn(next);
+    if (hidden.length) {
+      throw new ToolError(`${hidden.join("; ")} would be hidden: anchored on a word that is cut from the edit (or ends on one). `
+        + "Anchor on a word that is kept (get_transcript shows the cut ones) and propose again.");
     }
-    const next = { ...old, variants: proposal.variants, reason: proposal.reason || old.reason, anchor: proposal.anchor ?? old.anchor };
-    return { ...project, proposals: project.proposals.map((x, j) => (j === i ? next : x)) };
+    return next;
   });
+}
+
+function proposeInto(project: Project, proposal: ReturnType<typeof ProposalSchema.parse>): Project {
+  const i = project.proposals.findIndex((x) => x.id === proposal.id);
+  if (i < 0) return { ...project, proposals: [...project.proposals, { ...proposal, status: "pending", history: [] }] };
+  const old = project.proposals[i]!;
+  if (old.status !== "pending" || old.variants.length > 0) {
+    throw new ToolError(`proposal "${proposal.id}" exists and is ${old.status === "pending" ? "waiting for a decision" : "decided"}: use another id`);
+  }
+  const next = { ...old, variants: proposal.variants, reason: proposal.reason || old.reason, anchor: proposal.anchor ?? old.anchor };
+  return { ...project, proposals: project.proposals.map((x, j) => (j === i ? next : x)) };
 }
 
 export function decideProposal(dir: string, id: string, decision: Decision, note?: string) {
   return edit(dir, (project) => { try { return decide(project, id, decision, note); } catch (e) { throw new ToolError((e as Error).message); } });
+}
+
+/** Another variant for a proposal already decided: what the first one did is taken back. */
+export function switchVariantIn(dir: string, id: string, key: "A" | "B" | "C") {
+  return edit(dir, (project) => { try { return switchVariant(project, id, key); } catch (e) { throw new ToolError((e as Error).message); } });
 }
 
 export function closeCurrentStep(dir: string) {
@@ -202,11 +273,24 @@ export function removeAssetIn(dir: string, id: string): { trashed: string | null
 }
 
 /** The mechanical first pass (cuts and captions proposals), validated and backed up like every write. */
-export function firstPassIn(dir: string): { summary: FirstPassSummary; lint: string[]; durationMs: number } {
+export function firstPassIn(dir: string, lang: "en" | "fr" = "en", params?: FirstPassParams): { summary: FirstPassSummary; lint: string[]; durationMs: number } {
   const { project, style } = load(dir);
   let summary!: FirstPassSummary;
   const r = edit(dir, () => {
-    try { const out = firstPass(project, style); summary = out.summary; return out.project; } catch (e) { throw new ToolError((e as Error).message); }
+    try { const out = firstPass(project, style, lang, params); summary = out.summary; return out.project; } catch (e) { throw new ToolError((e as Error).message); }
   });
   return { summary, ...r };
+}
+
+/** A block dragged on the timeline (see moves.ts), validated and saved like every write. */
+export function moveIn(dir: string, what: string, id: string | number, to: number) {
+  if (!Number.isFinite(to)) throw new ToolError("say where to move it");
+  const { style } = load(dir);
+  return edit(dir, (p) => {
+    if (what === "element") return moveElement(p, style, String(id), to);
+    if (what === "caption") return moveCaption(p, style, Number(id), to);
+    if (what === "story") return moveStory(p, String(id), to);
+    if (what === "element-start" || what === "element-end") return resizeElement(p, style, String(id), what === "element-start" ? "start" : "end", to);
+    throw new ToolError(`cannot move "${what}"`);
+  });
 }

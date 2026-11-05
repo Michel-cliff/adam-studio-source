@@ -2,7 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { parseUsage, recordUsage, usageSummary } from "../../server/usage";
+import { parseLimits, recordLimits, parseUsage, recordUsage, usageSummary } from "../../server/usage";
 
 // Lines as Claude Code prints them with --output-format stream-json (trimmed to the fields that matter).
 const LIMITS = JSON.stringify({ type: "rate_limit_event", rate_limit_info: { status: "allowed_warning", resetsAt: 1792524600, rateLimitType: "five_hour", utilization: 0.93,
@@ -42,4 +42,16 @@ describe("Claude usage", () => {
     const s = usageSummary(mkdtempSync(join(tmpdir(), "usage-")), Date.now());
     expect(s).toEqual({ today: { asks: 0, costUsd: 0, tokens: 0 }, last: null, limits: null });
   });
+});
+
+it("does not turn an expired quota into a fictitious zero", () => {
+ const dir = mkdtempSync(join(tmpdir(), "usage-expired-")); recordUsage(dir, { project:"demo", step:"hook", ...parseUsage(OUTPUT)! });
+ const limits = usageSummary(dir, Date.UTC(2030,0,1)).limits!;
+ expect(Number.isFinite(limits.fiveHour.used)).toBe(false);
+});
+it("reads partial stream updates before a result and keeps the other window", () => {
+ const dir=mkdtempSync(join(tmpdir(),"usage-partial-")); const first=parseLimits(LIMITS)!; recordLimits(dir, first, 1);
+ const partial=parseLimits(JSON.stringify({type:"rate_limit_event",rate_limit_info:{rateLimitType:"five_hour",utilization:.65,resetsAt:1900000000}}))!;
+ recordLimits(dir,partial,2); const r=usageSummary(dir,3).limits!;
+ expect(r.fiveHour.used).toBe(.65);expect(r.sevenDay.used).toBe(.12);
 });

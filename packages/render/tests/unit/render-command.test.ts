@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { fileSafeName, parseFrames } from "../../src/commands/render";
+import { fileSafeName, parseFrames, moveIntoPlace } from "../../src/commands/render";
 import { CliError, loadProject } from "../../src/project-io";
 import { projectInput, styleInput } from "./helpers";
 
@@ -42,5 +42,31 @@ describe("fileSafeName", () => {
   it("never returns an empty name or one ending with a dot or a space", () => {
     expect(fileSafeName("...")).toBe("edit");
     expect(fileSafeName("final. ")).toBe("final");
+  });
+});
+
+describe("putting a finished video in place", () => {
+  const locked = (times: number) => {
+    const calls: string[] = [];
+    let left = times;
+    return { calls, rename: (a: string, b: string) => {
+      calls.push(b);
+      if (left-- > 0) throw Object.assign(new Error("in use"), { code: "EPERM" });
+    } };
+  };
+  it("waits for a player to let go", () => {
+    const r = locked(2);
+    expect(moveIntoPlace("a.part.mp4", "a.mp4", { rename: r.rename, waitMs: 2000 })).toBe("a.mp4");
+    expect(r.calls).toEqual(["a.mp4", "a.mp4", "a.mp4"]);
+  });
+  it("keeps the render under a dated name when the old file stays open: minutes of work are never lost", () => {
+    const r = locked(1000);
+    let last = 0;
+    const out = moveIntoPlace("a.part.mp4", "a.mp4", { rename: (x, y) => { last++; if (y === "a.mp4") r.rename(x, y); }, waitMs: 5, now: new Date("2026-11-05T01:52:00Z") });
+    expect(out).toBe("a 20261105-0152.mp4");
+    expect(last).toBeGreaterThan(1);
+  });
+  it("does not hide another failure", () => {
+    expect(() => moveIntoPlace("a", "b.mp4", { rename: () => { throw Object.assign(new Error("gone"), { code: "ENOENT" }); } })).toThrow("gone");
   });
 });

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { makeSynthetic } from "../../render/tests/e2e/synthetic";
-import { closeCurrentStep, decideProposal, patchProject, projectDir, propose, setValue, undo, updateItem } from "@adam-studio/web/server/store";
+import { closeCurrentStep, cutWordsIn, decideProposal, patchProject, projectDir, propose, setValue, undo, updateItem } from "@adam-studio/web/server/store";
 import { projectSummary, transcriptText } from "../src/view";
 
 let dir: string;
@@ -74,6 +74,34 @@ describe("store", () => {
     expect(() => propose(dir, { id: "p3", step: "visuals", variants: [] })).toThrow(/one to three/);
     expect(() => closeCurrentStep(dir)).toThrow();
   });
+
+  it("preflights duplicate element ids in each variant before saving any proposal", () => {
+    const before = readFileSync(join(dir, "project.json"), "utf8");
+    expect(() => propose(dir, { id: "invalid-preview", step: "hook", variants: [{ key: "A", label: "Broken", patch: { addElements: [magenta, magenta] } }] })).toThrow(/variant A cannot be previewed.*already exists/);
+    expect(readFileSync(join(dir, "project.json"), "utf8")).toBe(before);
+    propose(dir, { id: "invalid-preview", step: "hook", variants: [{ key: "A", label: "Fixed", patch: { addElements: [magenta] } }] });
+    expect(read().proposals.at(-1).id).toBe("invalid-preview");
+  });
+
+  it("rejects a hook that hides existing captions before the creator sees it", () => {
+    const p = read();
+    const before = readFileSync(join(dir, "project.json"), "utf8");
+    expect(() => propose(dir, { id: "unsafe-hook", step: "hook", variants: [{ key: "A", label: "Cut opening", patch: { setStory: [{ ...p.story[0], inMs: 3000, outMs: 4000 }] } }] })).toThrow(/caption.*hidden/);
+    expect(readFileSync(join(dir, "project.json"), "utf8")).toBe(before);
+  });
+
+  it("refuses a variant whose element would be hidden (anchored on a cut word), naming it, and keeps the rest", () => {
+    const words = Object.values(read().transcript.words).flat() as { id: string }[];
+    const cut = words[words.length - 2]!.id;
+    cutWordsIn(dir, [cut]);
+    const before = readFileSync(join(dir, "project.json"), "utf8");
+    const hidden = { key: "B", label: "Title on a cut word", patch: { addElements: [{ ...magenta, id: "tB", anchor: { word: cut } }] } };
+    const fine = { key: "A", label: "fine", patch: { addElements: [{ ...magenta, id: "tA" }] } };
+    expect(() => propose(dir, { id: "p4", step: "visuals", variants: [fine, hidden] })).toThrow(/variant B.*tB.*hidden/);
+    expect(readFileSync(join(dir, "project.json"), "utf8")).toBe(before);
+    propose(dir, { id: "p4", step: "visuals", variants: [fine] });
+    expect(read().proposals.find((p: { id: string }) => p.id === "p4").variants).toHaveLength(1);
+  });
 });
 
 describe("view", () => {
@@ -87,4 +115,23 @@ describe("view", () => {
     expect(t).not.toContain("red");
     expect(() => transcriptText(dir, { asset: "zz" })).toThrow(/no transcript/);
   });
+});
+
+describe("get_project stays small", () => {
+  // Decided proposals carried full copies of their variants in their history: 66 000 of a real project's 77 000
+  // characters, re-read on every turn of every ask. The AI needs what was chosen and the notes, not the copies.
+  it("keeps the choice, the other labels and the notes of decided proposals, and pending ones whole", () => {
+    const d = mkdtempSync(join(tmpdir(), "adam view-"));
+    makeSynthetic(d, { withProposal: true });
+    const v = (key: "A" | "B", label: string) => ({ key, label, patch: { setStyle: { caption: { size: key === "A" ? 0.06 : 0.05 } } } });
+    propose(d, { id: "c1", step: "captions", reason: "caption size", variants: [v("A", "big"), v("B", "small")] });
+    decideProposal(d, "c1", "B", "smaller reads better on my face");
+    propose(d, { id: "c2", step: "captions", reason: "next", variants: [v("A", "big"), v("B", "small")] });
+    const s = JSON.parse(projectSummary(d));
+    const c1 = s.proposals.find((p: { id: string }) => p.id === "c1");
+    expect(c1).toEqual({ id: "c1", step: "captions", reason: "caption size", status: "accepted B", chosen: "small", others: ["A big"], notes: ["smaller reads better on my face"] });
+    const c2 = s.proposals.find((p: { id: string }) => p.id === "c2");
+    expect(c2.variants[0].patch).toBeDefined();
+    expect(c2.history).toBeUndefined();
+  }, 60_000);
 });

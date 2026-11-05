@@ -22,7 +22,7 @@ describe("adam render", () => {
     expect(existsSync(join(dir, "renders", "synthetic.timeline.json"))).toBe(true);
     // The bundle lives in the project and links the media: no copy is left in the temp folder.
     expect(tempBundles()).toBe(bundlesBefore);
-    expect(statSync(join(dir, "renders", ".bundle", "public", "cache", "s", "edit.mp4")).nlink).toBe(2);
+    expect(statSync(join(dir, "renders", ".bundle", readdirSync(join(dir, "renders", ".bundle"))[0]!, "public", "cache", "s", "edit.mp4")).nlink).toBe(2);
     const info = probe(out);
     const video = info.streams.find((s) => s.codec_type === "video")!;
     expect([video.width, video.height]).toEqual([1080, 1920]);

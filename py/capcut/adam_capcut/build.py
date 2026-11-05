@@ -124,11 +124,11 @@ class Builder:
         p, style, (w, h) = self.p, self.tl["style"], self.canvas
         texts = []
         for e in self.tl["elements"]:
-            if e["layer"] != "front":
+            if e["layer"] != "front" or e["id"] in self.media.get("overlays", {}):
                 continue
             if e["kind"] == "title":
-                texts += title_texts(e, w, h, self.fps)
-                self.entries.append(entry(e["id"], "title", "native", "CapCut text, one per line (the reveal is approximated by Glitch intros)"))
+                texts += title_texts(e, w, h, self.fps, stable=style.get("motion", {}).get("stable", True))
+                self.entries.append(entry(e["id"], "title", "native", "CapCut text, one per line; stable unless explicitly disabled"))
             elif e["kind"] == "text.behindSubject":
                 texts.append(big_word_text(e, w, h))
                 self.entries.append(entry(e["id"], e["kind"], "native", "CapCut text"))
@@ -144,9 +144,10 @@ class Builder:
                 background=p.Text_background(color=style["colors"]["accent"]) if t["box"] else None,
                 clip_settings=p.Clip_settings(transform_x=x, transform_y=y),
             )
-            if t["intro"]:
-                seg.add_animation(p.CapCut_Text_intro.Glitch, duration=min(ms_us(t["intro"]), tr.duration // 2))
-            seg.add_animation(p.CapCut_Text_outro.Glitch, duration=min(ms_us(TITLE_OUTRO_MS), tr.duration // 2))
+            if not style.get("motion", {}).get("stable", True):
+                if t["intro"]:
+                    seg.add_animation(p.CapCut_Text_intro.Glitch, duration=min(ms_us(t["intro"]), tr.duration // 2))
+                seg.add_animation(p.CapCut_Text_outro.Glitch, duration=min(ms_us(TITLE_OUTRO_MS), tr.duration // 2))
             self.text_roles[seg.material_id] = "title"
             self.script.add_segment(seg, names[k])
 
@@ -181,10 +182,10 @@ class Builder:
         for e in self.tl["elements"]:
             if e["layer"] != "front":
                 continue
-            if e["kind"] == "image":
-                items.append(("image", e))
-            elif e["id"] in self.media["overlays"]:
+            if e["id"] in self.media["overlays"]:
                 items.append(("overlay", e))
+            elif e["kind"] == "image":
+                items.append(("image", e))
         items.sort(key=lambda it: it[1]["fromFrame"])
         tracks = allocate([(e["fromFrame"], e["fromFrame"] + e["durationFrames"]) for _, e in items])
         for i in range(max(tracks, default=-1) + 1):
@@ -222,6 +223,9 @@ class Builder:
         notes = []
         for prop, table, kinds in (("intro", INTRO, p.CapCut_Intro_type), ("outro", OUTRO, p.CapCut_Outro_type)):
             preset = props.get(prop)
+            if self.tl.get("style", {}).get("motion", {}).get("stable", True) and preset in ("glitch", "step", "pixel", "popOut"):
+                notes.append(f'{prop} stable: no jitter animation')
+                continue
             if not preset:
                 continue
             if preset not in table:

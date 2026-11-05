@@ -1,0 +1,16 @@
+[project]
+name = "adam-cutout"
+version = "0.1.0"
+requires-python = ">=3.11"
+# Its own environment: rembg needs numpy 2, the analysis is pinned to numpy 1.26.
+dependencies = ["rembg[cpu]==2.0.86", "opencv-python-headless==4.11.0.86"]
+
+[project.optional-dependencies]
+dev = ["pytest==9.0.3"]
+
+[tool.setuptools]
+packages = ["adam_cutout"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["slow: downloads the rembg model (about 170 MB, once)"]

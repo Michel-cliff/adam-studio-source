@@ -9,7 +9,7 @@ const timeline = (speed = 1) => ({
   format: "9:16", width: 1080, height: 1920, fps: 30, durationFrames: 180,
   clips: [clip("c1", 0, { kind: "flash", durationMs: 200 }), clip("c2", 60, { kind: "whip", durationMs: 400 }), clip("c3", 120, { kind: "cut" })],
   elements: [{ id: "z", kind: "camera.zoom", layer: "front", fromFrame: 130, durationFrames: 30, trimStartMs: 0, x: 0.5, y: 0.5, props: { scale: 1.5, x: 0.5, y: 0.3, easeMs: 100 } }],
-  captions: [], beats: [], audio: [], orphans: [], warnings: [], style: { motion: { speed } },
+  captions: [], beats: [], audio: [], orphans: [], warnings: [], style: { motion: { speed, stable: false } },
 }) as unknown as Timeline;
 
 describe("camera", () => {
@@ -52,5 +52,25 @@ describe("CapCut plan report", () => {
     expect(byId["word2"]).toMatchObject({ status: "skipped" });
     expect(byId["caption:3"]).toMatchObject({ status: "skipped" });
     expect(byId["clip:tiny"]).toMatchObject({ status: "skipped" });
+  });
+});
+
+describe("stable default motion", () => {
+  it("suppresses lateral whip motion, including on old timelines, while preserving zoom and its blur", () => {
+    const tl = timeline(); tl.style.motion.stable = true;
+    expect(cameraAt(tl, 118).transform).toBeUndefined();
+    expect(cameraAt(tl, 118).filter).toBeUndefined();
+    tl.style.fx = { grain: 0, scanlines: { window: 0, burst: 0, burstFrames: 3 }, zoomBlur: 8 };
+    const during = cameraAt(tl, 131);
+    expect(during.transform).toMatch(/^scale/); expect(during.filter).toContain("blur");
+    const landed = cameraAt(tl, 145);
+    expect(landed.transform).toBe("scale(1.5000)"); expect(landed.filter).toBeUndefined();
+  });
+});
+
+describe("editorial CapCut title export", () => {
+  it("keeps the serif connector through an overlay rather than silently dropping it", () => {
+    const tl = timeline(); tl.elements.push({ id: "connector", kind: "title", layer: "front", fromFrame: 0, durationFrames: 30, trimStartMs: 0, x: 0.5, y: 0.23, props: { connector: "et surtout", phases: [] } });
+    expect(planCapcut(tl).overlays.map(o => o.elementId)).toContain("connector");
   });
 });

@@ -1,3 +1,4 @@
+import { editStamp, videoStamp } from "@adam-studio/render/src/lib/edit-stamp";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 import { parseProject } from "@adam-studio/model";
@@ -18,8 +19,17 @@ function readProject(dir: string): { raw: Raw | null; error?: string } {
 function renders(dir: string): RenderView[] {
   const folder = join(dir, "renders");
   if (!existsSync(folder)) return [];
-  return readdirSync(folder).filter((f) => f.toLowerCase().endsWith(".mp4"))
-    .map((f) => { const s = statSync(join(folder, f)); return { file: `renders/${f}`, size: s.size, mtime: s.mtimeMs }; })
+  const now = editStamp(dir);
+  const edited = existsSync(join(dir, "project.json")) ? statSync(join(dir, "project.json")).mtimeMs : 0;
+  // Not the work file of a render under way, and not a video the checks refused: neither passes for a finished video.
+  return readdirSync(folder).filter((f) => f.toLowerCase().endsWith(".mp4") && !f.startsWith(".") && !/\.refused\.mp4$/i.test(f))
+    .map((f) => {
+      const s = statSync(join(folder, f));
+      const made = videoStamp(join(folder, f));
+      // A video from before stamps: all there is to go on is its date.
+      const stale = made !== null ? made !== now : s.mtimeMs < edited;
+      return { file: `renders/${f}`, size: s.size, mtime: s.mtimeMs, stale };
+    })
     .sort((a, b) => b.mtime - a.mtime);
 }
 
@@ -85,7 +95,7 @@ export function projectView(root: string, name: string): Omit<ProjectView, "jobs
   const { raw, error } = readProject(dir);
   const assets: Raw[] = Array.isArray(raw?.assets) ? raw.assets.filter((a: Raw) => a.kind === "video") : [];
   return {
-    name, ok: !error, ...(error ? { error } : {}), format: raw?.canvas?.format,
+    name, ok: !error, ...(error ? { error } : {}), format: raw?.canvas?.format, video: raw?.format ?? "facecam", modified: statSync(join(dir, "project.json")).mtimeMs,
     takes: raw ? assets.map((a) => take(dir, raw, a)) : [],
     renders: renders(dir),
     proposals: Array.isArray(raw?.proposals) ? raw.proposals.map((p: Raw) => proposal(dir, p)) : [],
@@ -94,4 +104,12 @@ export function projectView(root: string, name: string): Omit<ProjectView, "jobs
     assets: Array.isArray(raw?.assets) ? raw.assets.filter((a: Raw) => String(a.path).startsWith("assets/")).map((a: Raw) => ({ id: a.id, kind: a.kind, path: a.path })) : [],
     durationMs: Array.isArray(raw?.story) ? raw.story.reduce((s: number, c: Raw) => s + (c.outMs - c.inMs), 0) : null,
   };
+}
+
+/** Imports exist as jobs before analysis can write a valid project.json. */
+export function pendingProject(name: string, jobs: import("./types").JobView[]): ProjectView | null {
+ const job = jobs.find(j => j.label === "New project" || j.label === "Lay out the cards");
+ // A finished import whose project is gone (moved to the trash) is over; a failed one keeps its log reachable.
+ if (!job || job.state === "done") return null;
+ return { name, ok: true, importing: true, modified: job.startedAt, takes: [], renders: [], proposals: [], jobs, workflow: null, durationMs: null, assets: [] };
 }

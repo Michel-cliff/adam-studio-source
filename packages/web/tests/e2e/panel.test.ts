@@ -28,7 +28,7 @@ describe.skipIf(!hasAnalysis)("control panel", () => {
   it("creates a project from rushes through the API", async () => {
     const root = mkdtempSync(join(tmpdir(), "adam panel-"));
     const rush = join(root, "take a.mp4");
-    execFileSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "color=c=red:s=540x960:r=30:d=2", "-f", "lavfi", "-i", "sine=frequency=440:duration=2",
+    execFileSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "color=c=red:s=540x960:r=30:d=2", "-f", "lavfi", "-i", "sine=frequency=440:duration=2,volume='if(lt(mod(t,1),0.6),0.3,0.003)':eval=frame",
       "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", rush]);
     const settingsFile = join(root, "ui.json");
     setProjectsRoot(join(root, "projects"), settingsFile);

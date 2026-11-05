@@ -363,6 +363,26 @@
           "volume": {
             "type": "number",
             "minimum": 0
+          },
+          "face": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "items": false,
+            "minItems": 4,
+            "maxItems": 4
           }
         },
         "required": [
@@ -385,6 +405,25 @@
       "items": {
         "type": "object",
         "properties": {
+          "textMaxHeight": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "scale": {
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 4
+          },
+          "rotation": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "opacity": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
           "id": {
             "type": "string"
           },
@@ -488,6 +527,11 @@
           },
           "y": {
             "type": "number"
+          },
+          "treatment": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3
           }
         },
         "required": [
@@ -583,6 +627,28 @@
         "additionalProperties": false
       }
     },
+    "speech": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        ],
+        "items": false,
+        "minItems": 2,
+        "maxItems": 2
+      }
+    },
     "orphans": {
       "type": "array",
       "items": {
@@ -601,6 +667,13 @@
         "name": {
           "type": "string",
           "minLength": 1
+        },
+        "textLayout": {
+          "type": "string",
+          "enum": [
+            "thirds",
+            "free"
+          ]
         },
         "fonts": {
           "type": "object",
@@ -857,6 +930,14 @@
             "intro": {
               "default": "miniZoom",
               "type": "string"
+            },
+            "highlightAs": {
+              "default": "color",
+              "type": "string",
+              "enum": [
+                "color",
+                "block"
+              ]
             }
           },
           "required": [
@@ -864,13 +945,15 @@
             "stroke",
             "shadow",
             "maxCharsPerLine",
-            "intro"
+            "intro",
+            "highlightAs"
           ],
           "additionalProperties": false
         },
         "motion": {
           "default": {
-            "speed": 1
+            "speed": 1,
+            "stable": true
           },
           "type": "object",
           "properties": {
@@ -879,10 +962,20 @@
               "type": "number",
               "minimum": 0.25,
               "maximum": 3
+            },
+            "stable": {
+              "default": true,
+              "type": "boolean"
+            },
+            "push": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.03
             }
           },
           "required": [
-            "speed"
+            "speed",
+            "stable"
           ],
           "additionalProperties": false
         },
@@ -1060,6 +1153,7 @@
     "captions",
     "beats",
     "audio",
+    "speech",
     "orphans",
     "warnings",
     "style"

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { request, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -72,11 +72,13 @@ describe("app", () => {
     expect((await call("POST", `${P}/jobs`, { text: "x" } as never)).status).toBe(400);
   });
 
-  it("refuses a second job on a busy project", async () => {
+  it("puts a second heavy job in line instead of refusing it, and takes it back when asked", async () => {
     const j = jobs.start("projet démo", { cmd: process.execPath, args: ["-e", "setTimeout(() => {}, 5000)"], label: "Render" });
     const r = await call("POST", `${P}/jobs`, { body: { action: "review", options: {} } });
-    expect(r.status).toBe(409);
-    expect(r.json.error).toMatch(/Render is running/);
+    expect(r.status).toBe(202);
+    expect(r.json.job.state).toBe("queued");
+    expect((await call("POST", `/api/jobs/${r.json.job.id}/stop`)).status).toBe(200);
+    expect((await call("GET", `/api/jobs/${r.json.job.id}`)).json.state).toBe("stopped");
     expect((await call("GET", `/api/jobs/${j.id}`)).json.state).toBe("running");
     expect((await call("POST", `/api/jobs/${j.id}/stop`)).status).toBe(200);
   });
@@ -109,6 +111,31 @@ describe("studio tools", () => {
     expect((await call("PUT", "/api/settings", { body: { claudeModel: "opus" } })).status).toBe(200);
     expect((await call("GET", "/api/settings")).json).toMatchObject({ projectsRoot: root, claudeModel: "opus" });
     expect((await call("PUT", "/api/settings", { body: { claudeModel: "gpt" } })).status).toBe(400);
+  });
+
+  it("asks the AI the creator picked, among those installed", async () => {
+    const prev = process.env.ADAM_CODEX;
+    try {
+      process.env.ADAM_CODEX = join(root, "no-codex.exe");
+      const s = (await call("GET", "/api/settings")).json;
+      expect(s.engine).toBe("claude");
+      expect(s.engines.codex).toEqual({ installed: false, model: "default" });
+      expect((await call("PUT", "/api/settings", { body: { engine: "codex" } })).status).toBe(200);
+      const off = await call("POST", `/api/projects/${encodeURIComponent("projet démo")}/ask`, { body: { step: "hook", prompt: "x" } });
+      expect(off.status).toBe(400);
+      expect(off.json.error).toMatch(/Codex is not installed/);
+      // Any program stands for Codex here: the job is started with Codex's label.
+      process.env.ADAM_CODEX = process.execPath;
+      expect((await call("GET", "/api/settings")).json.engines.codex.installed).toBe(true);
+      expect((await call("PUT", "/api/settings", { body: { codexModel: "gpt-5.5" } })).json.engines.codex.model).toBe("gpt-5.5");
+      const on = await call("POST", `/api/projects/${encodeURIComponent("projet démo")}/ask`, { body: { step: "hook", prompt: "x" } });
+      expect(on.status).toBe(202);
+      expect(on.json.job.label).toBe("Codex: hook");
+      expect((await call("PUT", "/api/settings", { body: { engine: "gemini" } })).status).toBe(400);
+    } finally {
+      if (prev === undefined) delete process.env.ADAM_CODEX; else process.env.ADAM_CODEX = prev;
+      await call("PUT", "/api/settings", { body: { engine: "claude" } });
+    }
   });
 
   it("keeps the look applied to every video, among the Inspiration folder's looks", async () => {
@@ -150,15 +177,33 @@ describe("studio tools", () => {
     expect(r.json.saved).toMatch(/inspiration.Uploads.logo final[.]png$/);
     expect(r.json.imported).toMatchObject({ id: "logo_final", kind: "image", path: "assets/logo_final.png" });
     expect((await call("GET", P)).json.assets).toEqual([{ id: "logo_final", kind: "image", path: "assets/logo_final.png" }]);
-    // A second drop of the same name does not overwrite the first.
-    const again = await upload(`/api/library/upload?name=${encodeURIComponent("logo final.png")}`, png);
+    // A second drop of the same name (other bytes) does not overwrite the first.
+    const again = await upload(`/api/library/upload?name=${encodeURIComponent("logo final.png")}`, Buffer.concat([png, Buffer.from("v2")]));
     expect(again.json.saved).toMatch(/logo final [(]2[)][.]png$/);
     expect((await upload("/api/library/upload?name=virus.exe", png)).status).toBe(400);
   });
 
+  it("keeps a video dropped on New video in the projects folder's rushes, once", async () => {
+    const send = (name: string, body: string) => new Promise<{ status: number; json: any }>((done) => {
+      const req = request({ host: "127.0.0.1", port, method: "POST", path: `/api/rushes?name=${encodeURIComponent(name)}`, headers: { host: `127.0.0.1:${port}` } }, (r) => {
+        let t = ""; r.on("data", (c) => (t += c)); r.on("end", () => done({ status: r.statusCode!, json: JSON.parse(t) }));
+      });
+      req.end(body);
+    });
+    const a = await send("take 1.mp4", "video bytes");
+    expect(a.status).toBe(200);
+    expect(a.json.path).toMatch(/rushes[\\/]take 1\.mp4$/);
+    expect(readFileSync(a.json.path, "utf8")).toBe("video bytes");
+    // The same video dropped again is the same file; another one with that name gets its own.
+    expect((await send("take 1.mp4", "video bytes")).json.path).toBe(a.json.path);
+    expect((await send("take 1.mp4", "other take")).json.path).toMatch(/take 1 \(2\)\.mp4$/);
+    expect((await send("notes.txt", "x")).status).toBe(400);
+    expect((await send("../evil.mp4", "x")).json.path).toMatch(/rushes[\\/]evil\.mp4$/);
+  });
+
   it("deletes an Inspiration file into the folder's trash, and nothing outside the folder", async () => {
     process.env.ADAM_INSPIRATION = join(root, "inspiration");
-    const r = await upload(`/api/library/upload?name=${encodeURIComponent("to drop.png")}`, Buffer.from("89504e470d0a1a0a", "hex"));
+    const r = await upload(`/api/library/upload?name=${encodeURIComponent("to drop.png")}`, Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), Buffer.from("to drop")]));
     writeFileSync(`${r.json.saved}.txt`, "notes");
     const del = await call("DELETE", `/api/library/file?path=${encodeURIComponent(r.json.saved)}`);
     expect(del.status).toBe(200);

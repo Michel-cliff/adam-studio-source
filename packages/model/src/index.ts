@@ -17,3 +17,7 @@ export * from "./workflow";
 export * from "./lint";
 export * from "./jsonschema";
 export * from "./series";
+export { repairCuts } from "./cutrepair";
+export * from "./cards";
+
+export { placeTextInThirds, usesThirds, THIRD_BANDS } from "./text-placement";

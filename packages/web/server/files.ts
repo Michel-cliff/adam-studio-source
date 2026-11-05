@@ -8,10 +8,13 @@ const TYPES: Record<string, string> = {
 };
 
 export function serveFile(req: IncomingMessage, res: ServerResponse, file: string): void {
-  let size: number;
-  try { const s = statSync(file); if (!s.isFile()) throw new Error("not a file"); size = s.size; } catch { res.writeHead(404).end(); return; }
+  let size: number, mtime: number;
+  try { const s = statSync(file); if (!s.isFile()) throw new Error("not a file"); size = s.size; mtime = s.mtimeMs; } catch { res.writeHead(404).end(); return; }
   const type = TYPES[extname(file).toLowerCase()] ?? "application/octet-stream";
-  const base = { "Content-Type": type, "Accept-Ranges": "bytes", "Cache-Control": "no-cache" };
+  // A validator, so a step shown again does not download its videos again: the browser asks, an unchanged file is a 304.
+  const etag = `"${size.toString(36)}-${Math.floor(mtime).toString(36)}"`;
+  const base = { "Content-Type": type, "Accept-Ranges": "bytes", "Cache-Control": "no-cache", ETag: etag, "Last-Modified": new Date(mtime).toUTCString() };
+  if (req.headers["if-none-match"] === etag) { res.writeHead(304, base).end(); return; }
   const m = req.headers.range?.match(/^bytes=(\d*)-(\d*)$/);
   if (m && (m[1] || m[2])) {
     const start = m[1] === "" ? Math.max(0, size - Number(m[2])) : Number(m[1]);

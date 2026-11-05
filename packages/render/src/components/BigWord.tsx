@@ -12,7 +12,7 @@ export const BigWord: FC<{ el: TimelineElement; style: Style }> = ({ el, style }
   const ms = ((frame * 1000) / fps + el.trimStartMs) * speed;
   const totalMs = ((el.durationFrames * 1000) / fps + el.trimStartMs) * speed;
   const r = lineReveal(ms, 0, 0, 250, 0);
-  const g = glitchAmount(ms, totalMs, 1, 0, 0);
+  const g = style.motion?.stable === false ? glitchAmount(ms, totalMs, 1, 0, 0) : 0;
   const size = fitFontSize(props.text, width * 0.92, width * 0.21 * props.sizeScale);
   return (
     <AbsoluteFill style={{ opacity: exitOpacity(ms, totalMs) }}>

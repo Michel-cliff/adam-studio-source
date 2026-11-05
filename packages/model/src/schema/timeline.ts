@@ -17,9 +17,15 @@ export const TimelineClipSchema = z.object({
   zoom: ZoomSchema,
   transitionOut: TransitionOutSchema,
   volume: z.number().min(0),
+  /** The face found in the middle of the shot, as shares of the frame [x, y, w, h] (edge blur, placement). */
+  face: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional(),
 });
 
 export const TimelineElementSchema = z.object({
+  textMaxHeight: z.number().positive().optional(),
+  scale: z.number().min(0.1).max(4).optional(),
+  rotation: z.number().min(-180).max(180).optional(),
+  opacity: z.number().min(0).max(1).optional(),
   id: z.string(),
   kind: z.string(),
   layer: z.enum(["front", "behind-subject"]),
@@ -40,6 +46,8 @@ export const TimelineCaptionSchema = z.object({
   highlightRanges: z.array(z.tuple([Frame, Frame])),
   x: z.number(),
   y: z.number(),
+  /** The least that keeps it readable on the frames under it: 0 soft shadow, 1 stronger shadow, 2 outline, 3 plate. */
+  treatment: z.number().int().min(0).max(3).optional(),
 });
 
 export const TimelineBeatSchema = z.object({ role: z.string(), fromFrame: Frame, toFrame: Frame });
@@ -66,6 +74,8 @@ export const TimelineSchema = z.object({
   captions: z.array(TimelineCaptionSchema),
   beats: z.array(TimelineBeatSchema),
   audio: z.array(TimelineAudioSchema),
+  /** When words are said in the edit, [from, to] in ms from its start: music ducks under them, breaths between them go down. */
+  speech: z.array(z.tuple([Ms, Ms])).default([]),
   orphans: z.array(z.string()),
   warnings: z.array(z.string()),
   style: StyleSchema,

@@ -6,6 +6,13 @@
       "type": "string",
       "minLength": 1
     },
+    "textLayout": {
+      "type": "string",
+      "enum": [
+        "thirds",
+        "free"
+      ]
+    },
     "fonts": {
       "type": "object",
       "properties": {
@@ -239,6 +246,14 @@
         "intro": {
           "default": "miniZoom",
           "type": "string"
+        },
+        "highlightAs": {
+          "default": "color",
+          "type": "string",
+          "enum": [
+            "color",
+            "block"
+          ]
         }
       },
       "required": [
@@ -248,7 +263,8 @@
     },
     "motion": {
       "default": {
-        "speed": 1
+        "speed": 1,
+        "stable": true
       },
       "type": "object",
       "properties": {
@@ -257,6 +273,15 @@
           "type": "number",
           "minimum": 0.25,
           "maximum": 3
+        },
+        "stable": {
+          "default": true,
+          "type": "boolean"
+        },
+        "push": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.03
         }
       },
       "additionalProperties": false

@@ -1,8 +1,10 @@
 import type { FC } from "react";
-import { Sequence } from "remotion";
+import { AbsoluteFill, Sequence } from "remotion";
 import type { Timeline, TimelineElement } from "@adam-studio/model";
 import type { MediaFiles } from "../props";
 import { BigWord } from "./BigWord";
+import { Card } from "./Card";
+import { Stack } from "./Stack";
 import { HudPanel } from "./HudPanel";
 import { HudStat } from "./HudStat";
 import { LottieElement } from "./LottieElement";
@@ -18,7 +20,9 @@ export const ElementLayer: FC<{ timeline: Timeline; media: Record<string, MediaF
       .filter((e) => e.layer === layer && (!only || only.includes(e.id)))
       .map((el) => (
         <Sequence key={el.id} from={el.fromFrame} durationInFrames={el.durationFrames} layout="none">
-          <ElementView el={el} timeline={timeline} media={media} />
+          <AbsoluteFill style={{ pointerEvents: "none", zIndex: layer === "front" ? 20 : undefined, opacity: el.opacity ?? 1, transform: `rotate(${el.rotation ?? 0}deg) scale(${el.scale ?? 1})`, transformOrigin: `${el.x * 100}% ${el.y * 100}%` }}>
+            <ElementView el={el} timeline={timeline} media={media} />
+          </AbsoluteFill>
         </Sequence>
       ))}
   </>
@@ -26,12 +30,16 @@ export const ElementLayer: FC<{ timeline: Timeline; media: Record<string, MediaF
 
 const ElementView: FC<{ el: TimelineElement; timeline: Timeline; media: Record<string, MediaFiles> }> = ({ el, timeline, media }) => {
   switch (el.kind) {
+    case "text.stack":
+      return <Stack el={el} style={timeline.style} />;
+    case "card":
+      return <Card el={el} style={timeline.style} />;
     case "title":
       return <Title el={el} style={timeline.style} />;
     case "text.behindSubject":
       return <BigWord el={el} style={timeline.style} />;
     case "image":
-      return <ImageElement el={el} media={media} speed={timeline.style.motion?.speed ?? 1} inserts={timeline.style.inserts} />;
+      return <ImageElement el={el} media={media} speed={timeline.style.motion?.speed ?? 1} inserts={timeline.style.inserts} stable={timeline.style.motion?.stable !== false} />;
     case "hud.panel":
       return <HudPanel el={el} style={timeline.style} media={media} />;
     case "hud.stat":

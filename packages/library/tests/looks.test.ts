@@ -32,6 +32,19 @@ describe("looks", () => {
     expect(lookBrief("../etc", inspiration())).toBeNull();
   });
 
+  it("keeps a long style guide to its opening, its corrections and its Adam Studio recipe", () => {
+    const root = inspiration();
+    const filler = "Palette detail. ".repeat(900);
+    writeFileSync(join(root, "looks", "editorial-archival", "references", "style-guide.md"),
+      `# Style guide\n\nRead this first.\n\n## The creator's corrections\n\nZooms easeMs 900.\n\n## Palette\n\n${filler}\n\n## In Adam Studio\n\nfx zoomBlur 3.\n`);
+    const text = lookBrief("editorial-archival", root)!;
+    expect(text).toMatch(/Read this first/);
+    expect(text).toMatch(/Zooms easeMs 900/);
+    expect(text).toMatch(/fx zoomBlur 3/);
+    expect(text).not.toMatch(/Palette detail/);
+    expect(text).toMatch(/style-guide\.md/);
+  });
+
   it("keeps a look's original skill files out of the asset search, but not its references", () => {
     const rels = scanInspiration(inspiration()).map((i) => i.rel.replace(/\\/g, "/"));
     expect(rels).toContain("looks/editorial-archival/references/photos/ref.png");

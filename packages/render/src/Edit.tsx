@@ -2,7 +2,7 @@ import type { FC } from "react";
 import { AbsoluteFill, useCurrentFrame } from "remotion";
 import { cameraAt, windowAt } from "./lib/camera";
 import { scanlinesAt } from "./lib/fx";
-import { FootageGrain, Scanlines, WindowChrome } from "./components/ScreenFx";
+import { FootageGrain, Scanlines, AppWindow, BoardChrome, PosterChrome, WindowChrome } from "./components/ScreenFx";
 import { AudioLayer } from "./components/AudioLayer";
 import { Captions } from "./components/Captions";
 import { ClipLayer } from "./components/ClipLayer";
@@ -14,14 +14,15 @@ import { slideWindows, subjectWindows } from "./lib/subject";
 import type { RenderProps } from "./props";
 
 export const Edit: FC<RenderProps> = (props) => {
-  ensureFonts(props.fonts);
+  const families = ensureFonts(props.fonts);
+  const fontVars = { "--adam-caption": families.caption, "--adam-title": families.title } as React.CSSProperties;
   const frame = useCurrentFrame();
   const { timeline, media } = props;
   const mode = props.mode ?? { kind: "full" };
   if (mode.kind === "overlay") {
     // Transparent background, only the listed front elements: a CapCut overlay.
     return (
-      <AbsoluteFill>
+      <AbsoluteFill style={fontVars}>
         <ElementLayer timeline={timeline} media={media} layer="front" only={mode.elements} />
       </AbsoluteFill>
     );
@@ -36,7 +37,7 @@ export const Edit: FC<RenderProps> = (props) => {
   const win = windowAt(timeline, frame);
   const fx = timeline.style.fx;
   return (
-    <AbsoluteFill style={{ backgroundColor: "black" }}>
+    <AbsoluteFill style={{ backgroundColor: "black", ...fontVars }}>
       <svg width={0} height={0} style={{ position: "absolute" }}>
         <filter id={GRADE_FILTER_ID} colorInterpolationFilters="sRGB">
           <feColorMatrix type="matrix" values={warmthMatrix(grade.warmth).join(" ")} />
@@ -50,7 +51,8 @@ export const Edit: FC<RenderProps> = (props) => {
           <ClipLayer timeline={timeline} media={media} slides={slides} />
         </AbsoluteFill>
       ) : null}
-      <AbsoluteFill style={win ? { transform: win.transform, transformOrigin: "0 0", clipPath: win.clip } : undefined}>
+      {/* A poster: the take turns black and white and harder as it lands in its frame. */}
+      <AbsoluteFill style={win ? { transform: win.transform, transformOrigin: "0 0", clipPath: win.clip, filter: win.chrome === "poster" ? `grayscale(${win.amount}) contrast(${1 + 0.35 * win.amount})` : undefined } : undefined}>
         <AbsoluteFill style={{ transform: cam.transform, transformOrigin: cam.origin, filter: cam.filter }}>
           <AbsoluteFill style={{ filter }}>
             <ClipLayer timeline={timeline} media={media} slides={slides} />
@@ -61,7 +63,9 @@ export const Edit: FC<RenderProps> = (props) => {
           </AbsoluteFill>
         </AbsoluteFill>
       </AbsoluteFill>
-      {win ? <WindowChrome win={win} /> : null}
+      {win ? (win.chrome === "poster" ? <PosterChrome win={win} style={timeline.style} />
+        : win.chrome === "terminal" || win.chrome === "win95" ? <AppWindow win={win} frame={frame} />
+        : win.chrome === "board" ? <BoardChrome win={win} frame={frame} /> : <WindowChrome win={win} />) : null}
       <FootageGrain amount={fx?.grain ?? 0} frame={frame} />
       <Scanlines amount={scanlinesAt(timeline, frame)} />
       {cam.flash > 0 ? <AbsoluteFill style={{ backgroundColor: "white", opacity: cam.flash }} /> : null}

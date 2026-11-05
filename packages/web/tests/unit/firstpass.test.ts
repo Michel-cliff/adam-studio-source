@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseProject, parseStyle, resolve } from "@adam-studio/model";
-import { captionChunks, findFillers, findRetakes, firstPass, keptWords } from "../../server/firstpass";
+import { captionChunks, findFillers, findRetakes, findStutters, firstPass, keptWords } from "../../server/firstpass";
 import { projectInput, styleInput } from "../../../model/tests/helpers";
 
 /** "Alors euh je voulais vous dire je voulais vous parler du projet. Ben voilà." with a long pause before "Ben". */
@@ -60,30 +60,85 @@ describe("captions across takes", () => {
 });
 
 describe("firstPass", () => {
-  it("proposes cuts and captions that resolve, and re-runs without duplicates", () => {
+  it("labels its proposals in the creator's language", () => {
+    const { project, style } = setup();
+    expect(firstPass(project, style, "fr").project.proposals.find((p) => p.id === "auto.captions")!.variants[0]!.label).toMatch(/sous-titres, deux lignes/);
+  });
+  it("never cuts: the creator brings footage already cut, the story stays as it came", () => {
     const { project, style } = setup();
     const { project: out, summary } = firstPass(project, style);
-    expect(summary).toMatchObject({ fillers: 2, captions: expect.any(Number), proposals: ["auto.cuts", "auto.captions"] });
-    expect(out.workflow?.current).toBe("cuts");
-    const cuts = out.proposals.find((p) => p.id === "auto.cuts")!;
-    expect(cuts.variants.map((v) => v.key)).toEqual(["A", "B"]);
-    for (const v of cuts.variants) {
-      const t = resolve(out, style, { apply: { proposal: "auto.cuts", variant: v.key } });
-      expect(t.durationFrames).toBeLessThan(resolve(out, style).durationFrames);
-    }
-    const tight = keptWords({ ...out, story: cuts.variants[0]!.patch.setStory! }).map((w) => w.text);
-    expect(tight).toEqual(["Alors", "je", "voulais", "vous", "parler", "du", "projet.", "voilà."]);
+    expect(out.story).toEqual(project.story);
+    expect(out.proposals.some((p) => p.step === "cuts")).toBe(false);
+    expect(summary.proposals).toEqual(["auto.captions"]);
     expect(resolve(out, style, { apply: { proposal: "auto.captions", variant: "A" } }).captions.length).toBeGreaterThan(0);
     const again = firstPass(out, style).project;
-    expect(again.proposals.filter((p) => p.id.startsWith("auto.")).length).toBe(2);
+    expect(again.proposals.filter((p) => p.id.startsWith("auto.")).length).toBe(1);
   });
 
   it("leaves decided proposals alone", () => {
     const { project, style } = setup();
     const out = firstPass(project, style).project;
-    const decided = { ...out, proposals: out.proposals.map((p) => (p.id === "auto.cuts" ? { ...p, status: { accepted: "A" as const } } : p)) };
+    const decided = { ...out, proposals: out.proposals.map((p) => (p.id === "auto.captions" ? { ...p, status: { accepted: "A" as const } } : p)) };
     const r = firstPass(decided, style);
-    expect(r.summary.skipped.join()).toMatch(/auto.cuts/);
-    expect(r.project.proposals.find((p) => p.id === "auto.cuts")!.status).toEqual({ accepted: "A" });
+    expect(r.summary.skipped.join()).toMatch(/auto.captions/);
+    expect(r.project.proposals.find((p) => p.id === "auto.captions")!.status).toEqual({ accepted: "A" });
+  });
+});
+
+describe("pauses and stutters, as the default art direction asks", () => {
+  // Gaps between words: 0.5 s (breath, kept), 1.0 s (cut to 0.25 s), 3.5 s (cut to 0.25 s and flagged).
+  const at = [[0, 400], [900, 1300], [2300, 2700], [6200, 6600], [6700, 6900], [7000, 7400]];
+  const text = ["un", "deux", "trois", "quatre", "je", "je"];
+  const ws = text.map((t, i) => ({ id: `a.w${i}`, text: t, startMs: at[i]![0]!, endMs: at[i]![1]! }));
+  const proj = () => {
+    const p = parseProject({ ...projectInput(), transcript: { lang: "fr", words: { a: ws } }, story: [{ id: "c1", asset: "a", inMs: 0, outMs: 7600 }] });
+    const s = parseStyle(styleInput);
+    if (!p.ok || !s.ok) throw new Error("bad fixture");
+    return { project: p.value, style: s.value };
+  };
+  /** Where a source moment lands in the edit made of these clips. */
+  const out = (story: { inMs: number; outMs: number }[], ms: number) => {
+    let t = 0;
+    for (const c of story) { if (ms >= c.inMs && ms <= c.outMs) return t + ms - c.inMs; t += c.outMs - c.inMs; }
+    return NaN;
+  };
+
+  it("flags the very long pauses for the creator, without cutting them", () => {
+    const { project, style } = proj();
+    const { project: o, summary } = firstPass(project, style);
+    expect(o.story).toEqual(project.story);
+    expect(summary.longPauses).toEqual([{ afterWord: "a.w2", ms: 3500 }]);
+  });
+
+  it("refuses a text-only video: it has no speech", () => {
+    const { project, style } = proj();
+    expect(() => firstPass({ ...project, format: "text" }, style)).toThrow(/text-only/);
+  });
+
+  it("cuts a stutter (the same word again within 0.4 s) and keeps the last one", () => {
+    expect(findStutters(ws)).toEqual(["a.w4"]);
+    expect(findStutters([{ id: "b.w0", text: "très", startMs: 0, endMs: 300 }, { id: "b.w1", text: "très", startMs: 900, endMs: 1200 }])).toEqual([]);
+  });
+});
+
+describe("caption density, as the default art direction sets it", () => {
+  const w = (texts: string[]) => texts.map((t, i) => ({ id: `d.w${i}`, text: t, startMs: i * 300, endMs: i * 300 + 250 }));
+  it("keeps 5 words at most, 32 characters at most, and never ends on an article or a preposition", () => {
+    const chunks = captionChunks(w(["je", "travaille", "sur", "le", "développement", "de", "leurs", "produits", "digitaux", "depuis", "longtemps"]), 32, true, 5);
+    for (const c of chunks) {
+      expect(c.text.split(" ").length).toBeLessThanOrEqual(5);
+      expect(c.text.length).toBeLessThanOrEqual(32);
+      expect(c.text).not.toMatch(/\b(le|la|les|de|du|des|un|une|sur|à|et)$/);
+    }
+  });
+});
+
+describe("captions long enough to read", () => {
+  it("merges a chunk under 0.8 s on screen with its neighbour when they fit together", () => {
+    // "Oui." alone lasts 0.25 s + 0.18 s of lead and tail: it joins the next words.
+    const ws = [{ id: "e.w0", text: "Oui.", startMs: 0, endMs: 250 }, { id: "e.w1", text: "je", startMs: 300, endMs: 450 },
+      { id: "e.w2", text: "viens", startMs: 500, endMs: 800 }, { id: "e.w3", text: "demain.", startMs: 850, endMs: 1300 }];
+    const chunks = captionChunks(ws, 32, true, 5);
+    expect(chunks.map((c) => c.text)).toEqual(["Oui. je viens demain."]);
   });
 });

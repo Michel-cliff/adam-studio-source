@@ -3,7 +3,7 @@
   "type": "object",
   "properties": {
     "backdrop": {
-      "default": "color",
+      "default": "blur",
       "type": "string",
       "enum": [
         "color",
@@ -11,12 +11,12 @@
       ]
     },
     "color": {
-      "default": "#F3BA20",
+      "default": "#F4F2ED",
       "type": "string",
       "pattern": "^#[0-9A-Fa-f]{6}$"
     },
     "barColor": {
-      "default": "#2B6FD4",
+      "default": "#525252",
       "type": "string",
       "pattern": "^#[0-9A-Fa-f]{6}$"
     },
@@ -43,6 +43,37 @@
       "type": "integer",
       "minimum": 0,
       "maximum": 9007199254740991
+    },
+    "chrome": {
+      "default": "plain",
+      "type": "string",
+      "enum": [
+        "plain",
+        "window",
+        "poster",
+        "terminal",
+        "win95",
+        "board"
+      ]
+    },
+    "frame": {
+      "type": "string",
+      "enum": [
+        "sticker",
+        "fig",
+        "notch",
+        "loading",
+        "folder"
+      ]
+    },
+    "header": {
+      "type": "string"
+    },
+    "tag": {
+      "type": "string"
+    },
+    "footer": {
+      "type": "string"
     }
   },
   "additionalProperties": false

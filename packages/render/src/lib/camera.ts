@@ -14,6 +14,7 @@ const slope = (t: number) => (t <= 0 || t >= 1 ? 0 : (6 * t * (1 - t)) / 1.5);
 export function cameraAt(timeline: Timeline, frame: number): Camera {
   const { fps, width } = timeline;
   const speed = timeline.style.motion?.speed ?? 1;
+  const stable = timeline.style.motion?.stable !== false;
   const zoomBlur = (timeline.style.fx?.zoomBlur ?? 0) * (width / 1080);
   let scale = 1;
   let origin: string | undefined;
@@ -41,7 +42,7 @@ export function cameraAt(timeline: Timeline, frame: number): Camera {
     if (u < -1 || u > 1) continue;
     const near = 1 - Math.abs(u);
     if (t.kind === "flash") flash = Math.max(flash, near ** 1.5);
-    if (t.kind === "whip") { shift = (u < 0 ? -(1 + u) : 1 - u) * width * 0.18; blur = Math.max(blur, near * 28); }
+    if (t.kind === "whip" && !stable) { shift = (u < 0 ? -(1 + u) : 1 - u) * width * 0.18; blur = Math.max(blur, near * 28); }
     if (t.kind === "zoom") { const s = 1 + 0.4 * near * near; if (s > scale) { scale = s; origin = "50% 45%"; } }
   }
   const parts = [shift ? `translateX(${shift.toFixed(1)}px)` : "", scale !== 1 ? `scale(${scale.toFixed(4)})` : ""].filter(Boolean);
@@ -51,6 +52,7 @@ export function cameraAt(timeline: Timeline, frame: number): Camera {
 /** The 4:3 window at a frame: how far it has moved (0 full frame, 1 landed), its box on screen and the main track's move. */
 export type WindowState = {
   amount: number; color: string; barColor: string; backdrop: "color" | "blur";
+  chrome: "plain" | "window" | "poster" | "terminal" | "win95" | "board"; id: string; frame?: "sticker" | "fig" | "notch" | "loading" | "folder"; progress: number; header: string; tag: string; footer: string;
   /** Transform of the main track, with transform-origin 0 0, and its clip in its own coordinates. */
   transform: string; clip: string;
   box: { left: number; top: number; width: number; height: number };
@@ -86,7 +88,9 @@ export function windowAt(timeline: Timeline, frame: number): WindowState | null 
     const clipBottom = (H - fy - srcH / 2) * a;
     const r = (n: number) => Math.round(n * 100) / 100;
     return {
-      amount: a, color: p.color ?? "#F3BA20", barColor: p.barColor ?? "#2B6FD4", backdrop: p.backdrop ?? "color",
+      amount: a, color: p.color ?? "#F4F2ED", barColor: p.barColor ?? "#525252", backdrop: p.backdrop ?? "blur",
+      chrome: p.chrome ?? "plain", header: p.header ?? "", tag: p.tag ?? "", footer: p.footer ?? "",
+      id: e.id, frame: p.frame, progress: (frame - e.fromFrame) / Math.max(1, e.durationFrames),
       transform: `translate(${r(tx)}px, ${r(ty)}px) scale(${scale.toFixed(4)})`,
       clip: `inset(${r(clipTop)}px 0px ${r(clipBottom)}px 0px)`,
       box: { left: tx, top: ty + scale * clipTop, width: scale * W, height: scale * (H - clipTop - clipBottom) },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseProject } from "@adam-studio/model";
-import { addTakes, nextAssetIds, takeClip, type Take } from "../../src/takes";
+import { defaultStyle, addTakes, nextAssetIds, takeClip, type Take } from "../../src/takes";
 
 const take = (path: string, words: [string, number, number][] = [["bonjour", 400, 800], ["tout", 900, 1200]], durationMs = 3000): Take => ({
   path,
@@ -44,5 +44,17 @@ describe("addTakes", () => {
   it("skips a video already in the project", () => {
     const once = addTakes(empty, [take("C:/rushes/a.mp4")]);
     expect(addTakes(once, [take("C:/rushes/a.mp4")]).assets).toHaveLength(1);
+  });
+});
+
+describe("reference-based default style", () => {
+  it("keeps generic colours, a compact lower caption, condensed heading role, and zoom blur", () => {
+    const style = defaultStyle("fallback.ttf", "nonexistent-house-fonts");
+    expect(style.fonts.title.file).toBe("fallback.ttf");
+    expect(style.slots["9:16"].caption.y).toBeGreaterThan(2 / 3);
+    expect(style.slots["9:16"].caption.y).toBeLessThan(0.85);
+    expect(style.caption.intro).toBe("none"); expect(style.motion.stable).toBe(true);
+    expect(style.fx.zoomBlur).toBeGreaterThan(0);
+    expect(style.colors.accent).not.toBe("#FFD100"); expect(style.colors.accent).toBe(style.colors.highlight);
   });
 });

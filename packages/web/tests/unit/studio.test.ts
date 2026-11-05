@@ -61,8 +61,33 @@ describe("asking Claude", () => {
     expect(allowed.split(",")).toEqual(["mcp__adam-studio", "mcp__blender", "Skill", "Read", "Glob", "Grep"]);
     const system = c.args[c.args.indexOf("--append-system-prompt") + 1]!;
     expect(system).toMatch(/Skill tool: anthropic-skills:editorial-film-edit/);
+    expect(c.args[c.args.indexOf("--tools") + 1]).toBe("Skill,Read,Glob,Grep");
+    expect(c.args).not.toContain("--disable-slash-commands");
     const plain = askCommand("ep 1", "visuals", "x");
     expect(plain.args[plain.args.indexOf("--allowedTools") + 1]).toBe("mcp__adam-studio");
+    // Without skills, Claude Code's own tools, skill list and plugin hooks stay out of the context.
+    expect(plain.args[plain.args.indexOf("--tools") + 1]).toBe("");
+    expect(plain.args).toContain("--disable-slash-commands");
+    expect(plain.args[plain.args.indexOf("--setting-sources") + 1]).toBe("");
+  });
+
+  it("does an explicit request directly: no proposal, no still, few turns", () => {
+    const c = askCommand("ep 1", "hook", "Make the title bigger", "default", null, { mode: "do" });
+    const system = c.args[c.args.indexOf("--append-system-prompt") + 1]!;
+    expect(system).toMatch(/apply_patch/);
+    expect(system).not.toMatch(/propose tool/);
+    expect(system).toMatch(/Do not call still/);
+    expect(Number(c.args[c.args.indexOf("--max-turns") + 1])).toBeLessThanOrEqual(12);
+    expect(c.label).toBe("Claude: hook (do)");
+  });
+
+  it("sends the step's context with the ask, so Claude starts at once, and caps a proposal's turns and stills", () => {
+    const c = askCommand("ep 1", "hook", "x", "default", null, { context: "## Transcript\nc01.w1 0.0 Bonjour" });
+    const system = c.args[c.args.indexOf("--append-system-prompt") + 1]!;
+    expect(system).toMatch(/c01\.w1 0\.0 Bonjour/);
+    expect(system).toMatch(/only if something you need is missing/);
+    expect(system).toMatch(/at most one still/);
+    expect(Number(c.args[c.args.indexOf("--max-turns") + 1])).toBeLessThanOrEqual(24);
   });
 
   it("sends the chosen look so every proposal follows its style guide", () => {

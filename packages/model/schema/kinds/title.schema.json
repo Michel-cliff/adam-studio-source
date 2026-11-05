@@ -5,6 +5,27 @@
     "kicker": {
       "type": "string"
     },
+    "connector": {
+      "type": "string",
+      "maxLength": 50
+    },
+    "kickerColor": {
+      "type": "string"
+    },
+    "kickerStyle": {
+      "default": "plain",
+      "type": "string",
+      "enum": [
+        "plain",
+        "tag"
+      ]
+    },
+    "textColor": {
+      "type": "string"
+    },
+    "blockColor": {
+      "type": "string"
+    },
     "phases": {
       "minItems": 1,
       "type": "array",
@@ -39,6 +60,14 @@
                   "default": 1,
                   "type": "number",
                   "exclusiveMinimum": 0
+                },
+                "key": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "block": {
+                  "type": "string",
+                  "minLength": 1
                 }
               },
               "required": [

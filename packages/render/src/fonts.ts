@@ -1,6 +1,6 @@
 import { src } from "./lib/src";
 import { loadFont } from "@remotion/fonts";
-import { CAPTION_FONT, TITLE_FONT, type RenderProps } from "./props";
+import type { RenderProps } from "./props";
 
 const requested = new Set<string>();
 
@@ -10,13 +10,20 @@ export function fontFormat(path: string): "truetype" | "opentype" | "collection"
   return ext === "otf" ? "opentype" : ext === "ttc" ? "collection" : ext === "woff" ? "woff" : ext === "woff2" ? "woff2" : "truetype";
 }
 
-/** Loads the style fonts once; loadFont blocks the render until they are ready. */
-export function ensureFonts(fonts: RenderProps["fonts"]): void {
-  for (const [family, path] of [[CAPTION_FONT, fonts.caption], [TITLE_FONT, fonts.title]] as const) {
-    const key = `${family}:${path}`;
-    if (!path || requested.has(key)) continue;
-    requested.add(key);
+/** The family a font file is loaded under: one per file, so two edits with other fonts never share one. */
+export function familyOf(path: string): string {
+  let h = 5381;
+  for (let i = 0; i < path.length; i++) h = ((h * 33) ^ path.charCodeAt(i)) >>> 0;
+  return `AdamFont${h.toString(36)}`;
+}
+
+/** Loads the style fonts once each; loadFont blocks the render until they are ready. Returns their families. */
+export function ensureFonts(fonts: RenderProps["fonts"]): { caption: string; title: string } {
+  for (const path of [fonts.caption, fonts.title]) {
+    if (!path || requested.has(path)) continue;
+    requested.add(path);
     // Remotion types list four formats; "collection" is a valid CSS format hint all the same.
-    void loadFont({ family, url: src(path), format: fontFormat(path) as "truetype" });
+    void loadFont({ family: familyOf(path), url: src(path), format: fontFormat(path) as "truetype" });
   }
+  return { caption: fonts.caption ? familyOf(fonts.caption) : "AdamCaption", title: fonts.title ? familyOf(fonts.title) : "AdamTitle" };
 }

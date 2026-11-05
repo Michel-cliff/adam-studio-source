@@ -3,46 +3,62 @@ import { Edit } from "@adam-studio/render/edit";
 import type { RenderProps } from "@adam-studio/render/src/props";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JobEvent, JobView, ProjectView, ProposalView } from "../server/types";
-import { api, enc, fileUrl, go, ms } from "./api";
+import { aiFailureText } from "../server/ai-errors";
+import { api, enc, fileUrl, go, ms, reportAiFailure } from "./api";
 import { AssetsPanel, dropInto, mention } from "./Assets";
-import { ClaudeBar } from "./ClaudeBar";
+import { ClaudeBar, ENGINE_EVENT } from "./ClaudeBar";
+import { aiOf, readEvent } from "./feed";
 import { ConnectorsPanel, SkillsPanel } from "./Connectors";
-import { IconFolder, IconLink, IconSend, IconSpark } from "./icons";
+import { getLang, t, useLang } from "./i18n";
+import { reportSupportJob } from "./SupportPrompt";
 import { JobLog } from "./JobLog";
+import { TaskBar, taskState } from "./Tasks";
+import { askStep, GROUPS, groupOf, groupState, openGroup, type GroupId } from "./steps";
+import { keyFrame } from "./frames";
+import { PRESETS, ScriptPanel, SoundTracks } from "./StepViews";
+import { props as cachedProps, VariantShot } from "./VariantShot";
+import { Halftone } from "./halftone";
 
-type StepId = "rushes" | "cuts" | "structure" | "captions" | "hook" | "beats" | "visuals" | "sound" | "look" | "wrap";
-const TAGLINE: Record<StepId, string> = {
-  rushes: "Your takes", cuts: "What stays", structure: "The arc", captions: "Words on screen", hook: "The first 3 seconds",
-  beats: "Each new idea", visuals: "Show it", sound: "What carries the cut", look: "Your signature", wrap: "Out into the world",
+const ICONS: Record<GroupId, string> = {
+  story: "M4 6h16M4 12h10M4 18h13", captions: "M4 7h16v10H4zM8 12h3M13 12h3", hook: "M12 3v8a4 4 0 1 1-4-4",
+  visuals: "M4 5h16v14H4zM4 15l5-5 4 4 3-3 4 4", sound: "M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2", wrap: "M5 12l5 5 9-10",
 };
-// The guide's checklist before publishing.
-const CHECKLIST = ["Answers one of my 3 problems", "The hook lands in 3 seconds", "I talk to the viewer", "The story has a conflict", "The end gives value", "My visual identity shows"];
-const STEPS: { id: StepId; title: string; lede: string; chips: string[] }[] = [
-  { id: "rushes", title: "Rushes", lede: "Your takes, analyzed. Start here: the first pass cuts the obvious and proposes captions.", chips: [] },
-  { id: "cuts", title: "Cuts", lede: "What stays. Dead air, fillers and failed takes go; the strongest version of each idea stays.",
-    chips: ["Tighter: cut every hesitation", "Keep it natural, only the dead air", "Cut the tangent in the middle"] },
-  { id: "structure", title: "Story", lede: "The order and the arc. A framework, beats on your words, maybe a reorder.",
-    chips: ["Hook, problem, solution, call to action", "Open loop: tease the ending first", "Reorder for the strongest start"] },
-  { id: "captions", title: "Captions", lede: "The words on screen: rhythm, length, the word that pops.",
-    chips: ["Bold two lines, one highlighted word", "Minimal, one line", "Highlight every number and name"] },
-  { id: "hook", title: "Hook", lede: "The first three seconds decide everything.",
-    chips: ["A bold question as the title", "Open on the most surprising sentence", "A big number in the first second"] },
-  { id: "beats", title: "Beats", lede: "What marks each new idea: a word behind you, a punch-in, a flash.",
-    chips: ["Big word behind me at each new idea", "Punch-in zoom on the key moments", "Flash cut between parts"] },
-  { id: "visuals", title: "Visuals", lede: "Images, HUD panels, stats and animations where your words name something showable.",
-    chips: ["Show what I talk about with images", "A HUD panel when I mention data", "One animated accent, nothing more"] },
-  { id: "sound", title: "Sound", lede: "Whooshes, hits and silences that carry the cut.",
-    chips: ["Subtle whooshes on the cuts", "A hit on the reveal", "Almost nothing, keep it clean"] },
-  { id: "look", title: "Type & look", lede: "Fonts, colors, grade and the pace of the animations.",
-    chips: ["Warm cinematic grade, elegant serif titles", "Clean modern sans, high contrast", "Slower, smoother animations"] },
-  { id: "wrap", title: "Wrap", lede: "Render the final video and send it to CapCut.", chips: [] },
-];
-const WORKFLOW_STEPS = ["cuts", "structure", "captions", "hook", "beats", "visuals", "sound", "look"];
+const NAMES: Record<GroupId, string> = { story: "Story", captions: "Captions", hook: "Hook", visuals: "Visuals", sound: "Sound", wrap: "Wrap" };
+
+const HELP: Record<GroupId, string> = {
+  story: "Your video comes already cut: Adam never cuts it. Paste your script or let Adam write it from what you say, then press STEP DONE, NEXT on the right.",
+  captions: "How your words show on screen. Press PROPOSE 3 CAPTION STYLES, pick one with CHOOSE, or skip the step to keep plain captions.",
+  hook: "The first three seconds decide if people stay. Ask for three hooks, pick one with CHOOSE. You can skip it.",
+  visuals: "Images, icons, effects and the color treatment, anchored on what you say. Ask for three directions, pick one, or skip.",
+  sound: "Music bed and sound effects. Ask for three soundtracks, listen to them in place, pick one, or skip.",
+  wrap: "Every step is done: pick a format and export the MP4, or send the edit to CapCut to finish by hand.",
+};
+const TEXT_HELP = "A text-only video: each line of your script becomes a card (a statement, a number, A vs B, a list, a quote, one word on its own). Press LAY OUT THE CARDS after each change, watch them on the left, then export.";
+const AUTO_HELP = "Adam runs the remaining steps for you, takes his first variant each time, then exports the video. Open any step afterwards and pick another variant: the video is exported again.";
+const isActive = (j: { state: string }) => j.state === "running" || j.state === "queued";
+const EXPORTS = ["Render", "Export to CapCut"];
+
+function Help({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: Event) => { if (e instanceof KeyboardEvent ? e.key === "Escape" : !(e.target as Element).closest(".help")) setOpen(false); };
+    addEventListener("click", close); addEventListener("keydown", close);
+    return () => { removeEventListener("click", close); removeEventListener("keydown", close); };
+  }, [open]);
+  return (
+    <span className="help">
+      <button type="button" className="q" aria-expanded={open} aria-label="Help on this step" onClick={() => setOpen(!open)}>?</button>
+      <span className={`tip${open ? " open" : ""}`} role="tooltip">{text}</span>
+    </span>
+  );
+}
 
 const ACTIVITY: Record<string, string> = {
   get_project: "Reading the project", get_transcript: "Reading what you say", get_reference: "Checking the formats",
   search_assets: "Searching your Inspiration and free libraries", look_at: "Looking at a reference", import_asset: "Importing a file",
   propose: "Writing the proposal", still: "Rendering a frame to check it", list_series: "Looking at the series",
+  apply_patch: "Changing the edit", update_item: "Changing the edit", set_value: "Changing the edit",
 };
 
 /** Claude's job, as a feed: what it does (from the stream-json tool calls) and what it says at the end. */
@@ -60,375 +76,570 @@ function ClaudeFeed({ job, onEnd }: { job: JobView; onEnd: () => void }) {
       for (const line of parts) {
         let e: any;
         try { e = JSON.parse(line); } catch { continue; }
-        if (e.type === "assistant") {
-          for (const c of e.message?.content ?? []) {
-            if (c.type === "tool_use") {
-              const name = String(c.name).replace(/^mcp__adam-studio__/, "");
-              const label = ACTIVITY[name];
-              if (label && seen[seen.length - 1] !== label) { seen.push(label); setLines([...seen]); }
-            }
-          }
+        const r = readEvent(e);
+        for (const tool of r.tools ?? []) {
+          const label = ACTIVITY[tool];
+          if (label && seen[seen.length - 1] !== label) { seen.push(label); setLines([...seen]); }
         }
-        if (e.type === "result") {
-          // Plain words only: no markdown, no internal ids; the last paragraph is the message to the creator.
-          const plain = String(e.result ?? "").replace(/\*\*|`/g, "").replace(/\bask\.[\w.]+/g, "").trim();
-          const last = plain.split(/\n\s*\n/).pop() ?? plain;
-          setSay(last.length > 320 ? `${last.slice(0, 317)}...` : last);
-        }
+        if (r.say) setSay(r.say);
       }
     };
     const ev = new EventSource(`/api/jobs/${job.id}/events`);
     ev.onmessage = (m) => {
       const e = JSON.parse(m.data) as JobEvent;
       if (e.type === "output") take(e.text);
-      else { setState(e.job.state); ev.close(); onEnd(); }
+      else {
+        setState(e.job.state); ev.close(); onEnd();
+        const who = aiOf(e.job.label);
+        if (e.job.ai && who) reportAiFailure(aiFailureText(e.job.ai, who.ai.toLowerCase() === "codex" ? "codex" : "claude", getLang()));
+      }
     };
     return () => ev.close();
   }, [job.id]);
   return (
-    <div className="feed">
-      <div className="who">{state === "running" ? <span className="pulse" /> : null} Claude {state === "running" ? "is working" : state === "done" ? "" : `(${state})`}</div>
-      <ul>{lines.map((l, i) => <li key={i}>{l}</li>)}{state === "running" && lines.length === 0 ? <li>Getting ready</li> : null}</ul>
-      {say && <div className="say">{say}</div>}
-      {state === "running" && <div style={{ marginTop: 8 }}><button className="ghost" onClick={() => api(`/jobs/${job.id}/stop`, { method: "POST" })}>Stop</button></div>}
+    <div className="feed" aria-live="polite">
+      {isActive({ state }) && <Halftone fx="wave" step={5} className="feedwave" />}<span className="who">{isActive({ state }) ? <i className="pulse" /> : null}ADAM{isActive({ state }) ? " · WORKING" : state === "done" ? "" : ` · ${state.toUpperCase()}`}</span>
+      <span className="what">{say || lines[lines.length - 1] || "Getting ready"}</span>
+      {isActive({ state }) && <button type="button" className="link" onClick={() => api(`/jobs/${job.id}/stop`, { method: "POST" })}>Stop</button>}
     </div>
   );
 }
 
-function ProposalCard({ p, seen, onSee, onDecide, onMore, locked }: {
-  p: ProposalView; seen: string | null; locked: string | null;
-  onSee: (key: string | null) => void; onDecide: (decision: string) => void; onMore: (p: ProposalView) => void;
-}) {
-  const pending = p.status === "pending";
-  const source = p.id.startsWith("auto.") ? "First pass" : p.id.startsWith("ask.") ? "Claude" : "Proposal";
-  if (!pending) {
-    const key = p.status.replace(/^accepted\s*/, "");
-    const label = p.variants.find((v) => v.key === key)?.label;
-    return (
-      <div className="decided">
-        <span className="chosen">{p.status.startsWith("accepted") ? `✓ ${key}` : p.status}</span>
-        <span>{label ?? p.reason ?? source}</span>
-      </div>
-    );
-  }
-  return (
-    <div className="proposal">
-      <div className="head"><span className="tag">{source}</span>{p.reason && <span className="why">{p.reason}</span>}</div>
-      {p.variants.length === 0 && <p className="muted">Sent back for new options{p.notes.length ? `: “${p.notes.at(-1)}”` : ""}. Ask Claude below.</p>}
-      <div className="variants">
-        {p.variants.map((v, i) => (
-          <article key={v.key} className={`variant v${i % 4}${seen === v.key ? " seen" : ""}`} onClick={() => onSee(seen === v.key ? null : v.key)}>
-            <div className="top"><span className="k">{v.key}</span><span className="label">{v.label}</span></div>
-            {v.why && <div className="what">{v.why}</div>}
-            <div className="adds">{v.summary}</div>
-            <div className="acts">
-              <button onClick={(e) => { e.stopPropagation(); onDecide(v.key); }} disabled={Boolean(locked)} title={locked ?? ""}>Choose {v.key}</button>
-              <button className="quiet" onClick={(e) => { e.stopPropagation(); onSee(v.key); }}>{seen === v.key ? "Watching" : "Watch"}</button>
-            </div>
-          </article>
-        ))}
-      </div>
-      {p.variants.length > 0 && (
-        <div className="row" style={{ marginTop: 12 }}>
-          <button className="ghost" onClick={() => onMore(p)}>More options…</button>
-          <button className="ghost" onClick={() => onDecide("reject")}>None of these</button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** The checklist before publishing, ticked per project on this computer. */
-function Checklist({ name }: { name: string }) {
-  const key = `adam.checklist.${name}`;
-  const [ticks, setTicks] = useState<boolean[]>(() => { try { return JSON.parse(localStorage.getItem(key) ?? "[]"); } catch { return []; } });
-  const flip = (i: number) => {
-    const next = CHECKLIST.map((_, k) => (k === i ? !ticks[k] : Boolean(ticks[k])));
-    setTicks(next);
-    try { localStorage.setItem(key, JSON.stringify(next)); } catch { /* private mode */ }
-  };
-  const n = CHECKLIST.filter((_, i) => ticks[i]).length;
-  return (
-    <section className="checklist" aria-label="Checklist before publishing">
-      <b>checklist_before_publishing.txt</b>
-      {CHECKLIST.map((c, i) => <label key={c}><input type="checkbox" checked={Boolean(ticks[i])} onChange={() => flip(i)} />{c}</label>)}
-      <span className="done">{n} of {CHECKLIST.length}</span>
-    </section>
-  );
-}
-
-function Screen({ name, view, proposal, variant }: { name: string; view: ProjectView; proposal: string | null; variant: string | null }) {
+/** The edit, playable: as it stands, or with a variant applied (then it opens on what the variant adds). */
+function Screen({ name, view, proposal, variant, className = "", step, decided }: { name: string; view: ProjectView; proposal: string | null; variant: string | null; className?: string; step?: string; decided?: boolean }) {
   const [props, setProps] = useState<RenderProps | null>(null);
   const [base, setBase] = useState<RenderProps | null>(null);
   const [error, setError] = useState("");
   const player = useRef<PlayerRef>(null);
-  const stamp = JSON.stringify(view.proposals.map((p) => [p.id, p.status, p.variants.length])) + view.durationMs;
+  // Any write to project.json changes it: a cached preview never outlives an edit.
+  const stamp = String(view.modified ?? JSON.stringify(view.proposals.map((p) => [p.id, p.status, p.variants.length])) + (view?.durationMs ?? ""));
   useEffect(() => {
     let alive = true;
+    // Another variant: the player waits for its own edit, so it mounts on that variant's frame.
+    setProps(null); setBase(null);
+    // The same cache as the variant cards: a step shown again does not fetch its previews again.
+    const url = `/projects/${enc(name)}/preview`;
     const q = proposal && variant ? `?proposal=${enc(proposal)}&variant=${variant}` : "";
-    Promise.all([api<RenderProps>(`/projects/${enc(name)}/preview${q}`), q ? api<RenderProps>(`/projects/${enc(name)}/preview`) : Promise.resolve(null)])
+    Promise.all([cachedProps(`${url}${q}`, stamp), q ? cachedProps(decided ? `${url}?without=${enc(proposal!)}` : url, stamp) : Promise.resolve(null)])
       .then(([p, b]) => { if (alive) { setProps(p); setBase(b); setError(""); } })
       .catch((e) => { if (alive) { setProps(null); setError(e.message); } });
     return () => { alive = false; };
-  }, [name, proposal, variant, stamp]);
-  // Jump to what the variant adds: its first new element, caption or changed clip.
-  useEffect(() => {
-    if (!props || !base || !player.current) return;
-    const known = new Set(base.timeline.elements.map((e) => e.id));
-    const added = props.timeline.elements.filter((e) => !known.has(e.id)).map((e) => e.fromFrame);
-    const caps = props.timeline.captions.length !== base.timeline.captions.length ? [props.timeline.captions[0]?.fromFrame ?? 0] : [];
-    const frame = [...added, ...caps].sort((a, b) => a - b)[0] ?? 0;
-    // A little into it: titles and words reveal over their first frames.
-    player.current.seekTo(Math.min(props.timeline.durationFrames - 1, frame + Math.round(props.timeline.fps * 0.7)));
-  }, [props, base]);
-  const t = props?.timeline;
-  const wide = t ? t.width > t.height : view.format === "16:9";
+  }, [name, proposal, variant, stamp, decided]);
+  const tl = props?.timeline;
   return (
-    <div className={`screen${wide ? " wide" : ""}`}>
-      {t && props ? (
-        <Player ref={player} component={Edit} inputProps={props} durationInFrames={Math.max(1, t.durationFrames)} fps={t.fps}
-          compositionWidth={t.width} compositionHeight={t.height} controls style={{ width: "100%", height: "100%" }} />
-      ) : (
-        <div className="empty">{error ? <span className="error">{error}</span> : "Loading the preview"}</div>
-      )}
+    <div className={`screen ${className}`} style={tl ? { aspectRatio: `${tl.width} / ${tl.height}` } : undefined}>
+      {tl && props ? (
+        // A variant opens on the same frame as its card (keyFrame), set at mount so it cannot be lost while the player loads.
+        <Player key={`${proposal}:${variant}:${stamp}`} ref={player} component={Edit} inputProps={props} durationInFrames={Math.max(1, tl.durationFrames)} fps={tl.fps}
+          initialFrame={proposal && variant && base ? keyFrame(tl, base.timeline, step) : 0} acknowledgeRemotionLicense
+          compositionWidth={tl.width} compositionHeight={tl.height} controls style={{ width: "100%", height: "100%" }} />
+      ) : <div className="empty">{error ? <span className="error">{error}</span> : "LOADING"}</div>}
     </div>
   );
 }
 
-function Rushes({ name, view, run, firstPass }: { name: string; view: ProjectView; run: (action: string, options?: Record<string, unknown>) => void; firstPass: () => void }) {
-  const cacheOrder = ["edit", "proxy", "transcript", "silences"];
+const IMPORT_STAGES: [string, string][] = [["edit", "Preparing the video"], ["proxy", "Making the preview"], ["transcript", "Listening to what you say"], ["silences", "Finding the pauses"]];
+
+/** The stage an import has reached, from its log: each stage writes one line when it ends. */
+export function importStage(output: string): number {
+  const ends = [...output.matchAll(/^\S+ (edit|proxy|transcript|silences): \d+ s/gm)];
+  const last = ends[ends.length - 1];
+  return last ? IMPORT_STAGES.findIndex(([k]) => k === last[1]) + 1 : 0;
+}
+
+/** An import in plain steps. The log stays one click away, and opens by itself when something fails. */
+function ImportProgress({ job, id, onEnd }: { job?: JobView | null; id: string; onEnd: () => void }) {
+  const stage = importStage(job?.output ?? "");
+  const failed = job && job.state !== "running" && job.state !== "queued";
   return (
     <>
-      <div className="card cta">
-        <h3>First pass</h3>
-        <p className="muted" style={{ margin: "0 0 12px" }}>Cuts fillers, failed takes and dead air, and drafts the captions. You choose before anything changes.</p>
-        <div className="row"><button className="yellow" onClick={firstPass}>Run the first pass</button><a className="button quiet" href={`#/p/${enc(name)}/add`}>Add rushes</a></div>
-      </div>
-      <div className="takes">
-        {view.takes.map((t) => (
-          <div className="take" key={t.id}>
-            <div className="id">{t.id}<div className="muted" style={{ fontSize: 12, marginTop: 6, fontFamily: "var(--sans)" }}>{ms(t.durationMs)}</div></div>
-            <div>
-              <div>{t.firstWords || <span className="muted">no words</span>}</div>
-              <div className="muted" style={{ fontSize: 12 }}>{t.file}</div>
-              <div className="cachebar">{cacheOrder.map((k) => <i key={k} className={t.cache[k]} title={`${k}: ${t.cache[k]}`} />)}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="row" style={{ marginTop: 14 }}><button className="quiet" onClick={() => run("analyze")}>Analyze again</button></div>
+      {job?.state === "queued"
+        ? <p className="mono note">{t("Another heavy task finishes first. This one starts by itself.")}</p>
+        : !failed && <ol className="import-stages">{IMPORT_STAGES.map(([k, label], i) => <li key={k} className={i < stage ? "done" : i === stage ? "now" : ""}><span className="mono">{i < stage ? "✓" : i === stage ? "▶" : "·"}</span>{t(label)}</li>)}</ol>}
+      {!failed && <p className="mono note">{t("THE FIRST IMPORT ALSO DOWNLOADS THE ANALYSIS MODELS (1.6 GB).")}</p>}
+      <details open={Boolean(failed)}><summary className="mono">{t("DETAILS")}</summary><JobLog id={id} onEnd={onEnd} /></details>
     </>
   );
 }
 
-function Wrap({ name, view, run }: { name: string; view: ProjectView; run: (action: string, options?: Record<string, unknown>) => void }) {
-  const [capcut, setCapcut] = useState(name);
-  const latest = view.renders[0];
+function Rushes({ name, view, run, firstPass }: { name: string; view: ProjectView; run: (action: string) => void; firstPass: () => void }) {
+  const cacheOrder = ["edit", "proxy", "transcript", "silences"];
   return (
-    <>
-      <div className="card cta">
-        <h3>Final video</h3>
-        <p className="muted" style={{ margin: "0 0 12px" }}>Renders the full edit as an MP4 in the project's renders folder.</p>
-        <button onClick={() => run("render")}>Render the video</button>
+    <div className="rushes">
+      <div className="takes">
+        {view.takes.map((tk) => (
+          <div className="take" key={tk.id}>
+            <span className="mono">{tk.id} · {ms(tk.durationMs)}</span>
+            <span className="words1">{tk.firstWords || "no words"}</span>
+            <span className="cachebar">{cacheOrder.map((k) => <i key={k} className={tk.cache[k]} title={`${k}: ${tk.cache[k]}`} />)}</span>
+          </div>
+        ))}
       </div>
-      <div className="card cta">
-        <h3>CapCut</h3>
-        <p className="muted" style={{ margin: "0 0 12px" }}>Native clips, editable titles and captions; the effects CapCut cannot do come baked.</p>
-        <div className="row"><input value={capcut} onChange={(e) => setCapcut(e.target.value)} style={{ flex: 1 }} /><button onClick={() => run("capcut", { name: capcut })}>Export</button></div>
+      <div className="row">
+        <button type="button" className="act fill" onClick={firstPass}>{t("RUN THE FIRST PASS")}</button>
+        <a className="act" href={`#/p/${enc(name)}/add`}>{t("ADD RUSHES")}</a>
+        <button type="button" className="link" onClick={() => run("analyze")}>Analyze again</button>
       </div>
-      {latest && (
-        <section>
-          <div className="eyebrow" style={{ marginBottom: 10 }}>Latest render · {new Date(latest.mtime).toLocaleString()}</div>
-          <video controls preload="metadata" src={fileUrl(name, latest.file, latest.mtime)} />
-          <div className="row" style={{ marginTop: 10 }}><a className="button quiet" href={fileUrl(name, latest.file)} download>Download</a></div>
-        </section>
-      )}
-    </>
+    </div>
+  );
+}
+
+/** After a video: the guided art direction path, offered until three videos go by without a step taken. */
+function DaOffer({ name }: { name: string }) {
+  const [offer, setOffer] = useState(false);
+  useEffect(() => { api<{ offer: boolean }>("/da/offer", { method: "POST", body: { project: name } }).then((r) => setOffer(r.offer), () => {}); }, [name]);
+  if (!offer) return null;
+  return (
+    <div className="da-offer">
+      <div className="h">{t("YOUR ART DIRECTION")}</div>
+      <p>{t("You have seen your video: six quick choices, each played on it, make the next ones yours.")}</p>
+      <a className="act fill" href={`#/p/${enc(name)}/da`}><span>{t("START")}</span><span>→</span></a>
+    </div>
+  );
+}
+
+/** The last line that says why a job failed; the whole log stays one click away. */
+function failureOf(output: string): string {
+  const lines = output.trim().split("\n").map((l) => l.trim()).filter((l) => l && !/^(warn|warning:|note:|at |rendering:)/.test(l));
+  return lines.find((l) => /refused|refusing|failed|error|stopped moving/i.test(l)) ?? lines[lines.length - 1] ?? "";
+}
+
+function Wrap({ name, view, onChanged }: { name: string; view: ProjectView; onChanged: () => void }) {
+  const [format, setFormat] = useState<"mp4" | "capcut">("mp4");
+  const [error, setError] = useState("");
+  const latest = view.renders[0];
+  const job = view.jobs.find((j) => isActive(j) && EXPORTS.includes(j.label));
+  const last = view.jobs.find((j) => EXPORTS.includes(j.label));
+  const failed = !job && last?.state === "failed" ? last : null;
+  // The video no longer shows the edit: what plays here is the edit as it stands, until the creator exports it again.
+  const stale = Boolean(latest?.stale);
+  const [showOld, setShowOld] = useState(false);
+  useEffect(() => { if (!stale) setShowOld(false); }, [stale]);
+  // Stays on this page: the progress shows here, and any other page can be opened meanwhile.
+  const start = async (options: Record<string, unknown> = {}) => {
+    setError("");
+    const action = format === "mp4" ? "render" : "capcut";
+    try { await api(`/projects/${enc(name)}/jobs`, { method: "POST", body: { action, options: format === "capcut" ? { name, ...options } : options } }); onChanged(); }
+    catch (e) { setError((e as Error).message); }
+  };
+  return (
+    <section aria-label="Final video" className="wrap">
+      <div className="wrap-video">
+        {latest && !job && (!stale || showOld) ? <video className="frame lit" controls preload="metadata" src={fileUrl(name, latest.file, latest.mtime)} />
+          : <Screen name={name} view={view} proposal={null} variant={null} className="frame lit" />}
+        {(!latest || stale || job) && <span className="wrap-tag mono">{t(job ? "PREVIEW · EXPORT IN PROGRESS" : !latest ? "PREVIEW · NOT EXPORTED YET" : showOld ? "LAST EXPORT · OLDER THAN YOUR CHANGES" : "PREVIEW · YOUR CHANGES, NOT IN THE MP4 YET")}</span>}
+      </div>
+      <div className="wrap-side">
+        <h1>{name} {latest && !stale ? "IS READY" : ""}</h1>
+        <div role="radiogroup" aria-label="Format" className="list">
+          {([["mp4", "MP4 video", "renders/"], ["capcut", "CapCut project", "EDITABLE"]] as const).map(([k, label, tag]) => (
+            <button key={k} type="button" role="radio" aria-checked={format === k} className={`row-item act${format === k ? " on" : ""}`} onClick={() => setFormat(k)}>
+              <span>{label}</span><span className="mono">{tag}</span>
+            </button>
+          ))}
+        </div>
+        {job ? (
+          <div className="export-now">
+            <div className="task-line"><b>{t(job.label === "Render" ? "MP4 export" : "CapCut export")}</b><span className="mono">{taskState(job)}</span>
+              <button type="button" className="link" onClick={() => { void api(`/jobs/${job.id}/stop`, { method: "POST" }).then(onChanged); }}>{t("stop")}</button></div>
+            <TaskBar percent={job.state === "running" ? job.progress ?? 0 : 0} />
+            <p className="mono note">{t(job.state === "queued" ? "Another heavy task finishes first. This one starts by itself." : "You can leave this page: the export goes on.")}</p>
+          </div>
+        ) : <button type="button" className="act fill big" onClick={() => void start()}>{stale && format === "mp4" ? t("UPDATE THE MP4") : `${t("EXPORT")} ${format === "mp4" ? "MP4" : "CAPCUT"}`}</button>}
+        {stale && !job && <p className="mono note">{t("YOUR VIDEO CHANGED SINCE THE LAST EXPORT.")} <button type="button" className="link" onClick={() => setShowOld(!showOld)}>{t(showOld ? "see my changes" : "see the last export")}</button></p>}
+        {failed && (
+          <div className="export-failed">
+            <p className="error">{failureOf(failed.output)}</p>
+            {failed.hint === "force" && <button type="button" className="act" onClick={() => void start({ force: true })}>{t("Export anyway")}</button>}
+            {failed.hint === "replace" && <button type="button" className="act" onClick={() => { if (confirm(t("Replace the CapCut project? Edits made in CapCut since the last export will be lost."))) void start({ replace: true }); }}>{t("Replace the CapCut project")}</button>}
+            <details><summary className="mono">{t("DETAILS")}</summary><pre className="log">{failed.output.slice(-2000)}</pre></details>
+          </div>
+        )}
+        {error && <p className="error">{error}</p>}
+        {latest && <p className="mono note">LAST · {new Date(latest.mtime).toLocaleString()} · <a href={fileUrl(name, latest.file)} download>DOWNLOAD</a></p>}
+        {latest && <DaOffer name={name} />}
+        <p className="mono note">{format === "mp4" ? "SAVED TO renders/ IN THE PROJECT FOLDER" : "NATIVE CLIPS, EDITABLE TITLES AND CAPTIONS. EXPERIMENTAL."}</p>
+      </div>
+    </section>
   );
 }
 
 export function Studio({ name, jobId }: { name: string; jobId?: string }) {
+  useLang();
   const [view, setView] = useState<ProjectView | null>(null);
+  useEffect(() => { view?.jobs.forEach(reportSupportJob); }, [view?.jobs]);
   const [error, setError] = useState("");
-  const [step, setStep] = useState<StepId | null>(null);
-  const [seen, setSeen] = useState<{ proposal: string; key: string } | null>(null);
+  const [group, setGroup] = useState<GroupId | null>(null);
+  const [pick, setPick] = useState<{ proposal: string; key: string } | null>(null);
   const [prompt, setPrompt] = useState("");
   const [refill, setRefill] = useState<ProposalView | null>(null);
   const [toast, setToast] = useState("");
   const [assetsOpen, setAssetsOpen] = useState(false);
-  const [connectorsOpen, setConnectorsOpen] = useState(false);
-  const [skillsOpen, setSkillsOpen] = useState(false);
+  const [pop, setPop] = useState<"connectors" | "skills" | null>(null);
+  const [connCount, setConnCount] = useState<number | null>(null);
   // Skills picked for the next ask (Claude Code's own skills, called with its Skill tool).
   const [skills, setSkills] = useState<string[]>([]);
+  // Skills are Claude Code's: with Codex the button and the picked skills go away.
+  const [ai, setAi] = useState<"claude" | "codex">("claude");
+  useEffect(() => {
+    api<{ engine: "claude" | "codex" }>("/settings").then((x) => setAi(x.engine), () => {});
+    const on = (e: Event) => { setAi((e as CustomEvent).detail); setSkills([]); setPop(null); };
+    addEventListener(ENGINE_EVENT, on);
+    return () => removeEventListener(ENGINE_EVENT, on);
+  }, []);
   const toggleSkill = (s: string) => setSkills((l) => (l.includes(s) ? l.filter((x) => x !== s) : [...l, s]));
   const [dropping, setDropping] = useState(false);
-  // An asset named to Claude goes on its own line at the end of the prompt.
-  const addMention = (text: string) => setPrompt((p) => (p.includes(text) ? p : `${p.trimEnd()}${p.trim() ? "\n" : ""}${text}`));
-  const load = useCallback(() => api<ProjectView>(`/projects/${enc(name)}`).then((v) => { setView(v); setError(""); }, (e) => setError(e.message)), [name]);
+  // Adam can finish the video alone: an action the creator starts, not a setting that starts things by itself.
+  const [auto, setAuto] = useState<{ state: string; label: string; error?: string } | null>(null);
+  // A click on a locked step: the action that is needed now pulses for a moment.
+  const [nudge, setNudge] = useState(false);
+  const [scriptReady, setScriptReady] = useState(false);
+  const [finishingStep, setFinishingStep] = useState(false);
+  const [stoppingAuto, setStoppingAuto] = useState(false);
+  useEffect(() => { if (!nudge) return; const id = setTimeout(() => setNudge(false), 2600); return () => clearTimeout(id); }, [nudge]);
+  const addMention = (text: string) => setPrompt((p) => (p.includes(text) ? p : `${p.trimEnd()}${p.trim() ? " " : ""}${text}`));
+  const load = useCallback(() => {
+    void api<{ state: string; label: string; error?: string } | null>(`/projects/${enc(name)}/auto`).then(setAuto, () => {});
+    return api<ProjectView>(`/projects/${enc(name)}`).then((v) => { setView(v); setError(""); return v; }, (e) => { setError(e.message); return null; });
+  }, [name]);
+  // While something runs on this video (auto mode, an export, an import), look again every two seconds.
+  const working = auto?.state === "running" || Boolean(view?.importing) || Boolean(view?.jobs.some(isActive));
+  useEffect(() => {
+    if (!working) return;
+    const id = setInterval(() => void load(), 2000);
+    return () => clearInterval(id);
+  }, [working, load]);
+  const startAuto = async () => {
+    try { setAuto(await api(`/projects/${enc(name)}/auto`, { method: "POST", body: { action: "start" } })); } catch (e) { setError((e as Error).message); }
+  };
+  const stopAuto = async () => {
+    setStoppingAuto(true);
+    try { setAuto(await api(`/projects/${enc(name)}/auto`, { method: "POST", body: { action: "stop" } })); await load(); }
+    catch (e) { setError((e as Error).message); setStoppingAuto(false); }
+  };
+  useEffect(() => { if (auto?.state !== "running") setStoppingAuto(false); }, [auto?.state]);
   useEffect(() => {
     void load();
+    api<{ enabled: boolean }[]>("/connectors").then((l) => setConnCount(l.filter((c) => c.enabled).length), () => {});
     const ev = new EventSource("/api/events");
     ev.onmessage = (m) => { if (JSON.parse(m.data).project === name) void load(); };
     return () => ev.close();
   }, [name]);
-  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(""), 3200); return () => clearTimeout(t); }, [toast]);
-  // Open on the step the workflow is at (or the rushes before any first pass).
-  useEffect(() => { if (view && step === null) setStep((view.workflow?.current as StepId) ?? "rushes"); }, [view]);
+  useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(""), 3200); return () => clearTimeout(id); }, [toast]);
+  useEffect(() => { if (view && group === null) setGroup(openGroup(view.workflow)); }, [view]);
+  // Auto mode over or stopped with every step done: only the export is left, so that is where the creator lands.
+  const autoWasRunning = useRef(false);
+  useEffect(() => {
+    const was = autoWasRunning.current;
+    autoWasRunning.current = auto?.state === "running";
+    if (was && auto?.state !== "running" && view?.workflow && openGroup(view.workflow) === "wrap") setGroup("wrap");
+  }, [auto?.state]);
+  // T switches to the timeline, as the toggle says; Ctrl+Z undoes the last change to the project.
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); void api(`/projects/${enc(name)}/edit`, { method: "POST", body: { op: "undo" } }).then(() => { setToast("Undone"); void load(); }, (err) => setError((err as Error).message)); return; }
+      if (e.key === "t" && !e.ctrlKey && !e.metaKey && !e.altKey) go(`#/p/${enc(name)}/edit`);
+    };
+    addEventListener("keydown", key);
+    return () => removeEventListener("keydown", key);
+  }, [name]);
 
   const edit = async (body: Record<string, unknown>, done?: string) => {
-    try { await api(`/projects/${enc(name)}/edit`, { method: "POST", body }); if (done) setToast(done); await load(); return true; }
-    catch (e) { setError((e as Error).message); return false; }
+    try {
+      await api(`/projects/${enc(name)}/edit`, { method: "POST", body });
+      if (done) setToast(done);
+      const v = await load();
+      // A choice or a close that finishes the step: straight to the next one.
+      if (v && (body.op === "decide" || body.op === "close_step") && group && groupState(group, v.workflow) === "done") { setGroup(openGroup(v.workflow)); setPick(null); }
+      return true;
+    } catch (e) { setError((e as Error).message); return false; }
   };
   const run = async (action: string, options: Record<string, unknown> = {}) => {
     try { const { job } = await api<{ job: JobView }>(`/projects/${enc(name)}/jobs`, { method: "POST", body: { action, options } }); go(`#/p/${enc(name)}/job/${job.id}`); await load(); }
     catch (e) { setError((e as Error).message); }
   };
-  const ask = async (text: string) => {
-    if (!step || step === "rushes" || step === "wrap") return;
+  const wf = view?.workflow ?? null;
+  // A text-only video: its script and its cards, then the export (no takes to cut, no captions, no hook to find).
+  const text = view?.video === "text";
+  const groups = text ? GROUPS.filter((x) => x.id === "story" || x.id === "wrap") : GROUPS;
+  const layOut = async () => {
+    try { const { job } = await api<{ job: JobView }>(`/projects/${enc(name)}/cards`, { method: "POST" }); setToast("Laying out the cards"); void job; await load(); }
+    catch (e) { setError((e as Error).message); }
+  };
+  const g: GroupId = group ?? "story";
+  const step = askStep(g, wf);
+  const ask = async (text: string, mode: "do" | "propose" = "propose") => {
+    if (g === "wrap" || !wf) return;
     const full = refill ? `${text}\n\n(The creator sent proposal ${refill.id} back for more options: refill that proposal with propose, same id, new variants.)` : text;
-    try { await api(`/projects/${enc(name)}/ask`, { method: "POST", body: { step, prompt: full, skills } }); setPrompt(""); setRefill(null); setSkills([]); await load(); }
+    try { await api(`/projects/${enc(name)}/ask`, { method: "POST", body: { step, prompt: full, skills, mode: refill ? "propose" : mode } }); setPrompt(""); setRefill(null); setSkills([]); await load(); }
     catch (e) { setError((e as Error).message); }
   };
   const firstPass = async () => {
     try {
-      const r = await api<{ summary: { fillers: number; retakes: unknown[]; captions: number } }>(`/projects/${enc(name)}/edit`, { method: "POST", body: { op: "first_pass" } });
-      setToast(`First pass: ${r.summary.fillers} fillers, ${r.summary.retakes.length} failed takes, ${r.summary.captions} captions`);
+      const r = await api<{ summary: { fillers: number; stutters?: number; retakes: unknown[]; captions: number; longPauses?: unknown[] } }>(`/projects/${enc(name)}/edit`, { method: "POST", body: { op: "first_pass" } });
+      const long = r.summary.longPauses?.length ?? 0;
+      setToast(`First pass: ${r.summary.fillers} fillers, ${r.summary.stutters ?? 0} stutters, ${r.summary.retakes.length} failed takes, ${r.summary.captions} captions${long ? ` · ${long} pauses over 3 s to check` : ""}`);
       await load();
-      setStep("cuts");
     } catch (e) { setError((e as Error).message); }
   };
 
-  const proposals = useMemo(() => (view?.proposals ?? []).filter((p) => p.step === step).sort((a, b) => (a.status === "pending" ? 0 : 1) - (b.status === "pending" ? 0 : 1)), [view, step]);
-  const running = view?.jobs.find((j) => j.state === "running");
-  const claudeJob = view?.jobs.find((j) => j.label.startsWith("Claude") && (j.state === "running" || Date.now() - (j.endedAt ?? 0) < 60_000) && j.label === `Claude: ${step}`);
-  const otherJob = jobId ? view?.jobs.find((j) => j.id === jobId && !j.label.startsWith("Claude")) : running && !running.label.startsWith("Claude") ? running : undefined;
-  if (!view) return <main>{error ? <p className="error">{error}</p> : <p className="muted">Opening the project</p>}</main>;
-  const wf = view.workflow;
-  const meta = STEPS.find((s) => s.id === step) ?? STEPS[0]!;
-  const lockedWhy = step && wf && WORKFLOW_STEPS.includes(step) && wf.steps[step] === "locked" ? `Finish “${STEPS.find((s) => s.id === wf.current)?.title}” first` : null;
-  const pendingHere = proposals.some((p) => p.status === "pending" && p.variants.length);
-  const stateOf = (id: StepId) => (id === "rushes" ? (wf ? "done" : "open") : id === "wrap" ? (view.renders.length ? "done" : "") : wf?.steps[id] ?? "");
-  const pendingCount = (id: StepId) => view.proposals.filter((p) => p.step === id && p.status === "pending" && p.variants.length).length;
+  const members = GROUPS.find((x) => x.id === g)?.members ?? [];
+  const ofGroup = useMemo(() => (view?.proposals ?? []).filter((p) => members.includes(p.step)), [view, g]);
+  const pending = ofGroup.find((p) => p.status === "pending" && p.variants.length);
+  const decided = ofGroup.filter((p) => p.status !== "pending");
+  const cardStamp = String(view?.modified ?? JSON.stringify((view?.proposals ?? []).map((p) => [p.id, p.status, p.variants.length])) + (view?.durationMs ?? ""));
+  // The variant picked on screen: the creator's click, else the first one.
+  const accepted = [...decided].reverse().find((p) => p.status.startsWith("accepted") && p.variants.length);
+  const acceptedKey = accepted?.status.replace(/^accepted\s*/, "") ?? null;
+  // What the step shows: the variants waiting for a choice, else all the variants of the last choice, so another can be chosen.
+  const shown = pending ?? accepted;
+  const chosenKey = shown && pick?.proposal === shown.id ? pick.key : pending ? pending.variants[0]?.key ?? null : acceptedKey;
+  const chosen = shown?.variants.find((v) => v.key === chosenKey);
 
-  const stepNo = STEPS.indexOf(meta);
-  // The decisions so far, in workflow order: what was chosen at each step.
-  const pins = STEPS.filter((s) => s.id !== "rushes" && s.id !== "wrap").map((s) => {
-    const accepted = view.proposals.filter((p) => p.step === s.id && p.status.startsWith("accepted"));
-    const labels = accepted.map((p) => p.variants.find((v) => v.key === p.status.replace(/^accepted\s*/, ""))?.label ?? p.reason ?? "chosen");
-    const st = stateOf(s.id);
-    const text = labels.length ? `${s.title} · ${labels.join(", ")}` : st === "done" ? `${s.title} · kept as is` : wf?.current === s.id ? `${s.title} · ${pendingCount(s.id) ? "pick one below" : "ask Claude"}` : s.title;
-    return { id: s.id, text, kind: labels.length || st === "done" ? "" : wf?.current === s.id ? "now" : "later" };
-  });
+  // A project being created: its analysis job writes project.json at the end. Show the job, then open the studio.
+  const importJob = view?.importing ? view.jobs.find(j => j.label === "New project" || j.label === "Lay out the cards") : null;
+  if (view?.importing || (!view && jobId)) return (
+    <div className="creating">
+      <Halftone fx="wave" step={6} className="creatingwave" />
+      <p className="mono">{name.toUpperCase()} · {t(importJob && importJob.state !== "running" ? "Import stopped. Review the log below." : "Import in progress. You can leave this page and return later.")}</p>
+      {(importJob?.id ?? jobId) && <ImportProgress job={importJob} id={(importJob?.id ?? jobId)!} onEnd={() => void load()} />}
+      <a className="act" href="#/">{t("PROJECTS")}</a>
+    </div>
+  );
+  if (!view) return <div className="center-msg">{error ? <p className="error">{error}</p> : <p className="mono">OPENING THE PROJECT</p>}</div>;
+  const running = view.jobs.find(isActive);
+  const claudeJob = view.jobs.find((j) => aiOf(j.label) && (isActive(j) || Date.now() - (j.endedAt ?? 0) < 60_000) && groupOf(aiOf(j.label)!.step) === g);
+  const otherJob = jobId ? view.jobs.find((j) => j.id === jobId && !aiOf(j.label)) : running && !aiOf(running.label) ? running : undefined;
+  const state = groupState(g, wf);
+  const locked = state === "locked" && g !== "wrap";
+  const lockedWhy = locked && wf ? `Finish ${t(NAMES[groupOf(wf.current)])} first` : null;
+  const stepNo = groups.findIndex((x) => x.id === g) + 1;
+  const canAsk = Boolean(wf) && g !== "wrap";
+  const busy = Boolean(claudeJob && isActive(claudeJob)) || view.jobs.some((j) => isActive(j) && aiOf(j.label));
+  const canClose = wf && members.includes(wf.current) && !pending && !Object.values(wf.steps).every((x) => x === "done");
+  const finishStep = async () => {
+    if (finishingStep) return;
+    setFinishingStep(true);
+    try {
+      if (!await edit({ op: "close_step" }, "Step done")) return;
+      // Cuts and script are one visible Story step; an already edited video needs no second confirmation.
+      if (g === "story" && wf?.current === "cuts") {
+        const latest = await api<ProjectView>(`/projects/${enc(name)}`);
+        if (latest.workflow?.current === "structure" && !latest.proposals.some(p => p.step === "structure" && p.status === "pending")) {
+          await edit({ op: "close_step" }, "Step done");
+        }
+      }
+    } catch (e) { setError((e as Error).message); }
+    finally { setFinishingStep(false); }
+  };
+  const decide = async (d: string) => { if (pending && await edit({ op: "decide", proposal: pending.id, decision: d }, d === "reject" ? "Proposal set aside" : `Variant ${d} applied`)) setPick(null); };
+  const allDone = Boolean(wf && Object.values(wf.steps).every((x) => x === "done"));
+  // Another variant for a step already chosen: the first one is taken back, this one applied, then the video renders again.
+  const switchTo = async (key: string) => {
+    if (accepted && await edit({ op: "switch", proposal: accepted.id, variant: key }, allDone ? `Variant ${key} chosen: the video renders again` : `Variant ${key} chosen`)) {
+      setPick(null);
+      if (allDone) setGroup("wrap");
+    }
+  };
+  const historyLabel = (p: ProposalView) => {
+    const key = p.status.replace(/^accepted\s*/, "");
+    return { k: p.status.startsWith("accepted") ? key : "×", label: p.variants.find((v) => v.key === key)?.label ?? p.reason ?? (p.id.startsWith("auto.") ? "First pass" : "Proposal") };
+  };
+  const current = wf ? openGroup(wf) : "story";
+  const nextAction = text ? (g === "wrap" ? "Export your video." : "One line per card: write your script, then press LAY OUT THE CARDS.")
+    : !wf ? "Run the first pass on your takes."
+    : current === "wrap" ? "Every step is done: export your video."
+    : g !== current ? (groupState(g, wf) === "done" ? `Next step: ${t(NAMES[current])}.` : `Finish ${t(NAMES[current])} first.`)
+    : pending ? `Pick a variant, then press CHOOSE ${chosenKey}.`
+    : g === "story" ? "Paste your script or let Adam write it, then press STEP DONE, NEXT on the right."
+    : PRESETS[g] && !decided.length ? "Ask for the variants, or skip the step."
+    : "Press STEP DONE, NEXT.";
+  const readyToAdvance = canClose && !busy && !running && auto?.state !== "running" && (g === "story" ? scriptReady : !!accepted);
+  const need = nudge ? " nudge" : "";
+  const openStep = (id: GroupId) => {
+    setPick(null);
+    // A locked step sends the creator back to the open one, with the action to do highlighted; while Adam works, every step can be watched.
+    if (auto?.state !== "running" && wf && groupState(id, wf) === "locked") {
+      setGroup(current); setNudge(true); setToast(`${t(NAMES[current])} first: ${nextAction}`);
+      return;
+    }
+    setGroup(id);
+  };
+  const exportJob = view.jobs.find((j) => isActive(j) && EXPORTS.includes(j.label));
 
   return (
-    <div className="studio">
-      <aside className="rail">
-        <div className="title">{view.name}</div>
-        <div className="sub">{ms(view.durationMs)} · {view.format}</div>
-        {STEPS.map((s, i) => (
-          <button key={s.id} className={`step ${stateOf(s.id)}${step === s.id ? " on" : ""}`} onClick={() => { setStep(s.id); setSeen(null); }}>
-            <span className="n">{String(i + 1).padStart(2, "0")}</span>{s.title}
-            {pendingCount(s.id) ? <span className="badge">{pendingCount(s.id)}</span> : stateOf(s.id) === "done" ? <span className="mk">✓</span> : null}
-          </button>
-        ))}
-        <div className="foot">
-          <a href={`#/p/${enc(name)}/edit`}>Fine-tune the timeline</a>
-          <a href="" onClick={(e) => { e.preventDefault(); setAssetsOpen(true); }}>Assets of this video</a>
-          <a href="#/library">Library</a>
-          <a href="" onClick={(e) => { e.preventDefault(); void run("studio"); }}>Open Remotion Studio</a>
+    <>
+      <div className="subbar">
+        <span className="mono">{view.name} · {view.format} · {ms(view.durationMs).toUpperCase()}</span>
+        <div className="modebar">
+          {auto?.state === "running" ? <>
+            <span className="mono autostate"><i className="pulse" /> ADAM · {t(auto.label).toUpperCase()}{exportJob ? ` · ${taskState(exportJob)}` : "…"}</span>
+            <button type="button" className="link" disabled={stoppingAuto} onClick={() => void stopAuto()}>{stoppingAuto ? t("Stopping…") : t("stop")}</button>
+          </> : <>
+            {auto?.state === "failed" && <span className="mono error" title={auto.error}>{t("ADAM STOPPED")}: {auto.error}</span>}
+            {wf && current !== "wrap" ? <><Help text={AUTO_HELP} /><button type="button" className="act fill small" onClick={() => void startAuto()}>{t("LET ADAM FINISH")} ▶</button></>
+              : current === "wrap" && g !== "wrap" ? <button type="button" className="act fill small" onClick={() => setGroup("wrap")}>{t("EXPORT")} ▶</button> : null}
+          </>}
         </div>
-      </aside>
-
-      <div className="work dotted">
-        {wf && (
-          <nav className="pinned" aria-label="Pinned so far">
-            <span className="h">PINNED SO FAR</span>
-            {pins.map((p) => <button key={p.id} className={`pin ${p.kind}`} onClick={() => { setStep(p.id); setSeen(null); }}>{p.text}</button>)}
-          </nav>
-        )}
-        <div className="row" style={{ gap: 8 }}>
-          <span className="tag y">{String(stepNo + 1).padStart(2, "0")} / {STEPS.length}</span>
-          <span className="tag">{step === "rushes" ? "Before the cut" : step === "wrap" ? "Publishing" : "In the edit room"}</span>
+        <div role="group" aria-label="View" className="toggle">
+          <a href={`#/p/${enc(name)}`} aria-current="page" className="on">{t("STEPS")}</a>
+          <a href={`#/p/${enc(name)}/edit`}>{t("TIMELINE")} · T</a>
         </div>
-        <div className="headline">
-          <h1>{meta.title}</h1>
-          <div className="sub2">{TAGLINE[meta.id]}</div>
-          <div className="halftone" aria-hidden="true" />
-        </div>
-        <p className="lede">{meta.lede}</p>
-        {error && <p className="error" onClick={() => setError("")}>{error}</p>}
-        {otherJob && <JobLog key={otherJob.id} id={otherJob.id} onEnd={() => load()} />}
-        {step === "rushes" && <Rushes name={name} view={view} run={run} firstPass={firstPass} />}
-        {step === "wrap" && <Wrap name={name} view={view} run={run} />}
-        {claudeJob && <ClaudeFeed key={claudeJob.id} job={claudeJob} onEnd={() => void load()} />}
-        {step !== "rushes" && step !== "wrap" && (
-          <>
-            {lockedWhy && <p className="muted">{lockedWhy} to choose here; you can already explore.</p>}
-            {proposals.length === 0 && !claudeJob && <p className="muted">Nothing proposed yet for this step. Ask Claude below, or skip it.</p>}
-            {proposals.map((p) => (
-              <ProposalCard key={p.id} p={p} locked={lockedWhy} seen={seen?.proposal === p.id ? seen.key : null}
-                onSee={(key) => setSeen(key ? { proposal: p.id, key } : null)}
-                onDecide={async (d) => { if (await edit({ op: "decide", proposal: p.id, decision: d }, d === "reject" ? "Proposal set aside" : `Variant ${d} applied`)) setSeen(null); }}
-                onMore={(pp) => { setRefill(pp); setPrompt(""); }} />
-            ))}
-            {wf && wf.current === step && !pendingHere && (
-              <div className="row"><button className="quiet" onClick={() => edit({ op: "close_step" }, `${meta.title} done`).then((ok) => ok && setStep((WORKFLOW_STEPS[WORKFLOW_STEPS.indexOf(step) + 1] as StepId) ?? "wrap"))}>
-                {proposals.length ? "Step done, next" : "Skip this step"} →</button></div>
-            )}
-            <div className={`composer${dropping ? " over" : ""}`}
-              onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); setDropping(true); } }}
-              onDragLeave={() => setDropping(false)}
-              onDrop={async (e) => {
-                e.preventDefault(); setDropping(false);
-                const r = await dropInto(e.dataTransfer.files, name);
-                r.added.forEach((a) => addMention(mention(a)));
-                if (r.errors.length) setError(r.errors.join("\n"));
-                if (r.added.length) { setToast(`Added ${r.added.map((a) => a.id).join(", ")} to this video`); await load(); }
-              }}>
-              <div className="win">
-                <div className="bar"><span className="t">ask_claude.exe</span><i /><i className="x" /></div>
-                <div className="body">
-                  {refill && <div className="muted" style={{ marginBottom: 8 }}>New options for “{refill.reason || refill.id}”. <button className="ghost" onClick={() => setRefill(null)}>cancel</button></div>}
-                  <div className="chips">{meta.chips.map((c) => <button key={c} className="chip" onClick={() => setPrompt(c)}>{c}</button>)}</div>
-                  {skills.length > 0 && (
-                    <div className="chips" aria-label="Skills for this ask">
-                      {skills.map((s) => <button key={s} className="chip skill" title="Remove" onClick={() => toggleSkill(s)}>/{s} ×</button>)}
-                    </div>
-                  )}
-                  <textarea aria-label={`Tell Claude what you want for the ${meta.title.toLowerCase()}`} value={prompt} placeholder={`Tell Claude what you want for the ${meta.title.toLowerCase()}…`} onChange={(e) => setPrompt(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && prompt.trim()) void ask(prompt); }} />
-                  <div className="tools">
-                    <button className="ghost" onClick={() => setAssetsOpen(true)}><IconFolder />Assets{view.assets.length ? ` (${view.assets.length})` : ""}</button>
-                    <button className="ghost" onClick={() => setConnectorsOpen(true)}><IconLink />Connectors</button>
-                    <button className="ghost" onClick={() => setSkillsOpen(true)}><IconSpark />Skills{skills.length ? ` (${skills.length})` : ""}</button>
-                    <ClaudeBar stamp={`${claudeJob?.id ?? ""}:${claudeJob?.state ?? ""}`} />
-                    <span className="spacer" />
-                    <button className="claude" title="Ctrl+Enter" disabled={!prompt.trim() || Boolean(claudeJob && claudeJob.state === "running") || Boolean(running && running.label.startsWith("Claude"))} onClick={() => ask(prompt)}>Ask Claude <IconSend /></button>
-                  </div>
-                </div>
-              </div>
+      </div>
+      <div className={`cols studio-cols${g === "wrap" ? " no-aside" : ""}`}>
+        <nav aria-label="Steps" className="list steps">
+          {groups.map((x) => {
+            const st = groupState(x.id, wf);
+            const n = (view.proposals ?? []).filter((p) => x.members.includes(p.step) && p.status === "pending" && p.variants.length).reduce((a, p) => a + p.variants.length, 0);
+            return (
+              <button key={x.id} type="button" className={`step ${st}${g === x.id ? " on" : ""}`} style={{ borderLeftColor: x.color }} aria-current={g === x.id ? "step" : undefined}
+                onClick={() => openStep(x.id)}>
+                <span className="sname"><svg className="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={ICONS[x.id]} /></svg>{t(NAMES[x.id])}</span><span className={`mono${n ? " newbadge" : ""}`}>{n ? t(`${n} NEW`) : st === "done" ? "✓" : ""}</span>
+              </button>
+            );
+          })}
+          {/* What the picked variant adds and why, under the steps: the centre stays for the pictures. */}
+          {g !== "wrap" && shown && chosen && (
+            <div className="chosen-info">
+              <div className="adds mono">{chosen.key} · ADDS {(chosen.summary || "").toUpperCase()}</div>
+              {chosen.why && <p className="why">{chosen.why}</p>}
             </div>
-          </>
+          )}
+        </nav>
+
+        {g === "wrap" ? <Wrap name={name} view={view} onChanged={() => void load()} /> : (
+          <section aria-label="Variants" className="center">
+            <div className="head">
+              <h1>{chosen ? `${chosen.key} · ${chosen.label.toUpperCase()}` : t(NAMES[g]).toUpperCase()}</h1>
+              {/* While the AI works: the dot wave stretched between the title and the step count. */}
+              {claudeJob && isActive(claudeJob) && <Halftone fx="wave" step={5} className="headwave" label="Adam is working" />}
+              <span className="mono">{t(NAMES[g]).toUpperCase()} · STEP {String(stepNo).padStart(2, "0")} / {String(groups.length).padStart(2, "0")}</span>
+            </div>
+            <p className="nextline mono"><Help text={text && g === "story" ? TEXT_HELP : HELP[g]} />
+              {state === "done" ? (accepted ? "DONE · TO CHANGE IT, PICK ANOTHER VARIANT, THEN CHOOSE" : "DONE") : auto?.state === "running" ? "AUTO MODE IS ON IT" : `${t("NEXT")} · ${t(nextAction).toUpperCase()}`}</p>
+            {error && <p className="error" onClick={() => setError("")}>{error}</p>}
+            {/* A job in the steps: one line of fixed height, the step's layout never moves (the full log is in Wrap). */}
+            {otherJob && auto?.state !== "running" && <JobLog key={otherJob.id} id={otherJob.id} onEnd={() => load()} compact />}
+            {text && g === "story" ? (
+              // A text-only video: the cards on the left, the script they come from on the right.
+              <div className="story-view">
+                <div className="story-video">
+                  <Screen name={name} view={view} proposal={null} variant={null} className="frame lit" />
+                  <button type="button" className="act" onClick={() => openStep("wrap")}>{t("CARDS READY, EXPORT")} →</button>
+                </div>
+                <ScriptPanel name={name} aiName="ADAM" onLayOut={layOut} busy={!!otherJob && otherJob.state === "running"} />
+              </div>
+            ) : !wf && g === "story" ? <Rushes name={name} view={view} run={run} firstPass={firstPass} /> : g === "story" ? (
+              // Story: the video as it came (already cut: Adam never cuts or reorders it) and the script beside it.
+              <div className="story-view">
+                <div className="story-video">
+                  <Screen name={name} view={view} proposal={null} variant={null} className="frame lit" />
+
+                </div>
+                <ScriptPanel name={name} aiName="ADAM" onReadyChange={setScriptReady} />
+              </div>
+            ) : g === "sound" && shown ? (
+              // Sound: the three soundtracks on the left, the edit with the picked one on the right to hear it in place.
+              <div className="sound-view">
+                <SoundTracks name={name} p={shown} chosen={chosenKey} stamp={cardStamp} onPick={(key) => setPick({ proposal: shown.id, key })} />
+                <div className="sound-video"><Screen name={name} view={view} proposal={shown.id} variant={chosenKey} step={shown.step} decided={shown !== pending} className="frame lit" /></div>
+              </div>
+            ) : shown ? (
+              <>
+                <div className="variants" style={{ "--ar": view.format === "16:9" ? 16 / 9 : 9 / 16 } as React.CSSProperties}>
+                  {shown.variants.map((v) => {
+                    const on = v.key === chosenKey;
+                    return (
+                      <div key={v.key} className={`variant${on ? " on" : ""}`}>
+                        {on ? <Screen name={name} view={view} proposal={shown.id} variant={v.key} step={shown.step} decided={shown !== pending} className="shot" />
+                          : <button type="button" className="shot-btn" aria-label={`Variant ${v.key}: ${v.label}`} onClick={() => setPick({ proposal: shown.id, key: v.key })}>
+                            <VariantShot name={name} proposal={shown.id} variant={v.key} stamp={cardStamp} step={shown.step} decided={shown !== pending} />
+                          </button>}
+                        <button type="button" className="vlabel" aria-pressed={on} onClick={() => setPick({ proposal: shown.id, key: v.key })}>
+                          <b>{v.key}</b><span>{v.label}{v.key === acceptedKey && shown !== pending ? " · CHOSEN" : ""}</span>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div className="stage">
+                <Screen name={name} view={view} proposal={null} variant={null} className="frame lit" />
+                {PRESETS[g] && !lockedWhy && !decided.length && !(claudeJob && isActive(claudeJob))
+                  ? <button type="button" className={`act fill big${need}`} disabled={busy} onClick={() => void ask(PRESETS[g]!.prompt)}>{PRESETS[g]!.button}</button>
+                  : <p className="mono note">{lockedWhy ?? ""}</p>}
+              </div>
+            )}
+          </section>
         )}
-        {(step === "rushes" || step === "wrap") && <div style={{ height: 24 }} />}
+
+        {g !== "wrap" && (
+          <aside aria-label="Status" className="status">
+            <div className="h">{t("STATUS")}</div>
+            <div className="kv"><span>Assets</span><button type="button" className="link" onClick={() => setAssetsOpen(true)}>{view.assets.length} · OPEN</button></div>
+            <div className="kv claude"><ClaudeBar stamp={`${claudeJob?.id ?? ""}:${claudeJob?.state ?? ""}`} /></div>
+            {shown && chosen && <>
+              {shown === pending
+                ? <button type="button" className={`act fill${need}`} disabled={locked} title={lockedWhy ?? ""} onClick={() => void decide(chosen.key)}>{t("CHOOSE")} {chosen.key}</button>
+                : chosen.key === acceptedKey
+                  ? <button type="button" className="act fill" disabled>{chosen.key} · {t("CHOSEN")}</button>
+                  : <button type="button" className="act fill" disabled={busy || auto?.state === "running"} onClick={() => void switchTo(chosen.key)}>{t("CHOOSE")} {chosen.key}</button>}
+              <a className="line-btn" href={`#/p/${enc(name)}/edit`}><span>{t("FINE-TUNE IN THE TIMELINE")}</span><span>→</span></a>
+              {shown === pending && <>
+                <button type="button" className="line-link" onClick={() => { setRefill(pending); setPrompt(""); }}><span>{t("More options")}</span><span>+</span></button>
+                <button type="button" className="line-link" onClick={() => void decide("reject")}><span>{t("None of these")}</span><span>×</span></button>
+              </>}
+            </>}
+            {canClose && <button type="button" className={`act step-next${readyToAdvance ? " is-ready" : ""}${need}`} disabled={finishingStep || !!running || auto?.state === "running" || (g === "story" && !scriptReady)} onClick={() => void finishStep()}>{decided.length || g === "story" ? t("STEP DONE, NEXT") : t("SKIP THIS STEP")} →</button>}
+            {decided.slice(-2).map((p) => { const h = historyLabel(p); return <div key={p.id} className="line-link dim" title={h.label}><span>History: {h.label}</span><span>{h.k}</span></div>; })}
+            <div className="synced">{running ? `● ${running.label.toUpperCase()}` : "● SYNCED"}</div>
+          </aside>
+        )}
       </div>
 
-      <aside className="side" aria-label="Preview">
-        <Screen name={name} view={view} proposal={seen?.proposal ?? null} variant={seen?.key ?? null} />
-        {seen && (
-          <div className="tabs">
-            <button onClick={() => setSeen(null)}>As it stands</button>
-            {view.proposals.find((p) => p.id === seen.proposal)?.variants.map((v) => (
-              <button key={v.key} className={seen.key === v.key ? "on" : ""} onClick={() => setSeen({ proposal: seen.proposal, key: v.key })}>{v.key}</button>
-            ))}
+      {canAsk && (
+        <div className="askbar-wrap">
+          {claudeJob && <ClaudeFeed key={claudeJob.id} job={claudeJob} onEnd={() => void load()} />}
+          {(refill || skills.length > 0) && (
+            <div className="askmeta mono">
+              {refill && <span>NEW OPTIONS FOR “{refill.reason || refill.id}” <button type="button" className="link" onClick={() => setRefill(null)}>cancel</button></span>}
+              {skills.map((s) => <button key={s} type="button" className="link" title="Remove" onClick={() => toggleSkill(s)}>/{s} ×</button>)}
+            </div>
+          )}
+          <div className={`askbar${dropping ? " over" : ""}`}
+            onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); setDropping(true); } }}
+            onDragLeave={() => setDropping(false)}
+            onDrop={async (e) => {
+              e.preventDefault(); setDropping(false);
+              const r = await dropInto(e.dataTransfer.files, name);
+              r.added.forEach((a) => addMention(mention(a)));
+              if (r.errors.length) setError(r.errors.join("\n"));
+              if (r.added.length) { setToast(`Added ${r.added.map((a) => a.id).join(", ")} to this video`); await load(); }
+            }}>
+            <label htmlFor="ask">{t("ASK ADAM")}</label>
+            <input id="ask" value={prompt} placeholder={`${t(NAMES[g])}: what do you want?`} onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && prompt.trim() && !busy) void ask(prompt, e.ctrlKey || e.metaKey ? "propose" : "do"); }} />
+            <button type="button" className="act" disabled={!prompt.trim() || busy} title="Applies your request directly (Undo puts it back)" onClick={() => ask(prompt, "do")}>{t("DO IT")}</button>
+            <button type="button" className="act fill" disabled={!prompt.trim() || busy} title="Two or three options to choose from (Ctrl+Enter)" onClick={() => ask(prompt)}>{t("PROPOSE A / B / C")}</button>
           </div>
-        )}
-        <Checklist name={name} />
-      </aside>
+        </div>
+      )}
+      <footer className="foot">
+        <button type="button" className="circ" aria-haspopup="dialog" aria-expanded={pop === "connectors"} onClick={() => setPop(pop === "connectors" ? null : "connectors")}>
+          <span className="ring" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 7V3M15 7V3M7 7h10v4a5 5 0 0 1-10 0zM12 16v5" /></svg></span>
+          {t("CONNECTORS")}{connCount !== null ? ` · ${connCount}` : ""}
+        </button>
+        {ai === "claude" && <button type="button" className="circ" aria-haspopup="dialog" aria-expanded={pop === "skills"} onClick={() => setPop(pop === "skills" ? null : "skills")}>
+          <span className="ring" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 3l1.8 5.4L19 10l-5.2 1.6L12 17l-1.8-5.4L5 10l5.2-1.6z" /></svg></span>
+          {t("SKILLS")} · {skills.length}
+        </button>}
+      </footer>
+      {pop === "connectors" && <ConnectorsPanel onClose={() => setPop(null)} onCount={setConnCount} />}
+      {pop === "skills" && <SkillsPanel picked={skills} onToggle={toggleSkill} onClose={() => setPop(null)} />}
       {assetsOpen && <AssetsPanel name={name} view={view} onClose={() => setAssetsOpen(false)} onMention={addMention} onChanged={() => void load()} />}
-      {connectorsOpen && <ConnectorsPanel onClose={() => setConnectorsOpen(false)} />}
-      {skillsOpen && <SkillsPanel picked={skills} onToggle={toggleSkill} onClose={() => setSkillsOpen(false)} />}
       {toast && <div className="toast">{toast}</div>}
-    </div>
+    </>
   );
 }
