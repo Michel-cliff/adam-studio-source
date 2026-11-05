@@ -12,6 +12,7 @@ import { setLang, startLang, t, useLang } from "./i18n";
 import { Library } from "./Library";
 import { NewProject } from "./NewProject";
 import { Stats } from "./Stats";
+import { Tasks } from "./Tasks";
 import { Studio } from "./Studio";
 import "./style.css";
 import "./responsive.css";
@@ -60,6 +61,7 @@ function App() {
             event.preventDefault(); location.hash = "#/"; setStudioNotice(true);
           } else setStudioNotice(false);
         }}>{t(label)}</a>)}
+        <Tasks />
         <button className="tour-trigger" onClick={() => dispatchEvent(new Event("adam:tour"))}>{t("Guide")}</button>
         <div role="group" aria-label="Language" className="lang">
           {(["fr", "en"] as const).map((l) => <button key={l} type="button" aria-pressed={lang === l} onClick={() => setLang(l)}>{l.toUpperCase()}</button>)}
@@ -67,7 +69,7 @@ function App() {
       </nav>
       <div className="marks" aria-hidden="true" />
       {studioNotice && <div className="toast studio-entry-notice" role="status" aria-live="polite">
-        <span>{t("Choose a project on the home page first. Double-click it, or select it and press Enter to open the Studio.")}</span>
+        <span>{t("Choose a project on the home page first.")}</span>
         <button type="button" className="link" aria-label={t("Close")} onClick={() => setStudioNotice(false)}>×</button>
       </div>}
       {body}

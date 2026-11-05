@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { JobEvent, JobView } from "../server/types";
 import { reportSupportJob } from "./SupportPrompt";
 import { api } from "./api";
+import { taskName, taskState } from "./Tasks";
 
 /** A job's output; compact: one line of fixed height (label, state, last line, Stop), for views whose layout must not move. */
 export function JobLog({ id, onEnd, onRetry, compact }: { id: string; onEnd?: (j: JobView) => void; onRetry?: (extra: Record<string, boolean>) => void; compact?: boolean }) {
@@ -21,23 +22,30 @@ export function JobLog({ id, onEnd, onRetry, compact }: { id: string; onEnd?: (j
     return () => ev.close();
   }, [id]);
   useEffect(() => { pre.current?.scrollTo(0, pre.current.scrollHeight); }, [output]);
+  // Waiting, then its percentage: asked for without the log, which comes through the events above.
+  const live = job?.state === "running" || job?.state === "queued";
+  useEffect(() => {
+    if (!live) return;
+    const timer = setInterval(() => { api<JobView>(`/jobs/${id}?meta=1`).then((j) => setJob((cur) => (cur && (cur.state === "running" || cur.state === "queued") ? j : cur)), () => {}); }, 2000);
+    return () => clearInterval(timer);
+  }, [id, live]);
   if (!job) return null;
   const tail = output.trim().split("\n").slice(-3).join("\n");
   // A finished job leaves the step: only a failure stays, to say why.
   if (compact && job.state === "done") return null;
   if (compact) return (
     <div className={`jobline mono${job.state === "failed" ? " bad" : ""}`} title={tail}>
-      <b>{job.label.toUpperCase()}</b><span>{job.state === "running" ? "…" : job.state.toUpperCase()}</span>
+      <b>{taskName(job.label).toUpperCase()}</b><span>{taskState(job)}</span>
       <span className="last">{output.trim().split("\n").pop() ?? ""}</span>
-      {job.state === "running" && <button type="button" className="link" onClick={() => api(`/jobs/${id}/stop`, { method: "POST" })}>stop</button>}
+      {live && <button type="button" className="link" onClick={() => api(`/jobs/${id}/stop`, { method: "POST" })}>stop</button>}
     </div>
   );
   return (
     <section>
       <div className="row">
-        <strong>{job.label}</strong>
-        <span className={job.state === "done" ? "ok" : job.state === "running" ? "muted" : "bad"}>{job.state}</span>
-        {job.state === "running" && <button className="quiet" onClick={() => api(`/jobs/${id}/stop`, { method: "POST" })}>Stop</button>}
+        <strong>{taskName(job.label)}</strong>
+        <span className={job.state === "done" ? "ok" : live ? "muted" : "bad"}>{taskState(job)}</span>
+        {live && <button className="quiet" onClick={() => api(`/jobs/${id}/stop`, { method: "POST" })}>Stop</button>}
         {job.link && <a className="button" href={job.link} target="_blank" rel="noreferrer">Open Remotion Studio</a>}
       </div>
       {job.state === "failed" && <p className="error">{tail}</p>}

@@ -21,14 +21,10 @@ export function Onboarding() {
   }, []);
   const p = `#/p/${enc(project)}`;
   const steps = [
-    { title: "Welcome to Adam", text: "Turn your takes into a video with your own visual identity. This short tour shows you where everything lives. You can replay it with Guide.", route: "#/", target: ".topnav", hint: "Your work stays under your control." },
-    { title: "Start with your art direction", text: "Already have a style? Import 3 to 5 finished videos. Starting from scratch? Try colours, typography and motion on one of your videos. Switch art directions from Projects whenever you want.", route: "#/da", target: ".da-space", hint: "Video analysis uses the AI you selected. Nothing runs during this tour." },
-    { title: "Create your first project", text: "Import your takes or start with a script. Give the project a name, then launch analysis when you are ready. Your source files stay available.", route: "#/new", target: ".new-cols, .new-form, .cols", hint: "Check the selected AI and model before starting an analysis." },
-    { title: "Build your edit step by step", text: project ? "The Studio guides you through cuts, structure, captions, hook, visuals and sound. Preview the proposals and choose what fits your message. Open Timeline for manual editing." : "Once you create a project, open Studio to review cuts, structure, captions, hook, visuals and sound. Preview each proposal before choosing it.", route: project ? p : "#/", target: project ? ".subnav, .stepnav" : ".topnav a:nth-child(2)", hint: "AI tasks start only when you request them." },
-    { title: "Make the timeline yours", text: "Add text, images, sounds and smooth zooms from the left panel. Select a block to adjust it on the right. Project style controls fonts, colours and captions. Zoom into the tracks, split clips and use Undo to recover a change.", route: project ? `${p}/edit` : "#/", target: project ? ".editor-workspace" : ".topnav a:nth-child(2)", hint: "Space: play or pause. Delete: remove selection. Ctrl+Z: undo." },
-    { title: "Keep your resources together", text: "The Library holds your images, sounds, fonts and visual references. Import your own resources, then use them in a project or directly from its timeline.", route: "#/library", target: ".topnav a:nth-child(4)", hint: "You can organise your visual references by folder." },
-    { title: "Learn from your statistics", text: "My videos follows your projects. Other videos accepts screenshots and statistics exports from videos you want to analyse. References and trends and What Adam learned help you prepare the next video.", route: "#/stats/other", target: ".subnav", hint: "Import statistics manually. Private social account analytics are not connected automatically." },
-    { title: "Ready for your first video", text: "Choose your art direction, add a project and review the edit. Export from the last Studio step when it is ready. Your Guide button stays available whenever you need a reminder.", route: "#/", target: ".da-pick", hint: "Start with a short video to discover the whole workflow." },
+    { title: "Welcome to Adam", text: "Bring a video you have already cut. Adam adds the captions, a hook, visuals and sound, then exports it. He never cuts or reorders your video, and every choice stays yours.", route: "#/", target: ".topnav", hint: "You can replay this tour with Guide." },
+    { title: "Start with your video", text: "Drop your video, check its name, press Create. The analysis runs in the background, so you can leave the page and come back.", route: "#/new", target: ".new-cols", hint: "Nothing starts during this tour." },
+    { title: "Let Adam finish, or choose yourself", text: "LET ADAM FINISH runs every step and exports the video. Or take the steps one by one and pick among three variants. Either way, you can change any choice afterwards.", route: project ? p : "#/", target: project ? ".modebar" : ".topnav a:nth-child(2)", hint: "AI tasks start only when you ask for them." },
+    { title: "The rest can wait", text: "TASKS shows what is running on your computer. Your art direction, the Library and Statistics are there when you want them, for your second video for instance.", route: "#/", target: ".tasks-trigger", hint: "Start with a short video to discover the whole workflow." },
   ];
   const current = steps[step]!;
   useEffect(() => {
@@ -44,7 +40,7 @@ export function Onboarding() {
     return () => clearInterval(timer);
   }, [active, step, project]);
   const finish = async (reason: "finished" | "skipped") => {
-    try { await api("/onboarding", { method: "PUT", body: { reason } }); dialog.current?.close(); setActive(false); location.hash = reason === "finished" ? "#/da" : route.current; previous.current?.focus(); }
+    try { await api("/onboarding", { method: "PUT", body: { reason } }); dialog.current?.close(); setActive(false); location.hash = reason === "finished" ? (project ? "#/" : "#/new") : route.current; previous.current?.focus(); }
     catch (e) { setError((e as Error).message); }
   };
   if (!active) return null;

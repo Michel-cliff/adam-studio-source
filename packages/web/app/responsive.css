@@ -35,7 +35,7 @@
 .scriptacts, .script .chathead { flex:none; flex-wrap:wrap; gap:6px; }
 .scriptacts .act { white-space:normal; }
 .wrap { grid-template-columns:minmax(130px,.7fr) minmax(0,1fr); gap:clamp(12px,2vw,32px); overflow:auto; }
-.wrap-video :is(.frame,video) { max-width:100%; height:auto; max-height:55dvh; }
+.wrap-video > :is(.frame,video) { max-width:100%; height:auto; max-height:55dvh; }
 .recent { min-height:0; overflow:auto; gap:clamp(10px,1.5vw,22px); }
 .recent .frame, .recent video { max-width:100%; }
 .perf { grid-template-columns:clamp(65px,8vw,120px) minmax(0,1fr); gap:clamp(10px,1.5vw,24px); }

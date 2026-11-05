@@ -1003,3 +1003,73 @@ kbd { font: 600 11px var(--mono); padding: 2px 6px; border: 1px solid var(--crea
 .ai-failure .act { flex: none; background: #741b12; color: #fff; border: 0; padding: 10px 14px; font-weight: 700; cursor: pointer; }
 .ai-failure .x { flex: none; background: none; border: 0; color: #741b12; font-size: 20px; line-height: 1; cursor: pointer; padding: 4px 6px; }
 .ai-switch .home-status .kv.claude { outline: 2px solid var(--glow); outline-offset: 4px; }
+
+/* The Tasks list: reachable from every page, takes one slot of the top bar. */
+.topnav { grid-template-columns: repeat(5, minmax(0, 1fr)) auto auto auto; }
+.tasks { position: relative; align-self: center; }
+.tasks-trigger { display: inline-flex; align-items: center; gap: 7px; min-height: 32px; padding: 5px 10px; background: transparent; border: 1px solid var(--rule); color: var(--dim); font: 700 12px var(--mono); letter-spacing: .04em; cursor: pointer; white-space: nowrap; }
+.tasks-trigger:hover, .tasks-trigger[aria-expanded="true"] { border-color: var(--glow); color: var(--glow); }
+.tasks-trigger.busy { border-color: var(--mustard); color: var(--glow); background: var(--sel); }
+.tasks-panel { position: absolute; right: 0; top: calc(100% + 8px); z-index: 60; width: min(440px, calc(100vw - 32px)); max-height: 60vh; overflow-y: auto; scrollbar-width: thin; padding: 12px 14px; border: 2px solid var(--cream); background: var(--deep); display: flex; flex-direction: column; gap: 10px; font: 13px var(--sans); letter-spacing: 0; }
+.tasks-panel .note { margin: 0; }
+.task { display: flex; flex-direction: column; gap: 5px; padding-bottom: 9px; border-bottom: 1px solid var(--rule); }
+.task:last-of-type { border-bottom: 0; padding-bottom: 0; }
+.task.done, .task.stopped { opacity: .6; }
+.task.failed .task-line .mono { color: #FF8A80; }
+.task-line { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.task-line b { flex: none; font-weight: 700; }
+.task-line a, .task-line .dim { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-line .mono { margin-left: auto; flex: none; font-size: 11px; color: var(--glow); }
+.task-line .x { flex: none; border: 0; background: none; color: var(--cream); font: 700 16px/1 var(--display); cursor: pointer; padding: 0 2px; }
+.task-line .x:hover { color: var(--glow); }
+.taskbar { display: block; height: 4px; background: var(--rule); overflow: hidden; }
+.taskbar i { display: block; height: 100%; background: var(--mustard); transition: width .4s ease; }
+
+/* Wrap: what happens now, always under the format choice. */
+.wrap-video { position: relative; }
+.wrap-tag { position: absolute; left: 8px; top: 8px; z-index: 2; padding: 3px 7px; background: var(--deep); color: var(--glow); font-size: 10px; letter-spacing: .06em; pointer-events: none; }
+.export-now { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.export-now .task-line b { font: 700 15px var(--display); }
+.export-now .note { margin: 0; }
+.export-failed { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.export-failed .error { margin: 0; }
+.export-failed details pre, .creating details pre { max-height: 160px; overflow: auto; margin: 6px 0 0; font-size: 11px; }
+.export-failed summary, .creating summary { cursor: pointer; font-size: 11px; color: var(--dim); }
+
+/* Import: plain steps, the log folded. */
+.import-stages { list-style: none; margin: 4px 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font: 600 16px var(--display); color: var(--dim); }
+.import-stages li { display: flex; gap: 12px; align-items: baseline; }
+.import-stages li.now { color: var(--glow); }
+.import-stages li.done { color: var(--cream); }
+
+/* Projects: a click opens. */
+.new-project { width: 100%; flex: none; }
+.project-row { display: flex; align-items: stretch; padding: 0; gap: 0; }
+.project-row > a { flex: 1; min-width: 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 6px 8px 10px; text-decoration: none; }
+.project-row > a > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-row:hover { background: var(--sel); }
+.project-row:hover > a { color: var(--glow); }
+.row-trash { flex: none; width: 30px; display: grid; place-items: center; border: 0; background: none; color: var(--dim); cursor: pointer; opacity: 0; }
+.project-row:hover .row-trash, .row-trash:focus-visible { opacity: 1; }
+.row-trash:hover { color: #FF8A80; }
+.row-trash svg { width: 14px; height: 14px; }
+a.rcard { color: var(--cream); }
+
+/* New video: the video first, the few settings beside it. */
+.page:has(.new-cols) { height: 100vh; min-height: 0; overflow: hidden; }
+.new-cols { flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) clamp(240px, 24vw, 340px); gap: clamp(14px, 2vw, 34px); }
+.new-media { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+.rushdrop.big { flex: 1 1 0; min-height: 0; flex-direction: column; justify-content: center; align-content: center; flex-wrap: nowrap; gap: 10px; margin: 0; text-align: center; }
+.rushdrop.big b { font: 700 clamp(18px, 2.2vw, 30px) var(--display); letter-spacing: .03em; overflow-wrap: anywhere; }
+.rush-links { display: flex; gap: 18px; }
+.new-picked { flex: none; list-style: none; margin: 0; padding: 0; max-height: 96px; overflow-y: auto; scrollbar-width: thin; border-top: 1px solid var(--rule); }
+.new-picked li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--rule); font-size: 13px; }
+.new-picked li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.new-media .picker { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; border-top: 2px solid var(--cream); padding-top: 10px; margin: 0; }
+.new-media .picker ul { flex: 1 1 0; min-height: 0; max-height: none; }
+.new-media .script-in { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; border: 0; padding: 0; margin: 0; }
+.new-media .script-in textarea { flex: 1 1 0; min-height: 0; resize: none; }
+.new-form { gap: 10px; }
+.new-form .nf { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--dim); }
+.new-form .nf input, .new-form .nf select { width: 100%; min-height: 34px; color: var(--cream); }
+.new-form > .act { margin-top: 6px; width: 100%; }

@@ -28,7 +28,7 @@ export function SupportPrompt() {
     const onJob = (event: Event) => {
       const j = (event as CustomEvent<JobView>).detail;
       if (!["Render", "Export to CapCut"].includes(j.label)) return;
-      if (j.state !== "running") { finish(j); return; }
+      if (j.state !== "running" && j.state !== "queued") { finish(j); return; }
       if (watching.has(j.id) || seen.has(j.id)) return;
       const ev = new EventSource(`/api/jobs/${encodeURIComponent(j.id)}/events`);
       watching.set(j.id, ev);
