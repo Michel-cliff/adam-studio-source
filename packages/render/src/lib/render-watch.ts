@@ -1,12 +1,21 @@
 // What a long render tells the creator: where it is, and when it has really stopped moving.
 export const STALL_MS = 10 * 60 * 1000;
-/** Measured on a 12-thread laptop (2000 frames, 1080 x 1920): 113 ms a frame with 2 tabs, 91 with 4, 93 with 6, 90 with 8. */
-export const MAX_TABS = 4;
+/** Measured on a 12-thread laptop over 600 frames at 1080 x 1920: 198 ms a frame with 2 tabs, 180 with 3, 181 with 4, and 297 with 8 once memory runs out. */
+export const MAX_TABS = 3;
 
 /**
- * The ways to try a render, best first. The graphics card nearly halves the time (175 to 92 ms a frame) for the same
- * picture (46 dB PSNR, SSIM .99 against the processor), but a driver or a computer without a card can fail: the processor
- * is always there behind it. A transparent layer stays on the processor: CapCut reads its alpha, which was checked that way.
+ * The frame cache of a render. Left to itself it takes half the free memory: the same speed with 1 GB (181 ms a frame
+ * against 189), and 1.2 GB left free instead of 0.5 on a computer doing other things. It must still hold one second of
+ * decoded frames per video per tab, or the render fails with "No frame found".
+ */
+export function frameCacheBytes(o: { tabs: number; width: number; height: number; fps: number; videoSources: number }): number {
+  return Math.max(2 ** 30, Math.ceil(o.tabs * Math.max(1, o.videoSources) * o.fps * o.width * o.height * 4 * 1.1));
+}
+
+/**
+ * The ways to try a render, best first. The graphics card takes a third off the time (270 to 180 ms a frame over a long
+ * stretch) for the same picture (46 dB PSNR, SSIM .99 against the processor), but a driver or a computer without a card can
+ * fail: the processor is always there behind it. A transparent layer stays on the processor: CapCut reads its alpha, which was checked that way.
  */
 export function renderAttempts(transparent: boolean, env: Record<string, string | undefined> = process.env): { gl: "angle" | null; label: string }[] {
   const processor = { gl: null, label: "processor" };

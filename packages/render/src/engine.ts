@@ -1,23 +1,56 @@
-import { mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
-import { cpus, freemem } from "node:os";
-import { dirname, join } from "node:path";
+import { createHash } from "node:crypto";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
+import { cpus, freemem, homedir } from "node:os";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bundle } from "@remotion/bundler";
 import { renderMedia, renderStill, selectComposition, makeCancelSignal } from "@remotion/renderer";
 import { activeVideoSources, safeConcurrency } from "./lib/concurrency";
-import { MAX_TABS, progressReporter, renderAttempts, STALL_MS, stallGuard } from "./lib/render-watch";
+import { frameCacheBytes, MAX_TABS, progressReporter, renderAttempts, STALL_MS, stallGuard } from "./lib/render-watch";
 import { prepareMedia, type MediaPlan } from "./media";
 import { COMPOSITION_ID, type RenderProps } from "./props";
 
 export const ENTRY = join(dirname(fileURLToPath(import.meta.url)), "index.ts");
 
 const OLD_BUNDLE_MS = 6 * 60 * 60 * 1000;
+const RENDER_SRC = dirname(ENTRY);
+
+/** What the bundle is made from: the same sources give the same bundle. */
+function sourcesKey(): string {
+  const hash = createHash("sha256");
+  const walk = (folder: string) => {
+    if (!existsSync(folder)) return;
+    for (const name of readdirSync(folder).sort()) {
+      const path = join(folder, name);
+      if (statSync(path).isDirectory()) walk(path);
+      else { hash.update(`${path.slice(folder.length)}\0`); hash.update(readFileSync(path)); }
+    }
+  };
+  walk(RENDER_SRC);
+  walk(join(RENDER_SRC, "..", "..", "model", "src"));
+  hash.update(readFileSync(join(RENDER_SRC, "..", "package.json")));
+  return hash.digest("hex").slice(0, 16);
+}
+
+/** The bundle is built once per version of the code (10 s saved at each export and each still), whatever the project. */
+async function sharedBundle(): Promise<string> {
+  const dir = join(process.env.ADAM_CACHE_DIR ?? join(homedir(), ".adam-studio", "cache"), "bundles", sourcesKey());
+  if (existsSync(join(dir, "index.html"))) return dir;
+  const building = `${dir}.${process.pid}`;
+  rmSync(building, { recursive: true, force: true });
+  await bundle({ entryPoint: ENTRY, outDir: building, publicDir: join(building, "public") });
+  // Another run may have finished first: its bundle is the same.
+  try { renameSync(building, dir); } catch { rmSync(building, { recursive: true, force: true }); if (!existsSync(join(dir, "index.html"))) throw new Error("the render bundle could not be saved"); }
+  // The bundles of earlier versions of the code are of no more use.
+  const parent = dirname(dir);
+  for (const name of readdirSync(parent)) if (name !== basename(dir) && !name.includes(".")) rmSync(join(parent, name), { recursive: true, force: true });
+  return dir;
+}
 
 /**
- * Bundles into its own folder under `outDir`, and hard-links the planned media into its public folder. That folder
- * does not exist while bundling, so Remotion copies nothing. Each run has its own: a still asked while the video
- * renders must not pull the files from under it. The folder goes when the process ends; what a killed process left goes
- * at a later run.
+ * A folder for this run under `outDir`: the shared bundle, and the planned media hard-linked into its public folder.
+ * Each run has its own: a still asked while the video renders must not pull the files from under it. The folder goes
+ * when the process ends; what a killed process left goes at a later run.
  */
 export async function bundleWithMedia(plan: MediaPlan, outDir: string): Promise<string> {
   mkdirSync(outDir, { recursive: true });
@@ -25,12 +58,12 @@ export async function bundleWithMedia(plan: MediaPlan, outDir: string): Promise<
     const old = join(outDir, name);
     try { if (Date.now() - statSync(old).mtimeMs > OLD_BUNDLE_MS) rmSync(old, { recursive: true, force: true }); } catch { /* another run is on it */ }
   }
+  const shared = await sharedBundle();
   const runDir = join(outDir, `${process.pid}-${Date.now()}`);
   process.once("exit", () => { try { rmSync(runDir, { recursive: true, force: true }); } catch { /* removed at a later run */ } });
-  const publicDir = join(runDir, "public");
-  const serveUrl = await bundle({ entryPoint: ENTRY, outDir: runDir, publicDir });
-  prepareMedia(plan, publicDir);
-  return serveUrl;
+  cpSync(shared, runDir, { recursive: true });
+  prepareMedia(plan, join(runDir, "public"));
+  return runDir;
 }
 
 export async function renderVideo(
@@ -41,11 +74,9 @@ export async function renderVideo(
   opts: { transparent?: boolean; scale?: number } = {},
 ): Promise<void> {
   const composition = await selectComposition({ browserExecutable: process.env.ADAM_BROWSER_EXECUTABLE, serveUrl, id: COMPOSITION_ID, inputProps: props });
-  const concurrency = Math.min(MAX_TABS, safeConcurrency({
-    freeBytes: freemem(), cores: cpus().length, fps: composition.fps,
-    width: composition.width * (opts.scale ?? 1), height: composition.height * (opts.scale ?? 1),
-    videoSources: activeVideoSources(props.timeline),
-  }));
+  const size = { fps: composition.fps, width: composition.width * (opts.scale ?? 1), height: composition.height * (opts.scale ?? 1), videoSources: activeVideoSources(props.timeline) };
+  const concurrency = Math.min(MAX_TABS, safeConcurrency({ freeBytes: freemem(), cores: cpus().length, ...size }));
+  const offthreadVideoCacheSizeInBytes = frameCacheBytes({ tabs: concurrency, ...size });
   // Decision 0001: CapCut keeps the alpha of MOV ProRes 4444 (and ignores it in WebM).
   const output = opts.transparent
     ? ({ codec: "prores", proResProfile: "4444", pixelFormat: "yuva444p10le", imageFormat: "png", muted: true } as const)
@@ -62,7 +93,7 @@ export async function renderVideo(
     const guard = stallGuard(() => { stuck = true; cancel(); });
     try {
       await renderMedia({
-        browserExecutable: process.env.ADAM_BROWSER_EXECUTABLE, composition, serveUrl, outputLocation: outFile, inputProps: props, frameRange, concurrency, scale: opts.scale ?? 1, cancelSignal, ...output,
+        browserExecutable: process.env.ADAM_BROWSER_EXECUTABLE, composition, serveUrl, outputLocation: outFile, inputProps: props, frameRange, concurrency, offthreadVideoCacheSizeInBytes, scale: opts.scale ?? 1, cancelSignal, ...output,
         ...(attempt.gl ? { chromiumOptions: { gl: attempt.gl } } : {}), ...(opts.transparent ? {} : { x264Preset: "veryfast" as const }),
         onProgress: ({ progress }) => { guard.ping(progress); const line = report(progress); if (line) console.log(line); },
       });

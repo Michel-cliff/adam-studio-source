@@ -142,6 +142,8 @@ def run(spec_path: str, out_path: str) -> None:
         x0, y0, x1, y1 = item["box"]
         y, half = (y0 + y1) // 2, (y1 - y0) // 2
         worst, ys, burns = 0, [], []
+        # Finding a face is what takes the time here, and a speaker does not move across one caption: once per caption.
+        caption_face = None
         for s in item["samples"]:
             cap = caps.get(s["take"])
             frame = _frame(cap, s["ms"]) if cap is not None else None
@@ -149,7 +151,8 @@ def run(spec_path: str, out_path: str) -> None:
                 continue
             frame = cv2.resize(frame, (spec["width"], spec["height"]))
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY).astype(np.float32) / 255.0
-            face = face_box(frame) or last_face.get(s["take"])
+            caption_face = caption_face or face_box(frame)
+            face = caption_face or last_face.get(s["take"])
             if face is not None:
                 last_face[s["take"]] = face
             ys.append(y if spec.get("manualPlacement", False) else place(y, half, face, hands_low(frame, face, band), band, spec.get("safeTop", SAFE_TOP), spec.get("keepBand", False)))

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MAX_TABS, renderAttempts, progressReporter, stallGuard } from "../../src/lib/render-watch";
+import { frameCacheBytes, MAX_TABS, renderAttempts, progressReporter, stallGuard } from "../../src/lib/render-watch";
 
 describe("a long render", () => {
   beforeEach(() => { vi.useFakeTimers(); });
@@ -41,7 +41,14 @@ describe("how a video is rendered", () => {
   it("can be forced to the processor", () => {
     expect(renderAttempts(false, { ADAM_RENDER_GL: "off" })).toEqual([{ gl: null, label: "processor" }]);
   });
-  it("uses few tabs: measured, more than four gain nothing and cost memory", () => {
-    expect(MAX_TABS).toBe(4);
+  it("uses few tabs: measured over a long stretch, more than three gain nothing and cost memory", () => {
+    expect(MAX_TABS).toBe(3);
+  });
+  it("keeps the frame cache small, and big enough for one second per video per tab", () => {
+    const GB = 2 ** 30;
+    expect(frameCacheBytes({ tabs: 3, width: 1080, height: 1920, fps: 30, videoSources: 1 })).toBe(GB);
+    const big = frameCacheBytes({ tabs: 3, width: 1080, height: 1920, fps: 30, videoSources: 2 });
+    expect(big).toBeGreaterThan(1080 * 1920 * 4 * 30 * 2 * 3);
+    expect(Number.isInteger(big)).toBe(true);
   });
 });

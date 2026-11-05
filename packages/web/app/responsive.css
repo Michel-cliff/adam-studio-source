@@ -29,8 +29,9 @@
 .studio-cols .variant .shot-btn > .shot { height:100%; }
 .studio-cols .variant .vlabel { flex:none; margin-top:5px; padding:5px; overflow-wrap:anywhere; }
 .studio-cols .variant .vlabel span { font-size:clamp(11px,.95vw,14px); }
-.studio-cols .story-view { min-height:220px; grid-template-columns:minmax(100px,.4fr) minmax(0,1fr); gap:clamp(10px,2vw,28px); }
-.studio-cols .story-video .frame { height:100%; max-height:100%; max-width:100%; width:auto; flex:0 1 auto; }
+.studio-cols .story-view { min-height:220px; grid-template-columns:minmax(0,max-content) minmax(300px,1fr); gap:clamp(10px,2vw,28px); }
+/* As tall as the room left, its width from the format of the video: a narrower frame letterboxed the player. */
+.studio-cols .story-video .frame { height:clamp(180px,calc(100dvh - 392px),640px); max-width:100%; width:auto; flex:none; }
 .studio-cols .script textarea { min-height:80px; }
 .scriptacts, .script .chathead { flex:none; flex-wrap:wrap; gap:6px; }
 .scriptacts .act { white-space:normal; }

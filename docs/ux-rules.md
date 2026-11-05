@@ -46,24 +46,47 @@ Dans un même projet :
 
 Pourquoi un seul travail lourd à la fois : le rendu et l'analyse prennent tous les cœurs et une grande part de la mémoire. Deux en même temps vont chacun beaucoup moins vite et risquent de manquer de mémoire.
 
+Une image de contrôle demandée pendant un export ne gêne pas cet export : chaque travail a son propre dossier de rendu.
+
 Limite connue : une application IA connectée (Claude Desktop, Codex) qui lance un rendu passe par son propre serveur et n'entre pas dans cette file.
 
 ## Vitesse : ce qui a été mesuré
 
-Mesures faites sur un portable i5-12450H, 16 Go, RTX 3050, sur 150 images d'une vidéo 1080x1920.
+Portable i5-12450H (12 threads), 16 Go, RTX 3050, vidéo 1080x1920 de 66 s, en utilisation normale (navigateur et VS Code ouverts). 
 
-| Réglage du rendu | ms par image | Décision |
-|---|---|---|
-| Départ (processeur, x264 medium, 6 onglets) | 175 | |
-| 2, 4 ou 8 onglets au lieu de 6 | 173 à 178 | Aucun gain seul |
-| x264 veryfast | 157 | Gardé |
-| Carte graphique (ANGLE) | 104 | Gardé, repli automatique sur le processeur |
-| Carte graphique et veryfast | 92 | **Retenu**, avec 4 onglets. Image : 46 dB PSNR, SSIM 0,99 par rapport au départ |
-| NVENC | 151 | Écarté : fichier 4 fois plus petit, qualité non réglable |
-| Threads de décodage vidéo x2 | 166 | Écarté : gain faible |
+| Export complet, machine au calme | Préparation | Images | Son et fin | Total |
+|---|---|---|---|---|
+| Avant | 60 s | 442 s | 20 s | 522 s |
+| Après | 32 s | 377 s | 36 s | **445 s (15 % de moins)** |
+
+Parcours complet réel, de « Créer et laisser Adam finir » au MP4, sur une vidéo de 25 s : **6 min 55 s** (import 106 s, IA 70 s, export 214 s), sans intervention.
+
+Rendu des images, sur 600 images :
+
+| Réglage | ms par image | Mémoire libre au plus bas | Décision |
+|---|---|---|---|
+| Processeur, 4 onglets, x264 veryfast | 270 | | Repli si la carte graphique échoue |
+| Carte graphique, 4 onglets, cache par défaut | 189 | 0,5 Go | |
+| Carte graphique, 4 onglets, cache 1 Go | 181 | 1,2 Go | |
+| **Carte graphique, 3 onglets, cache 1 Go** | **180** | **1,3 Go** | **Retenu** |
+| Carte graphique, 2 onglets, cache 1 Go | 198 | 1,7 Go | |
+| Carte graphique, 8 onglets | 297, jusqu'à 496 en fin de rendu | | Écarté : la mémoire s'épuise |
+| 2 navigateurs de 3 onglets | 197 | 0,2 Go | Écarté : aucun gain |
+| 3 navigateurs de 2 onglets | 505 | 0,1 Go | Écarté : la machine échange sur le disque |
+
+Image comparée au processeur : 46 dB PSNR, SSIM 0,99, soit identique à l'œil.
+
+Ce qu'il faut retenir :
+- **Une mesure sur 150 images trompe.** Elle donnait 92 ms par image, alors que le régime établi est à 180 ms. Toujours mesurer sur au moins 600 images.
+- **La mémoire compte autant que la vitesse.** Sans limite, un rendu laisse moins de 1 Go libre sur une machine de 16 Go, et tout le reste ralentit. C'est une piste sérieuse pour un rendu qui semble bloqué, sans preuve à ce stade.
+- **Le vrai plafond est la puce graphique utilisée.** Sur ce portable hybride, Chrome reste sur la puce Intel (98 %) et la NVIDIA est à 0 %, même avec la préférence graphique de Windows pour ce programme. Remotion ne permet pas de passer l'option à Chrome. C'est la seule grosse marge restante, à regarder si un rendu doit encore gagner du temps.
+- **NVENC écarté :** gain faible et qualité non réglable (fichier 4 fois plus petit).
 
 Autres décisions :
 - **Import :** x264 veryfast au lieu de medium sur la copie de travail (20 s au lieu de 30 s pour 30 s de vidéo 4K, même poids, 45 dB). Le décodage matériel a été écarté : 120 s au lieu de 19 s.
+- **Lisibilité des sous-titres :** lue sur l'aperçu au lieu du fichier 1080p, car la recherche de position y prenait les deux tiers du temps (74 s à 25 s, aucun des 86 sous-titres déplacé, 2 traitements différents). Le visage est cherché une fois par sous-titre.
+- **Le code du rendu n'est plus reconstruit à chaque export ou image de contrôle** (10 s économisées à chaque fois).
 - **IA en parallèle dans le mode automatique :** écartée. Les demandes ne pèsent que 20 à 70 s chacune, et une étape s'appuie sur les choix de la précédente.
+- **Plusieurs navigateurs en parallèle :** écartés, voir le tableau.
 - **Un calque transparent reste sur le processeur :** c'est sur ce réglage que la transparence a été vérifiée dans CapCut.
 - **Un rendu qui ne bouge plus pendant 10 minutes** repart sans la carte graphique, puis s'arrête avec une raison s'il bloque encore.
