@@ -114,7 +114,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px
 .status > .act + .act { margin-top: 8px; }
 .status input { margin-top: 2px; }
 .synced { border-top: 1px solid var(--cream); margin-top: auto; padding-top: 6px; font: 12px var(--mono); letter-spacing: .1em; color: var(--green); }
-.synced.plain { color: var(--cream); letter-spacing: 0; }
 .foot { display: flex; gap: 22px; align-items: center; border-top: 2px solid var(--cream); padding-top: 10px; font: 600 13px var(--display); }
 .foot .hint { margin-left: auto; font-weight: 500; }
 

@@ -269,6 +269,13 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
   }, [name]);
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(""), 3200); return () => clearTimeout(id); }, [toast]);
   useEffect(() => { if (view && group === null) setGroup(openGroup(view.workflow)); }, [view]);
+  // Auto mode over or stopped with every step done: only the export is left, so that is where the creator lands.
+  const autoWasRunning = useRef(false);
+  useEffect(() => {
+    const was = autoWasRunning.current;
+    autoWasRunning.current = auto?.state === "running";
+    if (was && auto?.state !== "running" && view?.workflow && openGroup(view.workflow) === "wrap") setGroup("wrap");
+  }, [auto?.state]);
   // T switches to the timeline, as the toggle says; Ctrl+Z undoes the last change to the project.
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
@@ -417,6 +424,7 @@ export function Studio({ name, jobId }: { name: string; jobId?: string }) {
             <span className="mono autostate"><i className="pulse" /> AUTO · {t(auto.label).toUpperCase()}…</span>
             <button type="button" className="link" disabled={stoppingAuto} onClick={() => void stopAuto()}>{stoppingAuto ? t("Stopping…") : t("stop")}</button>
           </> : mode === "auto" && wf && current !== "wrap" ? <button type="button" className="act small" onClick={() => void startAuto()}>RUN THE REMAINING STEPS ▶</button>
+            : current === "wrap" && g !== "wrap" ? <button type="button" className="act small" onClick={() => setGroup("wrap")}>{t("EXPORT")} ▶</button>
             : auto?.state === "failed" ? <span className="mono error">AUTO STOPPED: {auto.error}</span> : null}
         </div>
         <div role="group" aria-label="View" className="toggle">

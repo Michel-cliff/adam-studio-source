@@ -34,6 +34,9 @@ export function Library() {
   const [q, setQ] = useState("");
   const [kind, setKind] = useState("");
   const [online, setOnline] = useState(false);
+  // Online libraries need the creator's own key: without one the search has nothing to offer, so it is not shown.
+  const [hasKeys, setHasKeys] = useState(false);
+  useEffect(() => { api<Record<string, string | null>>("/keys").then((k) => setHasKeys(Object.values(k).some(Boolean)), () => setHasKeys(false)); }, []);
   const [result, setResult] = useState<{ root: string; local: Local[]; online: Online[]; notes: string[] } | null>(null);
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [project, setProject] = useState("");
@@ -158,7 +161,7 @@ export function Library() {
           <label htmlFor="lib-q" className="h small">{t("SEARCH THIS FOLDER")}</label>
           <input id="lib-q" placeholder="yellow, grain, whoosh…" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void search(); }} />
           <div className="kv"><span>Kind</span><select aria-label="Kind" value={kind} onChange={(e) => setKind(e.target.value)}>{KINDS.map((k) => <option key={k} value={k}>{k || "any"}</option>)}</select></div>
-          <label className="kv"><span>Online too</span><input type="checkbox" checked={online} onChange={(e) => setOnline(e.target.checked)} /></label>
+          {hasKeys && <label className="kv"><span>Online too</span><input type="checkbox" checked={online} onChange={(e) => setOnline(e.target.checked)} /></label>}
           {online && !kind && <p className="mono note">PICK A KIND TO SEARCH ONLINE.</p>}
           <button type="button" className="act" disabled={busy} onClick={search}>SEARCH</button>
           <div className="kv"><span>Add to</span><select aria-label="Project to add to" value={project} onChange={(e) => setProject(e.target.value)}>{projects.map((p) => <option key={p.name}>{p.name}</option>)}</select></div>
@@ -166,7 +169,6 @@ export function Library() {
             {t("DROP FILES HERE")}<br />→ {(cur?.title ?? "").toUpperCase()}
           </div>
           {msg && <p className="mono note">{msg}</p>}
-          <div className="synced plain">ONLINE: PIXABAY · FREESOUND</div>
         </aside>
       </div>
       <footer className="foot"><span className="hint">{t("Click a folder to open it.")}</span></footer>

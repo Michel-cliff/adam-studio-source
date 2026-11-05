@@ -11,7 +11,6 @@ const PICTO: Record<string, string> = {
   figma: "M18 6h12a6 6 0 0 1 0 12H18zM18 18h12a6 6 0 1 1-6 6v-6M18 18v12a6 6 0 1 0 6 6V30",
   higgsfield: "M8 40 24 8l16 32M14 28h20",
   capcut: "M10 14l28 20M10 34l28-20M10 14h6M32 34h6",
-  pixabay: "M8 10h32v28H8zM8 30l10-10 8 8 6-6 8 8",
   watch: "M4 24s8-12 20-12 20 12 20 12-8 12-20 12S4 24 4 24zM24 30a6 6 0 1 0 0-12 6 6 0 0 0 0 12z",
   "adam-studio": "M24 6 40 40H8zM16 28h16",
 };
