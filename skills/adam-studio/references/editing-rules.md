@@ -59,6 +59,7 @@ Visuals, rules:
 - Inside a talking head: at most 3 inserts per minute, at most 25% full screen, face on screen at least 65%.
 
 Sound, rules:
+- A video whose sound is already mixed (music or effects under the voice, said by the creator or flagged at import by a loud floor) is never blocked, and gets no added sound: no music, no effects, unless the creator asks for it.
 - Speech first; silence is valid. Effects follow visible events: click for a UI action, pop for an element arriving, whoosh for a motivated move, impact for a reveal, tick for a step.
 - Put each sound on the first frame that shows its event; struck sounds on their attack, whooshes peak on the move. Merge cues closer than about 6 frames.
 - Density: about 6 to 12 subtle sounds per minute on graphics, none on bare cuts, never on a spoken word; a meme sound at most 1 to 3 per minute, in the pause after the punchline, never twice the same.

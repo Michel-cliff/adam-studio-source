@@ -1,8 +1,9 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { finishSound } from "../../src/commands/render";
 import { audioGate, blackShare, measureLoudness, noiseFloor, normalizeLoudness, parseLoudnorm, peakTrim, silenceShare } from "../../src/lib/loudness";
 
 describe("the loudness of a finished video", () => {
@@ -31,6 +32,20 @@ describe("the loudness of a finished video", () => {
     expect(after.tp).toBeLessThanOrEqual(-1);
     expect(audioGate(after)).toEqual([]);
   }, 60_000);
+});
+
+describe("sound already mixed in", () => {
+  it("never refuses an export: a loud floor is a note, the video is finished and kept", () => {
+    const dir = mkdtempSync(join(tmpdir(), "adam mixed-"));
+    const file = join(dir, "m.mp4");
+    // Ten seconds of steady noise at about -21 dBFS: far above the -35 dBFS floor that used to refuse the take.
+    execFileSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "color=c=gray:s=160x284:r=30:d=10", "-f", "lavfi", "-i", "anoisesrc=d=10:c=pink:a=0.2",
+      "-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-c:a", "aac", "-shortest", file]);
+    expect(noiseFloor(file)).toBeGreaterThan(-35);
+    expect(() => finishSound(file)).not.toThrow();
+    expect(existsSync(file)).toBe(true);
+    expect(existsSync(file.replace(/\.mp4$/i, ".refused.mp4"))).toBe(false);
+  }, 90_000);
 });
 
 describe("what else blocks an export", () => {

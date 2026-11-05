@@ -139,7 +139,8 @@ export function finishSound(out: string, opts: { picture?: boolean; refusedAs?: 
   const after = measureLoudness(out);
   console.log(`sound: ${before.i.toFixed(1)} -> ${after.i.toFixed(1)} LUFS, true peak ${after.tp.toFixed(1)} dBTP, noise floor ${floor.toFixed(0)} dBFS`);
   const issues = audioGate(after);
-  if (floor > -35) issues.push(`the background noise is at ${floor.toFixed(0)} dBFS: no setting saves this take, record again closer to the mic`);
+  // A loud floor never refuses the export: it is a noisy room, or sound the creator already mixed in.
+  if (floor > -35) console.log(`note: sound at ${floor.toFixed(0)} dBFS between words (a noisy room, or sound already mixed in): the export goes on`);
   else if (floor > -45) console.log(`warning: the background noise is at ${floor.toFixed(0)} dBFS, the sound will stay average (a quieter room or a closer mic helps)`);
   const black = opts.picture === false ? 0 : blackShare(out);
   if (black > 0) issues.push(`${black.toFixed(1)} s of black picture`);

@@ -2,7 +2,8 @@
 found at run 1 costs a whole run.
 
 Warnings (the work goes on): resolution under 1080 on the short side, frame rate under 25 or variable, a codec that
-needs transcoding. Refused: no sound track, a noise floor above -35 dBFS (no setting saves that take).
+needs transcoding, a noise floor above -35 dBFS (a noisy room, or sound already mixed in: the take is kept and
+Adam adds no sound unless the creator asks). Refused: no sound track.
 """
 import json
 import re
@@ -66,7 +67,7 @@ def ingest_checks(path: Path) -> list[str]:
         warnings.append(f"{path.name}: {video.get('codec_name')} {video.get('pix_fmt')}, transcoded to H.264 (a little longer)")
     floor = noise_floor(path, FIRST_SECONDS)
     if floor > -35:
-        raise AnalysisError(f"{path.name}: the background noise is at {floor:.0f} dBFS, no setting saves this take: record again closer to the mic or in a quieter room")
-    if floor > -45:
+        warnings.append(f"{path.name}: sound at {floor:.0f} dBFS between words (a noisy room, or music already mixed in): the take is kept, and Adam adds no sound unless you ask")
+    elif floor > -45:
         warnings.append(f"{path.name}: background noise at {floor:.0f} dBFS, the sound will stay average")
     return warnings

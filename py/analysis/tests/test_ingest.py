@@ -26,11 +26,15 @@ def test_low_resolution_and_frame_rate_are_warnings(tmp_path):
     assert any("540" in w for w in warnings) and any("24" in w for w in warnings)
 
 
-def test_no_sound_and_a_loud_room_are_refused(tmp_path):
+def test_no_sound_is_refused(tmp_path):
     with pytest.raises(AnalysisError, match="no sound"):
         ingest_checks(_clip(tmp_path / "mute.mp4", audio=None))
-    with pytest.raises(AnalysisError, match="background noise"):
-        ingest_checks(_clip(tmp_path / "hiss.mp4", audio="anoisesrc=d=3:c=white:a=0.2"))
+
+
+def test_a_loud_floor_is_a_warning_never_a_refusal(tmp_path):
+    # A noisy room, or music already mixed under the voice: the take is kept and Adam adds no sound unless asked.
+    warnings = ingest_checks(_clip(tmp_path / "hiss.mp4", audio="anoisesrc=d=3:c=white:a=0.2"))
+    assert any("already mixed in" in w and "adds no sound unless you ask" in w for w in warnings)
 
 
 def test_the_noise_floor_ignores_digital_silence(tmp_path):
