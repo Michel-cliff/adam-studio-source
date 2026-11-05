@@ -72,11 +72,13 @@ describe("app", () => {
     expect((await call("POST", `${P}/jobs`, { text: "x" } as never)).status).toBe(400);
   });
 
-  it("refuses a second job on a busy project", async () => {
+  it("puts a second heavy job in line instead of refusing it, and takes it back when asked", async () => {
     const j = jobs.start("projet démo", { cmd: process.execPath, args: ["-e", "setTimeout(() => {}, 5000)"], label: "Render" });
     const r = await call("POST", `${P}/jobs`, { body: { action: "review", options: {} } });
-    expect(r.status).toBe(409);
-    expect(r.json.error).toMatch(/Render is running/);
+    expect(r.status).toBe(202);
+    expect(r.json.job.state).toBe("queued");
+    expect((await call("POST", `/api/jobs/${r.json.job.id}/stop`)).status).toBe(200);
+    expect((await call("GET", `/api/jobs/${r.json.job.id}`)).json.state).toBe("stopped");
     expect((await call("GET", `/api/jobs/${j.id}`)).json.state).toBe("running");
     expect((await call("POST", `/api/jobs/${j.id}/stop`)).status).toBe(200);
   });

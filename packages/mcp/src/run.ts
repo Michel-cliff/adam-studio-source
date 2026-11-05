@@ -17,7 +17,7 @@ async function panelUp(): Promise<boolean> {
 
 function waitLocal(job: JobView): Promise<JobView> {
   return new Promise((res) => {
-    if (job.state !== "running") return res(job);
+    if (job.state !== "running" && job.state !== "queued") return res(job);
     local.subscribe(job.id, (e) => { if (e.type === "end") res(e.job); });
   });
 }
@@ -33,7 +33,7 @@ async function viaPanel(path: string, body: unknown): Promise<JobView> {
   const data = await r.json();
   if (!r.ok) throw new ToolError(data.error ?? `panel answered ${r.status}`);
   let job: JobView = data.job;
-  while (job.state === "running") {
+  while (job.state === "running" || job.state === "queued") {
     await new Promise((res) => setTimeout(res, 1000));
     job = await (await fetch(`${PANEL}/api/jobs/${job.id}`)).json();
   }

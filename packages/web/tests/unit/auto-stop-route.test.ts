@@ -45,3 +45,38 @@ it("the global stop endpoint interrupts the active job without opening that step
     expect(jobs.active?.state).toBe("stopped");
   } finally { server.closeAllConnections(); await new Promise<void>(r => server.close(() => r())); }
 });
+
+it("goes on alone after the import when the creator asked for it, and only then", async () => {
+  class InstantJobs extends JobManager {
+    labels: string[] = [];
+    override start(project: string, c: Command, onEnd?: (j: JobView) => void) {
+      this.labels.push(c.label);
+      const job: JobView = { id: `f${this.labels.length}`, project, label: c.label, state: c.label === "New project" ? "done" : "running", output: "", startedAt: Date.now(), hint: null };
+      // The import has written the project by the time it ends.
+      if (c.label === "New project") {
+        const dir = join(root, project); mkdirSync(dir, { recursive: true });
+        writeFileSync(join(dir, "style.json"), JSON.stringify(styleInput));
+        writeFileSync(join(dir, "project.json"), JSON.stringify({ ...projectInput(), proposals: [] }));
+        setTimeout(() => onEnd?.(job), 0);
+      }
+      return job;
+    }
+  }
+  const root = mkdtempSync(join(tmpdir(), "adam-new-auto-"));
+  const video = join(root, "take.mp4"); writeFileSync(video, "x");
+  const settingsFile = join(root, "ui.json"); writeFileSync(settingsFile, JSON.stringify({ projectsRoot: root, engine: "claude" }));
+  const jobs = new InstantJobs();
+  const server = createApp({ settingsFile, jobs, home: root, ai: async () => "unused" }).listen(0, "127.0.0.1");
+  await new Promise(r => server.once("listening", r));
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api/projects`;
+  const create = (name: string, auto: boolean) => fetch(base, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, videos: [video], format: "9:16", auto }) });
+  const status = async (name: string) => (await fetch(`${base}/${name}/auto`)).json();
+  try {
+    expect((await create("plain", false)).status).toBe(202);
+    await new Promise(r => setTimeout(r, 50));
+    expect(await status("plain")).toBeNull();
+    expect((await create("alone", true)).status).toBe(202);
+    await new Promise(r => setTimeout(r, 50));
+    expect(await status("alone")).not.toBeNull();
+  } finally { server.closeAllConnections(); server.close(); }
+});

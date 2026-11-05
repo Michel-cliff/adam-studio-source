@@ -90,6 +90,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
   const claudeQuota = new ClaudeQuota(dirname(settingsFile));
   const clients = new Set<(d: unknown) => void>();
   const notify = (project: string) => { for (const c of clients) c({ type: "change", project }); };
+  jobs.onChange((job) => notify(job.project));
   let unwatch = watchProjects(projectsRoot(settingsFile), notify);
 
   /** Starts the AI on a step of a project: the step's brief, the look, the skills and connectors, what it learned. */
@@ -153,6 +154,8 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     return p;
   };
   const started = (res: ServerResponse, job: unknown) => send(res, 202, { job });
+  // Pages ask for a project often, and a job's log can weigh 200 KB: its end says why it failed, the whole log comes through its events.
+  const lightJob = (j: JobView) => ({ ...j, output: j.output.slice(-4000) });
 
   async function route(req: IncomingMessage, res: ServerResponse, port: number): Promise<void> {
     const url = new URL(req.url ?? "/", `http://127.0.0.1:${port}`);
@@ -162,7 +165,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
 
     if (path === "/api/ping") return send(res, 200, { app: "adam-studio" });
     if (path.startsWith("/api/stats")) {
-      const handled = await statsRoute({ req, res, url, method, dir: dirname(settingsFile), root: projectsRoot(settingsFile), ai, send: (s, b) => send(res, s, b), body: () => body(req) });
+      const handled = await statsRoute({ req, res, url, method, dir: dirname(settingsFile), root: projectsRoot(settingsFile), ai, watch: (ref, work) => { jobs.task("", "Reference", ref.name ?? ref.url ?? "", work); }, send: (s, b) => send(res, s, b), body: () => body(req) });
       if (handled) return;
     }
     if (path.startsWith("/api/da") || /^\/api\/projects\/[^/]+\/da\//.test(path)) {
@@ -259,7 +262,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const root = projectsRoot(settingsFile);
       if (url.searchParams.get("full") === "1") {
         const names = [...new Set([...(existsSync(root) ? readdirSync(root).filter(n => safeName(n) && existsSync(join(root, n, "project.json"))) : []), ...jobs.projectNames()])];
-        return send(res, 200, names.flatMap(name => { const list = jobs.list(name), view = projectView(root, name); const p = view ? { ...view, jobs: list } : pendingProject(name, list); return p ? [p] : []; }));
+        return send(res, 200, names.flatMap(name => { const list = jobs.list(name), view = projectView(root, name); const p = view ? { ...view, jobs: list.map(lightJob) } : pendingProject(name, list); return p ? [p] : []; }));
       }
       const list = listProjects(root);
       for (const name of jobs.projectNames()) if (!list.some(p => p.name === name)) list.push({ name, ok: false, error: "Import in progress", takes: 0, lastRender: null });
@@ -272,7 +275,12 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const dir = join(projectsRoot(settingsFile), name);
       if (existsSync(join(dir, "project.json"))) throw new HttpError(409, `a project "${name}" already exists: add rushes to it instead`);
       const command = b.video === "text" ? textProjectCommand(dir, String(b.script ?? "")) : newProjectCommand(dir, checkVideos(b.videos), String(b.format ?? "9:16"), b.lang || undefined, b.series || undefined, b.video || undefined);
-      const job = jobs.start(name, command, () => notify(name)); notify(name);
+      // "Let Adam finish" from the start: the import, the steps, the export, without coming back in between.
+      const job = jobs.start(name, command, (done) => {
+        notify(name);
+        if (b.auto === true && done.state === "done") { try { void autopilot.start(name, dir).then(() => notify(name)); } catch { /* already running */ } }
+      });
+      notify(name);
       return started(res, job);
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)$/)) && method === "GET") {
@@ -280,7 +288,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const view = projectView(projectsRoot(settingsFile), name), list = jobs.list(name);
       const pending = !view ? pendingProject(name, list) : null;
       if (!view && !pending) throw new HttpError(404, `no project "${name}"`);
-      return send(res, 200, view ? { ...view, jobs: list } : pending);
+      return send(res, 200, view ? { ...view, jobs: list.map(lightJob) } : pending);
     }
     // Removing an asset from a video: refused while the edit uses it; the file goes to the project's .trash.
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/assets\/([^/]+)$/)) && method === "DELETE") {
@@ -417,10 +425,12 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
         default: throw new HttpError(400, `unknown edit "${b.op}"`);
       }
     }
+    // All that runs or waits on this computer, whatever the project: the Tasks list.
+    if (path === "/api/tasks" && method === "GET") return send(res, 200, jobs.tasks());
     if ((m = path.match(/^\/api\/jobs\/([^/]+)$/)) && method === "GET") {
       const job = jobs.get(m[1]!);
       if (!job) throw new HttpError(404, "no such job");
-      return send(res, 200, job);
+      return send(res, 200, url.searchParams.has("meta") ? { ...job, output: "" } : job);
     }
     if ((m = path.match(/^\/api\/jobs\/([^/]+)\/stop$/)) && method === "POST") {
       if (!jobs.get(m[1]!)) throw new HttpError(404, "no such job");
@@ -431,7 +441,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       if (!job) throw new HttpError(404, "no such job");
       const push = sse(res);
       push({ type: "output", text: job.output });
-      if (job.state !== "running") { push({ type: "end", job }); res.end(); return; }
+      if (job.state !== "running" && job.state !== "queued") { push({ type: "end", job }); res.end(); return; }
       const off = jobs.subscribe(job.id, (e) => { push(e); if (e.type === "end") res.end(); });
       req.on("close", off);
       return;

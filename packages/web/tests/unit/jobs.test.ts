@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { BusyError, hintOf, JobManager } from "../../server/jobs";
+import { BusyError, hintOf, JobManager, laneOf, progressOf } from "../../server/jobs";
 import type { JobEvent, JobView } from "../../server/types";
 
 const node = (code: string, label = "test") => ({ cmd: process.execPath, args: ["-e", code], label });
 const ended = (m: JobManager, id: string) => new Promise<JobView>((res) => {
   const j = m.get(id)!;
-  if (j.state !== "running") return res(j);
+  if (j.state !== "running" && j.state !== "queued") return res(j);
   m.subscribe(id, (e: JobEvent) => { if (e.type === "end") res(e.job); });
 });
 
@@ -20,15 +20,107 @@ describe("JobManager", () => {
     expect(bad.state).toBe("failed");
   });
 
-  it("runs one job at a time per project", async () => {
+  const forever = "setTimeout(() => {}, 20000)";
+
+  it("does heavy work one at a time on the whole computer: the next one waits its turn, nothing is refused", async () => {
     const m = new JobManager();
-    const a = m.start("p", node("setTimeout(() => {}, 5000)", "Render"));
-    expect(() => m.start("p", node(""))).toThrow(BusyError);
-    expect(() => m.start("p", node(""))).toThrow(/Render is running/);
-    const other = m.start("q", node(""));
-    await ended(m, other.id);
-    m.stop(a.id);
-    expect((await ended(m, a.id)).state).toBe("stopped");
+    const render = m.start("p", node(forever, "Render"));
+    const other = m.start("q", node("console.log('second')", "Render"));
+    expect(render.state).toBe("running");
+    expect(other.state).toBe("queued");
+    expect(m.tasks().find((t) => t.id === other.id)?.position).toBe(1);
+    m.stop(render.id);
+    expect((await ended(m, other.id)).output).toContain("second");
+  });
+
+  it("lets the AI and light work run beside heavy work", async () => {
+    const m = new JobManager();
+    const render = m.start("p", node(forever, "Render"));
+    const ask = m.start("p", node("", "Claude: hook"));
+    const elsewhere = m.start("q", node("", "Claude: hook"));
+    const light = m.start("q", node("", "Studio"));
+    for (const j of [ask, elsewhere, light]) expect(j.state).toBe("running");
+    await Promise.all([ask, elsewhere, light].map((j) => ended(m, j.id)));
+    m.stop(render.id);
+    await ended(m, render.id);
+  });
+
+  it("keeps what writes to a project alone among writers, and keeps the order", async () => {
+    const m = new JobManager();
+    const ask = m.start("p", node(forever, "Claude: hook"));
+    const analyze = m.start("p", node("console.log('analyzed')", "Analyze"));
+    const later = m.start("p", node("console.log('asked')", "Claude: sound"));
+    expect(analyze.state).toBe("queued");
+    expect(later.state).toBe("queued");
+    m.stop(ask.id);
+    await ended(m, analyze.id);
+    expect((await ended(m, later.id)).output).toContain("asked");
+  });
+
+  it("answers the same work asked twice with the one job, and tells both callers", async () => {
+    const m = new JobManager();
+    let heard = 0;
+    const one = m.start("p", node("", "Render"), () => { heard++; });
+    const two = m.start("p", node("", "Render"), () => { heard++; });
+    expect(two.id).toBe(one.id);
+    await ended(m, one.id);
+    expect(heard).toBe(2);
+    const ask = m.start("p", node(forever, "Claude: hook"));
+    expect(() => m.start("p", node("", "Claude: hook"))).toThrow(BusyError);
+    m.stop(ask.id);
+    await ended(m, ask.id);
+  });
+
+  it("takes a waiting job out of the line when it is stopped, without running it", async () => {
+    const m = new JobManager();
+    const first = m.start("p", node(forever, "Render"));
+    const second = m.start("q", node("console.log('ran')", "Render"));
+    const third = m.start("r", node("", "Render"));
+    expect(m.stop(second.id)).toBe(true);
+    expect(m.get(second.id)!.state).toBe("stopped");
+    expect(m.get(second.id)!.output).toBe("");
+    expect(m.tasks().find((t) => t.id === third.id)?.position).toBe(1);
+    m.stop(first.id);
+    await ended(m, third.id);
+  });
+
+  it("counts a waiting job as work in progress when the app closes, and stops it", async () => {
+    const m = new JobManager();
+    const first = m.start("p", node(forever, "Render"));
+    const second = m.start("q", node("", "Render"));
+    expect(m.hasRunning()).toBe(true);
+    m.stopAll();
+    await ended(m, first.id);
+    expect(m.get(second.id)!.state).toBe("stopped");
+    expect(m.hasRunning()).toBe(false);
+  });
+
+  it("runs work done in-process through the same list, and can stop it", async () => {
+    const m = new JobManager();
+    let aborted = false;
+    const j = m.task("", "Reference", "My video", (signal) => new Promise((_, no) => { signal.addEventListener("abort", () => { aborted = true; no(new Error("stopped")); }); }));
+    expect(j.state).toBe("running");
+    expect(m.tasks()[0]).toMatchObject({ label: "Reference", detail: "My video", lane: "light" });
+    m.stop(j.id);
+    expect((await ended(m, j.id)).state).toBe("stopped");
+    expect(aborted).toBe(true);
+  });
+
+  it("reads where a render is from its output", async () => {
+    expect(progressOf("rendering: 5 %\nrendering: 35 %, about 4 min left\n")).toEqual({ percent: 35, minutesLeft: 4 });
+    expect(progressOf("warn pace")).toBeNull();
+    const m = new JobManager();
+    const j = await ended(m, m.start("p", node("console.log('rendering: 40 %, about 2 min left')", "Render")).id);
+    expect(j.progress).toBe(40);
+    expect(j.minutesLeft).toBe(2);
+  });
+
+  it("sorts the work by what it takes from the computer", () => {
+    expect(laneOf("Render")).toBe("heavy");
+    expect(laneOf("New project")).toBe("heavy");
+    expect(laneOf("Claude: hook")).toBe("ai");
+    expect(laneOf("Codex: hook (do)")).toBe("ai");
+    expect(laneOf("Reference")).toBe("light");
   });
 
   it("stops the whole process tree", async () => {

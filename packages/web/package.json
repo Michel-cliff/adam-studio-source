@@ -5,7 +5,7 @@
   "exports": { "./server/*": "./server/*.ts" },
   "scripts": {
     "build": "vite build",
-    "test": "vitest run tests/unit",
+    "test": "vitest run tests/unit --no-file-parallelism",
     "test:e2e": "vitest run tests/e2e --testTimeout=900000 --hookTimeout=900000",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },

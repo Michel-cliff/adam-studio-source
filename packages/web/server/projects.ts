@@ -18,7 +18,8 @@ function readProject(dir: string): { raw: Raw | null; error?: string } {
 function renders(dir: string): RenderView[] {
   const folder = join(dir, "renders");
   if (!existsSync(folder)) return [];
-  return readdirSync(folder).filter((f) => f.toLowerCase().endsWith(".mp4"))
+  // Not the work file of a render under way, and not a video the checks refused: neither passes for a finished video.
+  return readdirSync(folder).filter((f) => f.toLowerCase().endsWith(".mp4") && !f.startsWith(".") && !/\.refused\.mp4$/i.test(f))
     .map((f) => { const s = statSync(join(folder, f)); return { file: `renders/${f}`, size: s.size, mtime: s.mtimeMs }; })
     .sort((a, b) => b.mtime - a.mtime);
 }

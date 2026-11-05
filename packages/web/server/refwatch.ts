@@ -15,17 +15,17 @@ const FRAMES = 8;
 // hundred KB while yt-dlp reports success. H.264 when there is one, any codec next, the single file last.
 export const videoFormat = "bv*[height<=720][vcodec^=avc1]+ba[ext=m4a]/bv*[height<=720]+ba/b[height<=720]/b";
 
-async function download(url: string, folder: string): Promise<{ video: string; title: string; subs: string }> {
+async function download(url: string, folder: string, signal?: AbortSignal): Promise<{ video: string; title: string; subs: string }> {
   mkdirSync(folder, { recursive: true });
   // The video first: without it there is nothing to watch.
   const { stdout } = await run("yt-dlp", ["--no-playlist", "--no-progress", "-f", videoFormat, "--merge-output-format", "mp4", "--max-filesize", "300M",
-    "-o", join(folder, "video.%(ext)s"), "--print", "after_move:title", url], { timeout: 300_000, windowsHide: true, maxBuffer: 1 << 24 });
+    "-o", join(folder, "video.%(ext)s"), "--print", "after_move:title", url], { timeout: 300_000, windowsHide: true, maxBuffer: 1 << 24, signal });
   const video = readdirSync(folder).find((f) => /^video\.(mp4|webm|mkv|mov)$/.test(f));
   if (!video) throw new Error("the video could not be downloaded from this link");
   // The captions are a bonus: platforms often refuse them (HTTP 429), the frames are enough then.
   try {
     await run("yt-dlp", ["--no-playlist", "--no-progress", "--skip-download", "--write-auto-subs", "--write-subs", "--sub-langs", "fr.*,en.*",
-      "--convert-subs", "srt", "-o", join(folder, "video.%(ext)s"), url], { timeout: 120_000, windowsHide: true, maxBuffer: 1 << 24 });
+      "--convert-subs", "srt", "-o", join(folder, "video.%(ext)s"), url], { timeout: 120_000, windowsHide: true, maxBuffer: 1 << 24, signal });
   } catch { /* no captions: watched from the frames only */ }
   const srt = readdirSync(folder).find((f) => f.endsWith(".srt"));
   const subs = srt ? readFileSync(join(folder, srt), "utf8").split("\n").filter((l) => l && !/^\d+$/.test(l) && !/-->/.test(l)).join(" ") : "";
@@ -62,11 +62,11 @@ export function watchPrompt(ref: Ref, subs: string, knownTraits: string[], lang:
 type Seen = { title?: string; saw?: Saw[]; beats?: Beat[]; traits?: string[]; lessons?: { topic?: string; text?: string }[] };
 
 /** Watches one reference end to end and stores the result (or why it failed). Never throws. */
-export async function watchRef(dir: string, ref: Ref, ai: AskAI): Promise<Ref> {
+export async function watchRef(dir: string, ref: Ref, ai: AskAI, signal?: AbortSignal): Promise<Ref> {
   const folder = join(dir, "refs", ref.id);
   try {
     let video = ref.file ?? "", subs = "", title = "";
-    if (ref.url) ({ video, title, subs } = await download(ref.url, folder));
+    if (ref.url) ({ video, title, subs } = await download(ref.url, folder, signal));
     if (!video || !existsSync(video)) throw new Error("the video file is missing");
     mkdirSync(folder, { recursive: true });
     const pics = await frames(video, folder);

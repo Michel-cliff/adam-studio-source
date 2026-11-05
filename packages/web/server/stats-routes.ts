@@ -9,7 +9,7 @@ import { listProjects } from "./projects";
 import { watchRef } from "./refwatch";
 import {
   addChat, addRef, addRule, updateRef, emptyVideo, METRICS, platformOf, readStats, removeRef, removeRule, saveVideo, setRule, topicOf, TOPICS, trends,
-  type Metric, type Stats,
+  type Metric, type Ref, type Stats,
 } from "./stats";
 import { applyImport, diskName, IMPORT_FILES, importPrompt, isImage, type ImportAnswer } from "./stats-import";
 import { uiLang } from "./settings";
@@ -17,6 +17,8 @@ import { loadRaw } from "./store";
 
 type Ctx = {
   req: IncomingMessage; res: ServerResponse; url: URL; method: string; dir: string; root: string; ai: AskAI;
+  /** Watches a reference through the Tasks list. */
+  watch: (ref: Ref, work: (signal: AbortSignal) => Promise<unknown>) => void;
   send: (status: number, body: unknown) => void; body: () => Promise<Record<string, any>>;
 };
 class StatsError extends Error {}
@@ -158,20 +160,21 @@ export async function statsRoute(c: Ctx): Promise<boolean> {
     }
     if (path === "/api/stats/refs" && method === "POST") {
       const ref = addRef(dir, { url: String((await c.body()).url ?? "").trim() });
-      void watchRef(dir, ref, ai);
+      c.watch(ref, (signal) => watchRef(dir, ref, ai, signal));
       send(202, all()); return true;
     }
     if (path === "/api/stats/refs/upload" && method === "POST") {
       const name = url.searchParams.get("name") ?? "";
       const file = await saveBody(c.req, join(dir, "refs", "files"), name, /\.(mp4|mov|mkv|m4v|webm)$/i);
       const ref = addRef(dir, { file, name: basename(name, extname(name)) });
-      void watchRef(dir, ref, ai);
+      c.watch(ref, (signal) => watchRef(dir, ref, ai, signal));
       send(202, all()); return true;
     }
     if ((m = path.match(/^\/api\/stats\/refs\/([\w]+)\/retry$/)) && method === "POST") {
       const ref = readStats(dir).refs.find((r) => r.id === m![1]);
       if (!ref) throw new StatsError("no such reference");
-      void watchRef(dir, updateRef(dir, ref.id, { status: "watching", error: undefined, aiFailed: undefined }), ai);
+      const again = updateRef(dir, ref.id, { status: "watching", error: undefined, aiFailed: undefined });
+      c.watch(again, (signal) => watchRef(dir, again, ai, signal));
       send(202, all()); return true;
     }
     // What Claude saw in a reference, kept as rules: to follow ("use") or never to do ("donts").
