@@ -68,4 +68,20 @@ describe("which AI the studio asks", () => {
     expect(codexModel(file)).toBe("gpt-5.5");
     expect(() => setCodexModel("x; rm -rf", file)).toThrow(/model/);
   });
+
+  it("lets Adam's tools and the connectors the creator turned on run: with no approvals, Codex refuses them otherwise", () => {
+    const c = codexAskCommand("ep 1", "hook", "x", "default", null, { servers: { probe: { command: "node", args: ["p"] }, web: { url: "https://x.y/mcp" } } });
+    for (const name of ["adam-studio", "probe", "web"]) expect(arg(c.args, `mcp_servers.${name}.default_tools_approval_mode`)).toBe('"approve"');
+  });
+  it("carries the installed app's environment to its server, which Codex would not pass on", () => {
+    const before = { ...process.env };
+    Object.assign(process.env, { ADAM_PACKAGED: "1", ADAM_APP_ROOT: "C:/app/payload", ADAM_BROWSER_EXECUTABLE: "C:/app/chrome.exe" });
+    try {
+      const c = codexAskCommand("ep 1", "hook", "x");
+      expect(arg(c.args, "mcp_servers.adam-studio.env.ADAM_APP_ROOT")).toBe('"C:/app/payload"');
+      expect(arg(c.args, "mcp_servers.adam-studio.env.ADAM_BROWSER_EXECUTABLE")).toBe('"C:/app/chrome.exe"');
+    } finally {
+      for (const k of ["ADAM_PACKAGED", "ADAM_APP_ROOT", "ADAM_BROWSER_EXECUTABLE"]) { if (before[k] === undefined) delete process.env[k]; else process.env[k] = before[k]; }
+    }
+  });
 });

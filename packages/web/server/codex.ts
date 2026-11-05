@@ -37,6 +37,8 @@ const toml = (v: unknown) => (Array.isArray(v) ? `[${v.map((x) => JSON.stringify
 function serverArgs(name: string, s: Record<string, any>): string[] {
   const out: string[] = [];
   const set = (k: string, v: unknown) => out.push("-c", `mcp_servers.${name}.${k}=${toml(v)}`);
+  // With approval_policy "never", Codex refuses a tool that would ask first. Adam's own, and the ones the creator turned on, may run.
+  set("default_tools_approval_mode", "approve");
   if (typeof s.url === "string") set("url", s.url);
   else if (typeof s.command === "string") {
     set("command", s.command);

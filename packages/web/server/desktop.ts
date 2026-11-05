@@ -18,7 +18,7 @@ export function claudeDesktopStatus(file = claudeDesktopConfig(), refresh = fals
 }
 
 /** Adds (or updates) the adam-studio server; every other setting stays, and the file is backed up first. */
-export function connectClaudeDesktop(file: string, server: { command: string; args: string[] }): void {
+export function connectClaudeDesktop(file: string, server: { command: string; args: string[]; env?: Record<string, string> }): void {
   if (!existsSync(dirname(file)) && file === claudeDesktopConfig() && localAppInstalled("claude")) mkdirSync(dirname(file), { recursive: true });
   if (!existsSync(dirname(file))) throw new Error("Claude Desktop is not installed on this computer: install it from claude.ai/download, open it once, then connect.");
   let config: Record<string, any> = {};
@@ -46,20 +46,26 @@ export function codexStatus(file = codexConfig(), refresh = false): { app: boole
 const lit = (s: string) => `'${s.replace(/'/g, "")}'`;
 
 /** Adds (or replaces) the adam-studio section of Codex's config.toml; the rest stays, the file is backed up first. */
-export function connectCodex(file: string, server: { command: string; args: string[] }): void {
+export function connectCodex(file: string, server: { command: string; args: string[]; env?: Record<string, string> }): void {
   if (!existsSync(dirname(file)) && file === codexConfig() && localAppInstalled("codex")) mkdirSync(dirname(file), { recursive: true });
   if (!existsSync(dirname(file))) throw new Error("Codex is not installed on this computer: install the Codex app or CLI, sign in once, then connect.");
   let text = existsSync(file) ? readFileSync(file, "utf8") : "";
   if (text) copyFileSync(file, `${file}.before-adam-studio-${Date.now()}`);
   // Drop an earlier adam-studio section: from its header to the next section header.
   text = text.replace(/\[mcp_servers\.adam-studio\][\s\S]*?(?=\n\[|$)/, "").replace(/\n{3,}/g, "\n\n").trimEnd();
-  const block = [SECTION, `command = ${lit(server.command)}`, `args = [${server.args.map(lit).join(", ")}]`, "startup_timeout_sec = 60",
+  const block = [SECTION, `command = ${lit(server.command)}`, `args = [${server.args.map(lit).join(", ")}]`,
+    ...(server.env ? [`env = { ${Object.entries(server.env).map(([k, v]) => `${k} = ${lit(v)}`).join(", ")} }`] : []), "startup_timeout_sec = 60",
     // Its tools only change Adam Studio projects, and every change can be undone: no prompt for each call.
     'default_tools_approval_mode = "approve"'].join("\n");
   writeFileSync(file, `${text ? `${text}\n\n` : ""}${block}\n`);
 }
 
-type Server = { command: string; args: string[] };
+type Server = { command: string; args: string[]; env?: Record<string, string> };
+
+/** Claude Code's command to register the server, for the whole user account. */
+export const claudeAddArgs = (server: Server) => ["mcp", "add", "--scope", "user", "adam-studio",
+  ...Object.entries(server.env ?? {}).flatMap(([k, v]) => ["-e", `${k}=${v}`]), "--", server.command, ...server.args];
+
 // An update installs into a new app-x.y.z folder, and Squirrel removes the old one. Only what this installed app wrote
 // matches: a connector pointing at a development checkout belongs to the developer.
 const INSTALLED = /[\\/]AdamStudio[\\/]app-[^\\/]+[\\/]/;
@@ -92,7 +98,7 @@ export function refreshConnectors(server: Server, files: { claude: string; codex
   attempt("Claude Code", () => {
     if (!existsSync(files.claudeCode) || !stale(JSON.parse(readFileSync(files.claudeCode, "utf8")).mcpServers?.["adam-studio"]?.command, server)) return false;
     runClaude(["mcp", "remove", "--scope", "user", "adam-studio"]);
-    runClaude(["mcp", "add", "--scope", "user", "adam-studio", "--", server.command, ...server.args]);
+    runClaude(claudeAddArgs(server));
     return true;
   });
   return done;

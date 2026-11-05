@@ -89,8 +89,17 @@ export function askBrief(project: string, step: string, prompt: string, look: st
   return { system, mode };
 }
 
+const PACKAGED_ENV = ["ADAM_PACKAGED", "ADAM_APP_ROOT", "ADAM_FONTS", "ADAM_CAPCUT_LAB", "ADAM_TOOLS", "ADAM_ANALYSIS_PYTHON", "ADAM_CAPCUT_PYTHON", "ADAM_BROWSER_EXECUTABLE",
+  "ADAM_CACHE_DIR", "ADAM_NODE", "PYTHONNOUSERSITE", "PYTHONDONTWRITEBYTECODE", "HF_HOME", "TORCH_HOME", "XDG_CACHE_HOME", "PATH"];
+
 /** The adam-studio MCP server, as a command any AI can start. */
-export const adamServer = () => ({ command: process.execPath, args: [TSX, join(REPO, "packages", "mcp", "src", "server.ts")] });
+export const adamServer = () => {
+  const server = { command: process.execPath, args: [TSX, join(REPO, "packages", "mcp", "src", "server.ts")] };
+  if (!process.env.ADAM_PACKAGED) return server;
+  // An AI app starts this server by itself, without the installed app's settings: without them it can't find its own files.
+  const env = Object.fromEntries(PACKAGED_ENV.flatMap((k) => (process.env[k] ? [[k, process.env[k]!]] : [])));
+  return { ...server, env };
+};
 
 export function askCommand(project: string, step: string, prompt: string, model: ClaudeModel = "default", look: string | null = null, extras: AskExtras = {}): Command {
   const { system, mode } = askBrief(project, step, prompt, look, extras);

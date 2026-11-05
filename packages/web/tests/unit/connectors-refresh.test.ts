@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { refreshConnectors } from "../../server/desktop";
+import { claudeAddArgs, connectCodex, refreshConnectors } from "../../server/desktop";
 
 const OLD = "C:\\Users\\x\\AppData\\Local\\AdamStudio\\app-0.1.0\\resources\\payload\\bin\\node.exe";
 const NEW = { command: "C:\\Users\\x\\AppData\\Local\\AdamStudio\\app-0.1.1\\resources\\payload\\bin\\node.exe", args: ["tsx", "server.ts"] };
@@ -44,6 +44,15 @@ describe("after an update, the AI apps keep finding Adam", () => {
     const before = [readFileSync(f.claude, "utf8"), readFileSync(f.codex, "utf8")];
     expect(refreshConnectors(NEW, f, () => { throw new Error("must not run"); })).toEqual([]);
     expect([readFileSync(f.claude, "utf8"), readFileSync(f.codex, "utf8")]).toEqual(before);
+  });
+  it("gives the AI apps what the installed server needs to find its own files", () => {
+    const f = files(), server = { ...NEW, env: { ADAM_APP_ROOT: "C:\\app\\payload", PATH: "C:\\app\\bin" } };
+    writeFileSync(f.codex, `[other]\nx = 1\n`);
+    connectCodex(f.codex, server);
+    const t = readFileSync(f.codex, "utf8");
+    expect(t).toContain("env = { ADAM_APP_ROOT = 'C:\\app\\payload', PATH = 'C:\\app\\bin' }");
+    expect(t).toContain("[other]");
+    expect(claudeAddArgs(server)).toEqual(["mcp", "add", "--scope", "user", "adam-studio", "-e", "ADAM_APP_ROOT=C:\\app\\payload", "-e", "PATH=C:\\app\\bin", "--", NEW.command, ...NEW.args]);
   });
   it("adds no connector the creator never asked for, and survives a broken file", () => {
     const f = files();

@@ -26,7 +26,7 @@ import { wordConfidence } from "@adam-studio/render/src/lib/confidence";
 import { daFirstPass, readDA, type DaStep } from "@adam-studio/render/src/lib/da";
 import { Doctor } from "./doctor-routes";
 import { keyStatus, PROVIDERS, setKey } from "./keys";
-import { claudeDesktopConfig, claudeDesktopStatus, codexConfig, codexStatus, connectClaudeDesktop, connectCodex } from "./desktop";
+import { claudeDesktopConfig, claudeDesktopStatus, codexConfig, codexStatus, connectClaudeDesktop, connectCodex, claudeAddArgs } from "./desktop";
 import { adamServer } from "./claude";
 import { daRoute } from "./da-routes";
 import { statsRoute } from "./stats-routes";
@@ -188,7 +188,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       // Claude Desktop's Code tab is Claude Code, with its own config: add the server there too (user scope), if it has Claude Code.
       try {
         const srv = adamServer();
-        execFileSync(claudeBin(), ["mcp", "add", "--scope", "user", "adam-studio", "--", srv.command, ...srv.args], { stdio: "ignore", windowsHide: true, timeout: 30_000 });
+        execFileSync(claudeBin(), claudeAddArgs(srv), { stdio: "ignore", windowsHide: true, timeout: 30_000 });
       } catch { /* no Claude Code, or already added */ }
       return send(res, 200, claudeDesktopStatus());
     }
