@@ -6,7 +6,7 @@
   "main": "main.cjs",
   "scripts": {
     "start": "node launch.mjs",
-    "test": "node --test policy.test.cjs runtime.test.cjs updates.test.cjs",
+    "test": "node --test policy.test.cjs runtime.test.cjs updates.test.cjs crash.test.cjs",
     "smoke": "node launch.mjs --smoke-test",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "prepare:runtime": "node prepare-runtime.mjs",

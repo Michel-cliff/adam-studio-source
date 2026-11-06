@@ -1,10 +1,12 @@
-const {app,autoUpdater,BrowserWindow,dialog,Menu,screen,shell,nativeImage}=require('electron');
+const {app,autoUpdater,BrowserWindow,clipboard,dialog,Menu,screen,shell,nativeImage}=require('electron');
 const {fork,spawn,spawnSync}=require('node:child_process');
 const {join,dirname,basename}=require('node:path');
-const {readFileSync,writeFileSync,mkdirSync}=require('node:fs');
+const {readFileSync,writeFileSync,mkdirSync,createWriteStream}=require('node:fs');
 const {randomBytes}=require('node:crypto');
 const {fitWindow,isLocal,isExternal}=require('./policy.cjs');
 const {canCheck,startUpdates}=require('./updates.cjs');
+const {buildReport,keepTail,offerReport}=require('./crash.cjs');
+const os=require('node:os');
 // Squirrel invokes these hooks during per-user install/update/uninstall. Never open the Studio for them.
 if(app.isPackaged && process.argv.some(a=>['--squirrel-install','--squirrel-updated','--squirrel-uninstall','--squirrel-obsolete'].includes(a))){
  const event=process.argv.find(a=>['--squirrel-install','--squirrel-updated','--squirrel-uninstall','--squirrel-obsolete'].includes(a));
@@ -36,10 +38,26 @@ if(smoke && app.isPackaged && !process.env.ADAM_DESKTOP_DATA){
  writeFileSync(join(dir,'onboarding.json'),JSON.stringify({completed:true}));
 }
 if(!app.requestSingleInstanceLock()){app.quit();}else{
-let win,child,origin,lang='fr',quitting=false,checking=false,forceKilled=false;
+let win,starting,child,origin,lang='fr',quitting=false,checking=false,forceKilled=false;
 const runtime=app.isPackaged?require('./runtime.cjs').packagedRuntime(process.resourcesPath,app.getPath('userData')):null;
 const pending=new Map();let seq=0;const root=runtime?runtime.root:join(__dirname,'../..');
 const token=randomBytes(32).toString('hex');
+let logTail='';
+// Shown only to the person in front of the app, and sent only by them. See crash.cjs.
+function report({message,kind,error,type='error'}){
+ const version=app.getVersion();
+ const text=buildReport({kind,error,log:logTail,version,system:`${process.platform} ${os.release()} ${process.arch}`,context:{home:os.homedir(),user:os.userInfo().username,secrets:[token]}});
+ const parent=win&&!win.isDestroyed()?win:null;
+ return offerReport({message,report:text,version,lang,log:e=>console.error('Crash report:',e?.message||e),
+  ask:async options=>{const box={type,title:'Adam Studio',noLink:true,...options};return (await(parent?dialog.showMessageBox(parent,box):dialog.showMessageBox(box))).response;},
+  openMail:url=>shell.openExternal(url),copy:value=>clipboard.writeText(value),
+  save:value=>{const dir=join(app.getPath('userData'),'crash-reports');mkdirSync(dir,{recursive:true});writeFileSync(join(dir,`${new Date().toISOString().replace(/[:.]/g,'-')}.txt`),value);}});
+}
+process.on('uncaughtException',async error=>{
+ console.error(error);
+ if(!smoke&&app.isReady()&&!quitting)await report({message:lang==='fr'?'Adam Studio a rencontré une erreur et doit se fermer.':'Adam Studio hit an error and has to close.',kind:'Erreur interne',error});
+ quitting=true;killBackend();app.exit(1);
+});
 const stateFile=()=>join(app.getPath('userData'),'window-state.json');
 function saved(){try{return JSON.parse(readFileSync(stateFile(),'utf8'));}catch{return {};}}
 function save(){if(!win||win.isDestroyed())return;try{mkdirSync(app.getPath('userData'),{recursive:true});writeFileSync(stateFile(),JSON.stringify({bounds:win.getNormalBounds(),maximized:win.isMaximized(),zoom:win.webContents.getZoomFactor()}));}catch(e){console.error('Window state:',e.message);}}
@@ -61,17 +79,29 @@ async function close(){
   await stop();
  }finally{checking=false;}
 }
+// The first launch compiles the whole engine with nothing in cache while the antivirus reads every file: 14 s on a fast
+// computer, much more on a modest one. The wait is shown, and only a real hang ends it.
+const BACKEND_START_MS=180000;
+function showStarting(){
+ starting=new BrowserWindow({width:420,height:260,frame:false,resizable:false,movable:true,minimizable:false,maximizable:false,fullscreenable:false,center:true,title:'Adam Studio',backgroundColor:'#252422',webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true}});
+ void starting.loadFile(join(__dirname,'assets/starting.html'));
+}
+function hideStarting(){if(starting&&!starting.isDestroyed())starting.destroy();starting=null;}
 function startBackend(){return new Promise((resolve,reject)=>{
- const timeout=setTimeout(()=>reject(Error('Le moteur Adam ne répond pas.')),30000);
+ const logFile=join(app.getPath('userData'),'backend.log');mkdirSync(dirname(logFile),{recursive:true});
+ const log=createWriteStream(logFile);log.on('error',e=>console.error('Backend log:',e.message));
+ const timeout=setTimeout(()=>reject(Error(`Le moteur Adam ne répond pas après 3 minutes. Relance Adam Studio. Détails : ${logFile}`)),BACKEND_START_MS);
  child=fork(join(root,'packages/desktop/backend.ts'),[],{execPath:runtime?runtime.node:process.env.ADAM_DESKTOP_NODE,execArgv:['--import','tsx'],cwd:root,env:{...(runtime?runtime.env:process.env),ADAM_DESKTOP_TOKEN:token},stdio:['ignore','pipe','pipe','ipc'],windowsHide:true});
- child.stdout.on('data',d=>process.stdout.write(d));child.stderr.on('data',d=>process.stderr.write(d));
+ const keep=d=>{logTail=keepTail(logTail,String(d));log.write(d);};
+ child.stdout.on('data',d=>{process.stdout.write(d);keep(d);});child.stderr.on('data',d=>{process.stderr.write(d);keep(d);});
  child.on('message',m=>{if(m.type==='ready'){clearTimeout(timeout);resolve(m);}if(m.id&&pending.has(m.id)){pending.get(m.id)(m);pending.delete(m.id);}});
- child.on('error',reject);child.on('exit',(code)=>{clearTimeout(timeout);if(!origin)reject(Error(`Le moteur Adam s’est arrêté (${code}).`));else if(!quitting){dialog.showErrorBox('Adam Studio',lang==='fr'?'Le moteur s’est arrêté. Relance Adam Studio.':'The engine stopped. Restart Adam Studio.');quitting=true;app.quit();}});
+ child.on('error',reject);child.on('exit',async(code)=>{clearTimeout(timeout);if(!origin)reject(Error(`Le moteur Adam s’est arrêté (${code}).`));else if(!quitting){quitting=true;if(!smoke)await report({message:lang==='fr'?'Le moteur s’est arrêté. Relance Adam Studio.':'The engine stopped. Restart Adam Studio.',kind:`Moteur arrêté (code ${code})`});app.quit();}});
 });}
-app.on('second-instance',()=>{if(win){if(win.isMinimized())win.restore();win.show();win.focus();}});
+app.on('second-instance',()=>{if(win){if(win.isMinimized())win.restore();win.show();win.focus();}else if(starting&&!starting.isDestroyed())starting.focus();});
 app.on('before-quit',e=>{if(!quitting){e.preventDefault();void close();}});
 app.on('will-quit',killBackend);
 app.whenReady().then(async()=>{
+ if(!smoke)showStarting();
  const ready=await startBackend();origin=ready.url;lang=ready.lang;
  const state=saved();const areas=screen.getAllDisplays().map(d=>d.workArea);const bounds=fitWindow(state.bounds,areas);
  const windowIcon=nativeImage.createFromBuffer(readFileSync(join(__dirname,'assets/adam.png'))).resize({width:256,height:256});
@@ -84,17 +114,22 @@ app.whenReady().then(async()=>{
   const headers={...details.requestHeaders};for(const key of Object.keys(headers))if(key.toLowerCase()==='x-adam-desktop-token')delete headers[key];
   if(isLocal(details.url,origin))headers['X-Adam-Desktop-Token']=token;callback({requestHeaders:headers});
  });
+ win.webContents.on('render-process-gone',async(_e,details)=>{
+  if(quitting||smoke||details.reason==='clean-exit')return;
+  await report({message:lang==='fr'?'La fenêtre d’Adam Studio s’est arrêtée. Elle va se recharger, tes projets sont enregistrés.':'The Adam Studio window stopped. It will reload, your projects are saved.',kind:`Fenêtre arrêtée (${details.reason}, code ${details.exitCode})`});
+  if(win&&!win.isDestroyed())win.reload();
+ });
  win.webContents.on('will-navigate',(e,url)=>{if(!isLocal(url,origin))e.preventDefault();});
  win.webContents.on('will-redirect',(e,url)=>{if(!isLocal(url,origin))e.preventDefault();});
  win.webContents.setWindowOpenHandler(({url})=>{if(isLocal(url,origin))win.webContents.downloadURL(url);else if(isExternal(url))void shell.openExternal(url);return {action:'deny'};});
  const updates=canCheck({packaged:app.isPackaged,smoke,argv:process.argv})?startUpdates({autoUpdater,version:app.getVersion(),lang,busy:async()=>(await request('status')).busy,ask:async({message,detail,buttons})=>(await dialog.showMessageBox(win,{type:'info',title:'Adam Studio',message,detail,buttons,defaultId:0,cancelId:buttons.length-1,noLink:true})).response,restart:()=>void installUpdate(),log:error=>console.error('Update:',error?.message||error)}):null;
- const appMenu=[...(updates?[{label:lang==='fr'?'Rechercher les mises à jour':'Check for updates',click:()=>updates.check(true)}]:[]),...(runtime?[{label:lang==='fr'?'Licences':'Licences',click:()=>void shell.openPath(join(root,'licenses'))}]:[]),{type:'separator'},{label:lang==='fr'?'Quitter':'Quit',click:()=>void close()}];
+ const appMenu=[...(updates?[{label:lang==='fr'?'Rechercher les mises à jour':'Check for updates',click:()=>updates.check(true)}]:[]),...(runtime?[{label:lang==='fr'?'Licences':'Licences',click:()=>void shell.openPath(join(root,'licenses'))}]:[]),{label:lang==='fr'?'Signaler un problème':'Report a problem',click:()=>void report({kind:'Signalement',type:'info'})},{type:'separator'},{label:lang==='fr'?'Quitter':'Quit',click:()=>void close()}];
  Menu.setApplicationMenu(Menu.buildFromTemplate([{label:lang==='fr'?'Application':'Application',submenu:appMenu},{label:lang==='fr'?'Édition':'Edit',submenu:[{role:'undo'},{role:'redo'},{type:'separator'},{role:'cut'},{role:'copy'},{role:'paste'},{role:'selectAll'}]},{label:lang==='fr'?'Affichage':'View',submenu:[{role:'reload'},{role:'resetZoom'},{role:'zoomIn'},{role:'zoomOut'},{role:'togglefullscreen'}]}]));
  win.on('close',e=>{if(!quitting){e.preventDefault();void close();}});
  let saveTimer;for(const event of ['move','resize','maximize','unmaximize'])win.on(event,()=>{clearTimeout(saveTimer);saveTimer=setTimeout(save,300);});
  const adapt=()=>{if(win&&!win.isDestroyed()&&!win.isMaximized())win.setBounds(fitWindow(win.getBounds(),screen.getAllDisplays().map(d=>d.workArea)));};
  screen.on('display-removed',adapt);screen.on('display-metrics-changed',adapt);
- if(!smoke)win.show();
+ if(!smoke){win.show();hideStarting();}
  await win.loadURL(origin);if(Number.isFinite(state.zoom))win.webContents.setZoomFactor(Math.max(.5,Math.min(2,state.zoom)));
  if(state.maximized)win.maximize();
  if(smoke){
@@ -105,5 +140,6 @@ app.whenReady().then(async()=>{
   if(!(await request('status')).busy)throw Error('Active job was not detected');
   console.log('DESKTOP_SMOKE_OK '+JSON.stringify({...result,busyDetected:true,bounds:win.getBounds(),backendPid:child.pid}));await stop();
  }else win.show();
-}).catch(async e=>{console.error(e);if(!smoke)dialog.showErrorBox('Adam Studio',e.message);quitting=true;killBackend();app.exit(1);});
+}).catch(async e=>{console.error(e);hideStarting();if(quitting)return; // Already closing, or the engine's exit already asked: one report, and that dialog must stay open.
+ if(!smoke)await report({message:e.message,kind:'Échec au démarrage',error:e});quitting=true;killBackend();app.exit(1);});
 }

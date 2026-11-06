@@ -14,10 +14,17 @@ tu passes moins de temps sur la technique et plus de temps sur ce que tu veux ra
 Plus d'informations sur mon travail : https://www.cliffiscurious.com
 
 INSTALLER
-1. Décompresse ce ZIP, puis lance AdamStudio-Setup.exe.
+1. Décompresse ce ZIP, puis lance AdamStudio-Setup.exe UNE SEULE FOIS.
 2. Windows peut afficher « Windows a protégé votre ordinateur » : l'application n'est pas encore signée.
    Clique sur « Informations complémentaires », puis « Exécuter quand même ».
-3. Adam Studio s'ouvre, et se retrouve ensuite dans le menu Démarrer.
+3. Patiente : l'installation prend 5 à 10 minutes, parfois plus sur un ordinateur modeste. Rien ne s'affiche
+   pendant la première ou les deux premières minutes, c'est normal. Ne relance pas le fichier pendant ce temps :
+   un second lancement fait échouer l'installation.
+4. Adam Studio s'ouvre, et se retrouve ensuite dans le menu Démarrer.
+
+SI TU VOIS « INSTALLATION HAS FAILED »
+Ferme ce message et attends que l'animation disparaisse. Relance ensuite AdamStudio-Setup.exe, une seule fois :
+il répare l'installation. Tes projets ne sont pas touchés.
 
 SI L'APPLICATION NE DÉMARRE PAS OU QUE L'IMPORT ÉCHOUE
 Installe Microsoft Visual C++ Redistributable (x64) : https://aka.ms/vc14/vc_redist.x64.exe
@@ -34,7 +41,9 @@ Installe Microsoft Visual C++ Redistributable (x64) : https://aka.ms/vc14/vc_red
 - Licences des composants : menu Application, puis Licences.
 
 TES DONNÉES
-- Tes vidéos et tes projets restent sur ton ordinateur. Adam Studio ne nous envoie rien.
+- Tes vidéos et tes projets restent sur ton ordinateur. Adam Studio ne nous envoie rien par lui-même.
+- En cas de problème, il peut te proposer un rapport : tu vois un aperçu, puis un e-mail se prépare dans ta
+  messagerie et c'est toi qui l'envoies, ou non. Ton nom d'utilisateur, tes clés et tes adresses e-mail en sont retirés.
 - Quand tu utilises une étape guidée par l'IA, la transcription et les images nécessaires partent vers le
   service que tu as connecté (Claude ou Codex), sous ses propres conditions, avec ton propre compte.
 - L'application contacte aussi internet pour télécharger les modèles, chercher les mises à jour et récupérer
@@ -59,10 +68,17 @@ spend less time on the technical side and more time on what you want to tell.
 More about my work: https://www.cliffiscurious.com
 
 INSTALL
-1. Unzip this file, then run AdamStudio-Setup.exe.
+1. Unzip this file, then run AdamStudio-Setup.exe ONCE.
 2. Windows may show "Windows protected your PC": the application is not signed yet.
    Click "More info", then "Run anyway".
-3. Adam Studio opens, and is then available from the Start menu.
+3. Be patient: the install takes 5 to 10 minutes, sometimes more on a modest computer. Nothing appears for
+   the first minute or two, this is normal. Do not run the file again in the meantime: a second run makes
+   the install fail.
+4. Adam Studio opens, and is then available from the Start menu.
+
+IF YOU SEE "INSTALLATION HAS FAILED"
+Close the message and wait for the animation to disappear. Then run AdamStudio-Setup.exe again, once:
+it repairs the install. Your projects are not touched.
 
 IF THE APP DOES NOT START OR THE IMPORT FAILS
 Install the Microsoft Visual C++ Redistributable (x64): https://aka.ms/vc14/vc_redist.x64.exe
@@ -79,7 +95,9 @@ GOOD TO KNOW
 - Component licences: Application menu, then Licences.
 
 YOUR DATA
-- Your videos and projects stay on your computer. Adam Studio sends us nothing.
+- Your videos and projects stay on your computer. Adam Studio sends us nothing on its own.
+- If something goes wrong, it may offer a report: you see a preview, then a mail is prepared in your mail
+  program and you decide whether to send it. Your user name, keys and email addresses are removed from it.
 - When you use an AI-guided step, the transcript and the images it needs are sent to the service you
   connected (Claude or Codex), under its own terms, with your own account.
 - The app also contacts the internet to download the models, check for updates and fetch the links or

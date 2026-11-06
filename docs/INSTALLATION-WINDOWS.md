@@ -20,6 +20,15 @@ Windows x64 doit disposer du [Microsoft Visual C++ Redistributable x64](https://
 
 Les projets, DA et réglages existants d’Adam sont réutilisés. La désinstallation du programme ne doit pas supprimer les créations ni les réglages utilisateur.
 
+## Comportement de Setup (mesuré le 2026-11-06)
+
+- Rien ne s'affiche pendant 60 s ou plus après le double-clic : Squirrel décompresse le paquet d'environ 1 Go avant sa fenêtre. L'installation complète a pris 8 min sur la machine de développement.
+- Un second Setup pendant une installation affiche « Installation has failed… contact the author » et laisse une installation cassée, sans `AdamStudio.exe`. Un seul Setup lancé ensuite la répare.
+- Setup relancé alors qu'Adam est installé : il ferme l'application sans demander, même pendant un rendu, efface le dossier du programme puis réinstalle. Les données et les projets sont ailleurs et ne sont pas touchés. La mise à jour depuis l'application, elle, ne redémarre jamais pendant un rendu.
+- Journal réel : `%LOCALAPPDATA%\SquirrelTemp\Squirrel-Install.log`.
+
+Squirrel ne permet ni d'empêcher le double lancement ni d'afficher une fenêtre plus tôt : la consigne est dans `LISEZMOI.txt`.
+
 ## Limites connues
 
 - Cible vérifiée : Windows x64. Aucun paquet macOS, Windows ARM ou Linux livré ici.
@@ -27,7 +36,6 @@ Les projets, DA et réglages existants d’Adam sont réutilisés. La désinstal
 - L’export CapCut est embarqué mais expérimental, et demande CapCut Desktop sur la machine. L’export MP4 reste le parcours principal de cette version.
 - Le détourage d’images n’est pas disponible dans la version installée.
 - Les modèles ne sont pas téléchargés pendant l’installation et les fournisseurs IA nécessitent une connexion et un compte utilisateur.
-- Pas de système de mises à jour automatiques configuré pour cette première version.
 - Les essais locaux avec un environnement réduit ne remplacent pas la validation sur une machine Windows vierge, avec différents processeurs et réglages de sécurité.
 
 ## Validation locale du prototype
@@ -40,6 +48,12 @@ Les projets, DA et réglages existants d’Adam sont réutilisés. La désinstal
 - Sept tests du conteneur Electron, tests ciblés du serveur et vérification TypeScript du dépôt.
 
 Ces vérifications ont été faites sur la machine de développement, où Visual C++ est présent. Une machine Windows vierge reste à tester avant diffusion publique.
+
+## Rapports de problème
+
+Quand le démarrage échoue, que le moteur ou la fenêtre s'arrête, ou depuis le menu Application, Signaler un problème, Adam propose un rapport (`packages/desktop/crash.cjs`). Rien ne part sans la personne : elle voit un aperçu, le refus est le choix par défaut, puis un e-mail se prépare dans sa messagerie et c'est elle qui l'envoie. Le nom d'utilisateur Windows, le dossier personnel, les clés et les adresses e-mail sont retirés avant l'affichage. Aucune clé d'envoi n'est embarquée.
+
+Le lien e-mail est limité à environ 1 900 caractères : le milieu du journal est retiré si besoin, et le rapport complet reste dans le presse-papiers et dans `crash-reports` du dossier de données. L'adresse de réception est `SUPPORT_EMAIL` dans `crash.cjs`. Un plantage natif du processus principal ne passe pas par ce mécanisme.
 
 ## Reconstruction depuis le dépôt
 
