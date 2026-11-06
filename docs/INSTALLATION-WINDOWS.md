@@ -82,7 +82,7 @@ L'application installée regarde les versions publiées sur le dépôt public `M
 1. Monter `version` dans `packages/desktop/package.json` (par exemple `0.1.1`).
 2. Garder `packages/desktop/out/make/squirrel.windows/x64` tel quel : le paquet précédent y sert à calculer le paquet delta. Ne pas supprimer ce dossier entre deux versions.
 3. Lancer `npm run desktop:make` depuis un shell sans `ELECTRON_RUN_AS_NODE`.
-4. Sur `adam-studio-releases`, créer une version publiée (ni brouillon, ni pré-version) avec le tag `v0.1.1`, et y joindre `RELEASES`, les fichiers `.nupkg` de cette version, `AdamStudio-Setup.exe` et le ZIP. Le nom du tag doit être une version semver, sinon le service l'ignore.
+4. Sur `adam-studio-releases`, créer une version publiée (ni brouillon, ni pré-version) avec le tag `v0.1.1`, et y joindre `github/RELEASES` (pas le `RELEASES` voisin des paquets), les fichiers `.nupkg` de cette version, `AdamStudio-Setup.exe` et le ZIP. Le nom du tag doit être une version semver, sinon le service l'ignore. Le service ne complète que la première adresse de `RELEASES` et répond par du JSON sur tout autre chemin : avec le fichier brut de Squirrel, la mise à jour échoue en silence dès qu'il y a un delta. `gh` est dans WSL sur la machine de construction.
 5. Tester sur une machine qui a la version précédente : menu Application, puis Rechercher les mises à jour.
 
 Règles côté application : le téléchargement se fait en arrière-plan, la question de redémarrage n'apparaît jamais pendant un rendu, « Plus tard » installe au prochain démarrage. Une erreur de vérification reste silencieuse sauf si le créateur a lancé la recherche depuis le menu.

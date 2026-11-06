@@ -1,5 +1,5 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');const {EventEmitter}=require('node:events');
-const {canCheck,feedUrl,startUpdates}=require('./updates.cjs');
+const {canCheck,feedUrl,startUpdates,releasesForFeed}=require('./updates.cjs');
 
 function setup(over={}){
  const updater=Object.assign(new EventEmitter(),{feed:null,checks:0,setFeedURL(o){this.feed=o.url;},checkForUpdates(){this.checks++;}});
@@ -73,4 +73,23 @@ test('work started while the question was open stops the restart',async()=>{
 test('a failed feed setting never stops the app',()=>{
  const updater=Object.assign(new EventEmitter(),{setFeedURL(){throw Error('not installed');},checkForUpdates(){}});
  assert.doesNotThrow(()=>startUpdates({autoUpdater:updater,version:'0.1.0',lang:'en',busy:async()=>false,ask:async()=>1,restart(){},log(){},after(){},every(){},env:{}}));
+});
+// What update.electronjs.org does to the file: it completes the first package name it finds, and nothing else.
+const servedByFeed=(body,tag)=>{const first=body.match(/[^ ]*\.nupkg/im)[0];return body.replace(first,`https://github.com/Michel-cliff/adam-studio-releases/releases/download/${tag}/${first}`);};
+const SQUIRREL_RELEASES='\uFEFFD9D5 AdamStudio-0.1.0-full.nupkg 993860858\r\n5421 AdamStudio-0.1.1-delta.nupkg 127761646\r\n8254 AdamStudio-0.1.1-full.nupkg 911215011';
+test('every package of the published list reaches GitHub once the feed has served it',()=>{
+ const served=servedByFeed(releasesForFeed(SQUIRREL_RELEASES,'0.1.1'),'v0.1.1');
+ const base='https://github.com/Michel-cliff/adam-studio-releases/releases/download/v0.1.1/';
+ assert.deepEqual(served.split(/\r?\n/).map(line=>line.split(' ')[1]).sort(),[base+'AdamStudio-0.1.1-delta.nupkg',base+'AdamStudio-0.1.1-full.nupkg']);
+});
+test('the published list keeps hashes and sizes, and leaves out older versions and the BOM',()=>{
+ const list=releasesForFeed(SQUIRREL_RELEASES,'0.1.1');
+ assert.ok(!list.includes('0.1.0')&&!list.includes('\uFEFF'));
+ assert.ok(list.includes('5421 ')&&list.includes(' 127761646')&&list.includes('8254 ')&&list.includes(' 911215011'));
+});
+test('a first version with only a full package stays a plain name',()=>{
+ assert.equal(releasesForFeed('\uFEFFD9D5 AdamStudio-0.1.0-full.nupkg 993860858','0.1.0'),'D9D5 AdamStudio-0.1.0-full.nupkg 993860858');
+});
+test('a list without this version stops the build instead of publishing nothing',()=>{
+ assert.throws(()=>releasesForFeed(SQUIRREL_RELEASES,'0.2.0'),/0\.2\.0/);
 });

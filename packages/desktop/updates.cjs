@@ -43,4 +43,12 @@ function startUpdates({autoUpdater,version,lang,busy,ask,restart,log,after=setTi
  after(()=>check(),FIRST_CHECK);every(()=>check(),EVERY);
  return {check};
 }
-module.exports={canCheck,feedUrl,startUpdates};
+// The RELEASES file to publish. update.electronjs.org completes only the first package name it finds and answers with JSON
+// for any other path, so the first stays a plain name (a full address there would be broken by it) and the others are complete.
+function releasesForFeed(text,version,ownerRepo=OWNER_REPO){
+ const lines=text.replace(/^﻿/,'').split(/\r?\n/).filter(line=>line.includes(`AdamStudio-${version}-`));
+ if(!lines.length)throw Error(`RELEASES has no package for ${version}`);
+ const base=`https://github.com/${ownerRepo}/releases/download/v${version}/`;
+ return lines.sort((a,b)=>Number(b.includes('-full.'))-Number(a.includes('-full.'))).map((line,index)=>index?line.replace(/(\S+\.nupkg)/,base+'$1'):line).join('\n');
+}
+module.exports={canCheck,feedUrl,startUpdates,releasesForFeed};

@@ -24,4 +24,7 @@ copyFileSync(join(here,'LISEZMOI.txt'),join(outputDirectory,'LISEZMOI.txt'));rmS
 execFileSync(join(process.env.SystemRoot||'C:\\Windows','System32/tar.exe'),['-a','-c','-f',zipName,'AdamStudio-Setup.exe','LISEZMOI.txt'],{cwd:outputDirectory,stdio:'inherit',windowsHide:true});
 const zipDigest=createHash('sha256');for await(const chunk of createReadStream(zip))zipDigest.update(chunk);
 writeFileSync(join(outputDirectory,'SHA256SUMS.txt'),`${hash}  AdamStudio-Setup.exe\n${zipDigest.digest('hex')}  ${zipName}\n`);
+// The RELEASES to publish. The one beside the packages stays as Squirrel wrote it: the next build needs it to make its delta.
+const {releasesForFeed}=require('./updates.cjs');
+mkdirSync(join(outputDirectory,'github'),{recursive:true});writeFileSync(join(outputDirectory,'github/RELEASES'),releasesForFeed(readFileSync(join(outputDirectory,'RELEASES'),'utf8'),version));
 console.log('WINDOWS_ZIP_READY '+zip);
