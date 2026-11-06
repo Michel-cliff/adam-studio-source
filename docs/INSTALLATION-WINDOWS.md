@@ -79,11 +79,12 @@ Avant une distribution publique : compléter la revue des licences des binaires 
 
 L'application installée regarde les versions publiées sur le dépôt public `Michel-cliff/adam-studio-releases`, 15 secondes après le démarrage puis toutes les 6 heures, via `update.electronjs.org`. Ce dépôt ne contient que des versions publiées, jamais le code.
 
-1. Monter `version` dans `packages/desktop/package.json` (par exemple `0.1.1`).
+1. Monter `version` dans `packages/desktop/package.json` (par exemple `0.1.1`) et écrire ce qui change pour les créateurs dans `packages/desktop/whats-new.json`, en français et en anglais. Le build s'arrête si cette version n'a pas de notes. Le message s'affiche une fois, au premier lancement après la mise à jour, jamais après une première installation.
 2. Garder `packages/desktop/out/make/squirrel.windows/x64` tel quel : le paquet précédent y sert à calculer le paquet delta. Ne pas supprimer ce dossier entre deux versions.
 3. Lancer `npm run desktop:make` depuis un shell sans `ELECTRON_RUN_AS_NODE`.
 4. Sur `adam-studio-releases`, créer une version publiée (ni brouillon, ni pré-version) avec le tag `v0.1.1`, et y joindre `github/RELEASES` (pas le `RELEASES` voisin des paquets), les fichiers `.nupkg` de cette version, `AdamStudio-Setup.exe` et le ZIP. Le nom du tag doit être une version semver, sinon le service l'ignore. Le service ne complète que la première adresse de `RELEASES` et répond par du JSON sur tout autre chemin : avec le fichier brut de Squirrel, la mise à jour échoue en silence dès qu'il y a un delta. `gh` est dans WSL sur la machine de construction.
-5. Tester sur une machine qui a la version précédente : menu Application, puis Rechercher les mises à jour.
+5. Joindre aussi les sources GPL : `node packages/desktop/make-gpl-sources.mjs 0.1.1 <dossier>` produit `AdamStudio-0.1.1-GPL-sources.zip`. Le script s'arrête si FFmpeg ou yt-dlp ont changé : mettre alors à jour ses versions d'après le README du nouveau build.
+6. Tester sur une machine qui a la version précédente : menu Application, puis Rechercher les mises à jour.
 
 Règles côté application : le téléchargement se fait en arrière-plan, la question de redémarrage n'apparaît jamais pendant un rendu, « Plus tard » installe au prochain démarrage. Une erreur de vérification reste silencieuse sauf si le créateur a lancé la recherche depuis le menu. Une mise à jour avec delta a pris 15 min sur la machine de développement (téléchargement 15 s, reconstruction du paquet 9 min, copie 2 min) : si le créateur ferme Adam pendant ce temps, la fenêtre se masque, le moteur reste actif et l'application se ferme seule à la fin, 40 min au plus, sans bloquer l'arrêt de Windows. Une réouverture montre tout de suite la fenêtre. Le menu indique « Mise à jour en cours ».
 

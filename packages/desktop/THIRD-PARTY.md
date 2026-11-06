@@ -19,15 +19,19 @@ Adam Studio itself is under the MIT licence (ADAM-STUDIO-LICENSE.txt). It ships 
 
 FFmpeg and the yt-dlp executable are separate programs that Adam Studio runs; they are not linked into it.
 
+The source code of the FFmpeg and yt-dlp versions shipped with a release is attached to that release, as `AdamStudio-<version>-GPL-sources.zip`: https://github.com/Michel-cliff/adam-studio-releases/releases
+
+Licence texts of the Node packages that do not carry their own file: `npm-notices.txt`.
+
 ## Downloaded on first use
 
 | Component | Licence | Source |
 |---|---|---|
 | Whisper large-v3-turbo model (OpenAI), CTranslate2 conversion | MIT | https://huggingface.co/mobiuslabsgmbh/faster-whisper-large-v3-turbo |
-| RobustVideoMatting code and model | GPL version 3 | https://github.com/PeterL1n/RobustVideoMatting |
-| LaMa model, through simple-lama-inpainting | Apache 2.0 | https://github.com/advimman/lama, https://github.com/enesmsahin/simple-lama-inpainting |
+| RobustVideoMatting code and model, commit 53d74c6 | GPL version 3 | https://github.com/PeterL1n/RobustVideoMatting |
+| LaMa model | Apache 2.0 | https://github.com/advimman/lama, https://github.com/enesmsahin/simple-lama-inpainting |
 
-RobustVideoMatting and LaMa run during the analysis of an imported video, to separate the speaker from the background.
+RobustVideoMatting and LaMa run during the analysis of an imported video, to separate the speaker from the background. Both are fetched at a fixed version and checked against their SHA-256 before they run. The inpainting steps follow simple-lama-inpainting 0.1.2 (Apache 2.0).
 
 ## Remotion
 

@@ -1,0 +1,16 @@
+{
+  "0.1.5": {
+    "fr": [
+      "Sécurité renforcée : de lui-même, Adam n'ouvre plus que les médias de tes projets et de ta bibliothèque, et ne télécharge que depuis les bibliothèques en ligne.",
+      "Un lien ou un chemin que tu écris toi-même dans ta demande reste utilisable. Pour le reste, dépose le fichier dans ta bibliothèque.",
+      "Les projets exportés vers CapCut portent désormais leur vrai nom et leur vrai emplacement.",
+      "Composants internes mis à jour."
+    ],
+    "en": [
+      "Stronger security: on its own, Adam only opens the media of your projects and your library, and only downloads from the online libraries.",
+      "A link or path you write yourself in your request still works. For anything else, drop the file in your library.",
+      "Projects exported to CapCut now carry their real name and location.",
+      "Internal components updated."
+    ]
+  }
+}

@@ -4,6 +4,7 @@ import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
 const here=dirname(fileURLToPath(import.meta.url)),root=resolve(here,'../..'),payload=join(here,'.build','payload');
 if(process.platform!=='win32'||process.arch!=='x64')throw Error('This build target requires Windows x64.');
+const {version:appVersion}=JSON.parse(readFileSync(join(here,'package.json'),'utf8'));if(!JSON.parse(readFileSync(join(here,'whats-new.json'),'utf8'))[appVersion])throw Error(`No notes for ${appVersion} in whats-new.json: write what changed for the creators`);
 if(!payload.startsWith(here+sep)||basename(payload)!=='payload')throw Error('Unsafe build target');
 const repair=process.argv.includes('--repair-python');
 if(!repair&&existsSync(payload))rmSync(payload,{recursive:true,force:true});mkdirSync(payload,{recursive:true});
@@ -16,8 +17,9 @@ console.log('Preparing application code');
 const names=['model','render','library','web','mcp'];
 for(const name of names){const target=join(payload,'packages',name);mkdirSync(target,{recursive:true});const pkg=JSON.parse(readFileSync(join(root,'packages',name,'package.json')));delete pkg.devDependencies;delete pkg.scripts;writeFileSync(join(target,'package.json'),JSON.stringify(pkg));for(const folder of ['src','server','app','schema']){const from=join(root,'packages',name,folder);if(existsSync(from))copy(from,join(target,folder));}}
 copy(join(root,'packages/web/dist'),join(payload,'packages/web/dist'));
-// Public DA references and tutorial rushes are deliberately absent from this allowlist.
-for(const path of ['packages/web/app/public','packages/web/demo'])if(existsSync(join(payload,path)))rmSync(join(payload,path),{recursive:true,force:true});
+// Public DA references and tutorial rushes are deliberately absent from this allowlist. dist/da is the local copy of
+// third-party art-direction images (gitignored, the interface falls back to flat colours): never shipped.
+for(const path of ['packages/web/app/public','packages/web/demo','packages/web/dist/da'])if(existsSync(join(payload,path)))rmSync(join(payload,path),{recursive:true,force:true});
 mkdirSync(join(payload,'packages/desktop'),{recursive:true});copy(join(here,'backend.ts'),join(payload,'packages/desktop/backend.ts'));writeFileSync(join(payload,'packages/desktop/package.json'),JSON.stringify({type:'module'}));
 copy(join(root,'skills/adam-studio'),join(payload,'skills/adam-studio'));copy(join(root,'py/analysis/adam_analysis'),join(payload,'py/analysis/adam_analysis'));copy(join(root,'py/capcut/adam_capcut'),join(payload,'py/capcut/adam_capcut'));
 writeFileSync(join(payload,'package.json'),JSON.stringify({name:'adam-studio-runtime',version:'0.1.0',private:true,type:'module'}));
@@ -42,6 +44,8 @@ for(const [file,folder]of [['Anton-Regular.ttf','anton'],['DMSerifDisplay-Regula
 }
 const capcutLab=process.env.ADAM_CAPCUT_LAB||join(process.env.USERPROFILE||'','ClaudeCapcut/VectCutAPI');
 for(const name of ['pyJianYingDraft','draft_profiles.py','settings','template','LICENSE']){if(!existsSync(join(capcutLab,name)))throw Error(`CapCut library incomplete: ${name} missing in ${capcutLab}`);copy(join(capcutLab,name),join(payload,'capcut-lab',name));}
+// The template carries the folder of the Mac it was made on: the export writes the real one, nothing needs this.
+const capcutMeta=join(payload,'capcut-lab/template/draft_meta_info.json');writeFileSync(capcutMeta,JSON.stringify({...JSON.parse(readFileSync(capcutMeta,'utf8')),draft_fold_path:'',draft_root_path:'',draft_name:''}));
 console.log('Preparing Node and multimedia tools');
 mkdirSync(bin,{recursive:true});copy(process.execPath,join(bin,'node.exe'));
 const npmRoot=join(dirname(process.execPath),'node_modules/npm');if(!existsSync(npmRoot))throw Error('Build host npm runtime missing');copy(npmRoot,join(bin,'node_modules/npm'));
@@ -69,12 +73,14 @@ writeFileSync(join(payload,'licenses/yt-dlp/NOTICE.txt'),`yt-dlp ${toolVersion('
 copy(join(here,'third-party/deno-LICENSE.md'),join(payload,'licenses/deno/LICENSE.md'));
 writeFileSync(join(payload,'licenses/deno/VERSION.txt'),toolVersion('deno')+'\nSource code: https://github.com/denoland/deno\n');
 copy(join(here,'THIRD-PARTY.md'),join(payload,'licenses/THIRD-PARTY.md'));
+if(!repair){const missing=execFileSync(process.execPath,[join(here,'make-npm-notices.mjs'),'--check',join(payload,'node_modules')],{encoding:'utf8',windowsHide:true}).trim();if(missing)throw Error('npm packages without a licence file nor a notice (run make-npm-notices.mjs):\n'+missing);}
+copy(join(here,'third-party/npm-notices.txt'),join(payload,'licenses/npm-notices.txt'));
 copy(join(root,'LICENSE'),join(payload,'licenses/ADAM-STUDIO-LICENSE.txt'));
-writeFileSync(join(payload,'BUILD-NOTICE.txt'),'Internal Windows x64 build. No user projects, credentials, model caches or private reference media included. Models download on first use. AI accounts are not bundled. Third-party components and their licenses: licenses/THIRD-PARTY.md.\n');
+writeFileSync(join(payload,'BUILD-NOTICE.txt'),'Adam Studio for Windows x64. No user projects, credentials, model caches or private reference media included. Models download on first use. AI accounts are not bundled. Third-party components and their licenses: licenses/THIRD-PARTY.md.\n');
 const chrome=find(join(payload,'node_modules/.remotion'),'chrome-headless-shell.exe');if(!chrome)throw Error('Remotion browser missing');
 writeFileSync(join(payload,'runtime.json'),JSON.stringify({version:1,node:'bin/node.exe',python:'python/python.exe',browser:relative(payload,chrome)},null,2));
 const env={...process.env,PYTHONNOUSERSITE:'1',PYTHONDONTWRITEBYTECODE:'1'};delete env.PYTHONHOME;delete env.PYTHONPATH;
-execFileSync(join(py,'python.exe'),['-I','-c','import sys,numpy,torch,cv2,faster_whisper,simple_lama_inpainting,adam_analysis,adam_capcut,imageio;print("PACKAGED_PYTHON_OK",sys.prefix)'],{cwd:payload,env,stdio:'inherit',windowsHide:true});
+execFileSync(join(py,'python.exe'),['-I','-c','import sys,numpy,torch,cv2,faster_whisper,adam_analysis.models,adam_capcut,imageio,PIL;assert int(PIL.__version__.split(".")[0])>=12,PIL.__version__;print("PACKAGED_PYTHON_OK",sys.prefix)'],{cwd:payload,env,stdio:'inherit',windowsHide:true});
 execFileSync(join(py,'python.exe'),['-I','-c','import sys;sys.path.insert(0,sys.argv[1]);import draft_profiles,pyJianYingDraft,pyJianYingDraft.text_segment;p=draft_profiles.get_draft_profile();assert p.name=="capcut_legacy",p.name;print("PACKAGED_CAPCUT_OK",p.name)',join(payload,'capcut-lab')],{cwd:payload,env,stdio:'inherit',windowsHide:true});
 for(const dir of ['capcut-lab','capcut-lab/pyJianYingDraft','capcut-lab/settings'])rmSync(join(payload,dir,'__pycache__'),{recursive:true,force:true});
 execFileSync(join(bin,'node.exe'),['--version'],{stdio:'inherit',windowsHide:true});execFileSync(join(bin,'ffmpeg.exe'),['-v','error','-version'],{stdio:'pipe',windowsHide:true});

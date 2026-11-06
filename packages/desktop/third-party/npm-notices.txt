@@ -1,0 +1,1002 @@
+Node packages shipped in Adam Studio that do not carry their own licence file (22).
+Every other package has its licence file in its folder, under node_modules.
+
+=== @esbuild/win32-x64@0.28.1 ===
+Licence: MIT
+Text from: https://github.com/evanw/esbuild/blob/v0.28.1/LICENSE.md
+
+MIT License
+
+Copyright (c) 2020 Evan Wallace
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+=== @esbuild/win32-x64@0.28.2 ===
+Licence: MIT
+Text from: https://github.com/evanw/esbuild/blob/v0.28.2/LICENSE.md
+
+MIT License
+
+Copyright (c) 2020 Evan Wallace
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+=== @remotion/captions@4.0.541 ===
+Licence: MIT
+Text from: https://github.com/remotion-dev/remotion/blob/v4.0.541/LICENSE.md
+
+# Remotion License
+
+In Remotion 5.0, the license will slightly change. [View the changes here](https://github.com/remotion-dev/remotion/pull/3750).
+
+---
+
+Depending on the type of your legal entity, you are granted permission to use Remotion for your project. Individuals and small companies are allowed to use Remotion to create videos for free (even commercial), while a company license is required for for-profit organizations of a certain size. This two-tier system was designed to ensure funding for this project while still allowing the source code to be available and the program to be free for most. Read below for the exact terms of use.
+
+- [Free License](#free-license)
+- [Company License](#company-license)
+
+## Free License
+
+Copyright © 2026 [Remotion](https://www.remotion.dev)
+
+### Eligibility
+
+You are eligible to use Remotion for free if you are:
+
+- an individual
+- a for-profit organization with up to 3 employees
+- a non-profit or not-for-profit organization
+- evaluating whether Remotion is a good fit, and are not yet using it in a commercial way
+
+### Allowed use cases
+
+Permission is hereby granted, free of charge, to any person eligible for the "Free License", to use the software non-commercially or commercially for the purpose of creating videos and images and to modify the software to their own liking, for the purpose of fulfilling their custom use case or to contribute bug fixes or improvements back to Remotion.
+
+### Disallowed use cases
+
+It is not allowed to copy or modify Remotion code for the purpose of selling, renting, licensing, relicensing, or sublicensing your own derivate of Remotion.
+
+### Warranty notice
+
+The software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement. In no event shall the author or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the software.
+
+### Support
+
+Support is provided on a best-we-can-do basis via GitHub Issues and Discord.
+
+## Company License
+
+You are required to obtain a Company License to use Remotion if you are not within the group of entities eligible for a Free License. This license will enable you to use Remotion for the allowed use cases specified in the Free License, and give you access to prioritized support (read the [Support Policy](https://www.remotion.dev/docs/support)).
+
+Visit [remotion.pro](https://www.remotion.pro/license) for pricing and to buy a license.
+
+### FAQs
+
+Are you not sure whether you need a Company License because of an edge case? Here are some [frequently asked questions](https://www.remotion.pro/faq).
+
+=== @remotion/codemods@4.0.541 ===
+Licence: MIT
+Text from: https://github.com/remotion-dev/remotion/blob/v4.0.541/LICENSE.md
+
+# Remotion License
+
+In Remotion 5.0, the license will slightly change. [View the changes here](https://github.com/remotion-dev/remotion/pull/3750).
+
+---
+
+Depending on the type of your legal entity, you are granted permission to use Remotion for your project. Individuals and small companies are allowed to use Remotion to create videos for free (even commercial), while a company license is required for for-profit organizations of a certain size. This two-tier system was designed to ensure funding for this project while still allowing the source code to be available and the program to be free for most. Read below for the exact terms of use.
+
+- [Free License](#free-license)
+- [Company License](#company-license)
+
+## Free License
+
+Copyright © 2026 [Remotion](https://www.remotion.dev)
+
+### Eligibility
+
+You are eligible to use Remotion for free if you are:
+
+- an individual
+- a for-profit organization with up to 3 employees
+- a non-profit or not-for-profit organization
+- evaluating whether Remotion is a good fit, and are not yet using it in a commercial way
+
+### Allowed use cases
+
+Permission is hereby granted, free of charge, to any person eligible for the "Free License", to use the software non-commercially or commercially for the purpose of creating videos and images and to modify the software to their own liking, for the purpose of fulfilling their custom use case or to contribute bug fixes or improvements back to Remotion.
+
+### Disallowed use cases
+
+It is not allowed to copy or modify Remotion code for the purpose of selling, renting, licensing, relicensing, or sublicensing your own derivate of Remotion.
+
+### Warranty notice
+
+The software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement. In no event shall the author or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the software.
+
+### Support
+
+Support is provided on a best-we-can-do basis via GitHub Issues and Discord.
+
+## Company License
+
+You are required to obtain a Company License to use Remotion if you are not within the group of entities eligible for a Free License. This license will enable you to use Remotion for the allowed use cases specified in the Free License, and give you access to prioritized support (read the [Support Policy](https://www.remotion.dev/docs/support)).
+
+Visit [remotion.pro](https://www.remotion.pro/license) for pricing and to buy a license.
+
+### FAQs
+
+Are you not sure whether you need a Company License because of an edge case? Here are some [frequently asked questions](https://www.remotion.pro/faq).
+
+=== @remotion/compositor-win32-x64-msvc@4.0.541 ===
+Licence: see the package
+Text from: https://github.com/remotion-dev/remotion/blob/v4.0.541/LICENSE.md
+
+# Remotion License
+
+In Remotion 5.0, the license will slightly change. [View the changes here](https://github.com/remotion-dev/remotion/pull/3750).
+
+---
+
+Depending on the type of your legal entity, you are granted permission to use Remotion for your project. Individuals and small companies are allowed to use Remotion to create videos for free (even commercial), while a company license is required for for-profit organizations of a certain size. This two-tier system was designed to ensure funding for this project while still allowing the source code to be available and the program to be free for most. Read below for the exact terms of use.
+
+- [Free License](#free-license)
+- [Company License](#company-license)
+
+## Free License
+
+Copyright © 2026 [Remotion](https://www.remotion.dev)
+
+### Eligibility
+
+You are eligible to use Remotion for free if you are:
+
+- an individual
+- a for-profit organization with up to 3 employees
+- a non-profit or not-for-profit organization
+- evaluating whether Remotion is a good fit, and are not yet using it in a commercial way
+
+### Allowed use cases
+
+Permission is hereby granted, free of charge, to any person eligible for the "Free License", to use the software non-commercially or commercially for the purpose of creating videos and images and to modify the software to their own liking, for the purpose of fulfilling their custom use case or to contribute bug fixes or improvements back to Remotion.
+
+### Disallowed use cases
+
+It is not allowed to copy or modify Remotion code for the purpose of selling, renting, licensing, relicensing, or sublicensing your own derivate of Remotion.
+
+### Warranty notice
+
+The software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement. In no event shall the author or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the software.
+
+### Support
+
+Support is provided on a best-we-can-do basis via GitHub Issues and Discord.
+
+## Company License
+
+You are required to obtain a Company License to use Remotion if you are not within the group of entities eligible for a Free License. This license will enable you to use Remotion for the allowed use cases specified in the Free License, and give you access to prioritized support (read the [Support Policy](https://www.remotion.dev/docs/support)).
+
+Visit [remotion.pro](https://www.remotion.pro/license) for pricing and to buy a license.
+
+### FAQs
+
+Are you not sure whether you need a Company License because of an edge case? Here are some [frequently asked questions](https://www.remotion.pro/faq).
+
+=== @remotion/elevenlabs@4.0.541 ===
+Licence: MIT
+Text from: https://github.com/remotion-dev/remotion/blob/v4.0.541/LICENSE.md
+
+# Remotion License
+
+In Remotion 5.0, the license will slightly change. [View the changes here](https://github.com/remotion-dev/remotion/pull/3750).
+
+---
+
+Depending on the type of your legal entity, you are granted permission to use Remotion for your project. Individuals and small companies are allowed to use Remotion to create videos for free (even commercial), while a company license is required for for-profit organizations of a certain size. This two-tier system was designed to ensure funding for this project while still allowing the source code to be available and the program to be free for most. Read below for the exact terms of use.
+
+- [Free License](#free-license)
+- [Company License](#company-license)
+
+## Free License
+
+Copyright © 2026 [Remotion](https://www.remotion.dev)
+
+### Eligibility
+
+You are eligible to use Remotion for free if you are:
+
+- an individual
+- a for-profit organization with up to 3 employees
+- a non-profit or not-for-profit organization
+- evaluating whether Remotion is a good fit, and are not yet using it in a commercial way
+
+### Allowed use cases
+
+Permission is hereby granted, free of charge, to any person eligible for the "Free License", to use the software non-commercially or commercially for the purpose of creating videos and images and to modify the software to their own liking, for the purpose of fulfilling their custom use case or to contribute bug fixes or improvements back to Remotion.
+
+### Disallowed use cases
+
+It is not allowed to copy or modify Remotion code for the purpose of selling, renting, licensing, relicensing, or sublicensing your own derivate of Remotion.
+
+### Warranty notice
+
+The software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement. In no event shall the author or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the software.
+
+### Support
+
+Support is provided on a best-we-can-do basis via GitHub Issues and Discord.
+
+## Company License
+
+You are required to obtain a Company License to use Remotion if you are not within the group of entities eligible for a Free License. This license will enable you to use Remotion for the allowed use cases specified in the Free License, and give you access to prioritized support (read the [Support Policy](https://www.remotion.dev/docs/support)).
+
+Visit [remotion.pro](https://www.remotion.pro/license) for pricing and to buy a license.
+
+### FAQs
+
+Are you not sure whether you need a Company License because of an edge case? Here are some [frequently asked questions](https://www.remotion.pro/faq).
+
+=== @remotion/fonts@4.0.541 ===
+Licence: MIT
+Text from: https://github.com/remotion-dev/remotion/blob/v4.0.541/LICENSE.md
+
+# Remotion License
+
+In Remotion 5.0, the license will slightly change. [View the changes here](https://github.com/remotion-dev/remotion/pull/3750).
+
+---
+
+Depending on the type of your legal entity, you are granted permission to use Remotion for your project. Individuals and small companies are allowed to use Remotion to create videos for free (even commercial), while a company license is required for for-profit organizations of a certain size. This two-tier system was designed to ensure funding for this project while still allowing the source code to be available and the program to be free for most. Read below for the exact terms of use.
+
+- [Free License](#free-license)
+- [Company License](#company-license)
+
+## Free License
+
+Copyright © 2026 [Remotion](https://www.remotion.dev)
+
+### Eligibility
+
+You are eligible to use Remotion for free if you are:
+
+- an individual
+- a for-profit organization with up to 3 employees
+- a non-profit or not-for-profit organization
+- evaluating whether Remotion is a good fit, and are not yet using it in a commercial way
+
+### Allowed use cases
+
+Permission is hereby granted, free of charge, to any person eligible for the "Free License", to use the software non-commercially or commercially for the purpose of creating videos and images and to modify the software to their own liking, for the purpose of fulfilling their custom use case or to contribute bug fixes or improvements back to Remotion.
+
+### Disallowed use cases
+
+It is not allowed to copy or modify Remotion code for the purpose of selling, renting, licensing, relicensing, or sublicensing your own derivate of Remotion.
+
+### Warranty notice
+
+The software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement. In no event shall the author or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the software.
+
+### Support
+
+Support is provided on a best-we-can-do basis via GitHub Issues and Discord.
+
+## Company License
+
+You are required to obtain a Company License to use Remotion if you are not within the group of entities eligible for a Free License. This license will enable you to use Remotion for the allowed use cases specified in the Free License, and give you access to prioritized support (read the [Support Policy](https://www.remotion.dev/docs/support)).
+
+Visit [remotion.pro](https://www.remotion.pro/license) for pricing and to buy a license.
+
+### FAQs
+
+Are you not sure whether you need a Company License because of an edge case? Here are some [frequently asked questions](https://www.remotion.pro/faq).
+
+=== @remotion/licensing@4.0.541 ===
+Licence: MIT
+Text from: https://github.com/remotion-dev/remotion/blob/v4.0.541/LICENSE.md
+
+# Remotion License
+
+In Remotion 5.0, the license will slightly change. [View the changes here](https://github.com/remotion-dev/remotion/pull/3750).
+
+---
+
+Depending on the type of your legal entity, you are granted permission to use Remotion for your project. Individuals and small companies are allowed to use Remotion to create videos for free (even commercial), while a company license is required for for-profit organizations of a certain size. This two-tier system was designed to ensure funding for this project while still allowing the source code to be available and the program to be free for most. Read below for the exact terms of use.
+
+- [Free License](#free-license)
+- [Company License](#company-license)
+
+## Free License
+
+Copyright © 2026 [Remotion](https://www.remotion.dev)
+
+### Eligibility
+
+You are eligible to use Remotion for free if you are:
+
+- an individual
+- a for-profit organization with up to 3 employees
+- a non-profit or not-for-profit organization
+- evaluating whether Remotion is a good fit, and are not yet using it in a commercial way
+
+### Allowed use cases
+
+Permission is hereby granted, free of charge, to any person eligible for the "Free License", to use the software non-commercially or commercially for the purpose of creating videos and images and to modify the software to their own liking, for the purpose of fulfilling their custom use case or to contribute bug fixes or improvements back to Remotion.
+
+### Disallowed use cases
+
+It is not allowed to copy or modify Remotion code for the purpose of selling, renting, licensing, relicensing, or sublicensing your own derivate of Remotion.
+
+### Warranty notice
+
+The software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement. In no event shall the author or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the software.
+
+### Support
+
+Support is provided on a best-we-can-do basis via GitHub Issues and Discord.
+
+## Company License
+
+You are required to obtain a Company License to use Remotion if you are not within the group of entities eligible for a Free License. This license will enable you to use Remotion for the allowed use cases specified in the Free License, and give you access to prioritized support (read the [Support Policy](https://www.remotion.dev/docs/support)).
+
+Visit [remotion.pro](https://www.remotion.pro/license) for pricing and to buy a license.
+
+### FAQs
+
+Are you not sure whether you need a Company License because of an edge case? Here are some [frequently asked questions](https://www.remotion.pro/faq).
+
+=== @remotion/media@4.0.541 ===
+Licence: see the package
+Text from: https://github.com/remotion-dev/remotion/blob/v4.0.541/LICENSE.md
+
+# Remotion License
+
+In Remotion 5.0, the license will slightly change. [View the changes here](https://github.com/remotion-dev/remotion/pull/3750).
+
+---
+
+Depending on the type of your legal entity, you are granted permission to use Remotion for your project. Individuals and small companies are allowed to use Remotion to create videos for free (even commercial), while a company license is required for for-profit organizations of a certain size. This two-tier system was designed to ensure funding for this project while still allowing the source code to be available and the program to be free for most. Read below for the exact terms of use.
+
+- [Free License](#free-license)
+- [Company License](#company-license)
+
+## Free License
+
+Copyright © 2026 [Remotion](https://www.remotion.dev)
+
+### Eligibility
+
+You are eligible to use Remotion for free if you are:
+
+- an individual
+- a for-profit organization with up to 3 employees
+- a non-profit or not-for-profit organization
+- evaluating whether Remotion is a good fit, and are not yet using it in a commercial way
+
+### Allowed use cases
+
+Permission is hereby granted, free of charge, to any person eligible for the "Free License", to use the software non-commercially or commercially for the purpose of creating videos and images and to modify the software to their own liking, for the purpose of fulfilling their custom use case or to contribute bug fixes or improvements back to Remotion.
+
+### Disallowed use cases
+
+It is not allowed to copy or modify Remotion code for the purpose of selling, renting, licensing, relicensing, or sublicensing your own derivate of Remotion.
+
+### Warranty notice
+
+The software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement. In no event shall the author or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the software.
+
+### Support
+
+Support is provided on a best-we-can-do basis via GitHub Issues and Discord.
+
+## Company License
+
+You are required to obtain a Company License to use Remotion if you are not within the group of entities eligible for a Free License. This license will enable you to use Remotion for the allowed use cases specified in the Free License, and give you access to prioritized support (read the [Support Policy](https://www.remotion.dev/docs/support)).
+
+Visit [remotion.pro](https://www.remotion.pro/license) for pricing and to buy a license.
+
+### FAQs
+
+Are you not sure whether you need a Company License because of an edge case? Here are some [frequently asked questions](https://www.remotion.pro/faq).
+
+=== @remotion/openai-whisper@4.0.541 ===
+Licence: MIT
+Text from: https://github.com/remotion-dev/remotion/blob/v4.0.541/LICENSE.md
+
+# Remotion License
+
+In Remotion 5.0, the license will slightly change. [View the changes here](https://github.com/remotion-dev/remotion/pull/3750).
+
+---
+
+Depending on the type of your legal entity, you are granted permission to use Remotion for your project. Individuals and small companies are allowed to use Remotion to create videos for free (even commercial), while a company license is required for for-profit organizations of a certain size. This two-tier system was designed to ensure funding for this project while still allowing the source code to be available and the program to be free for most. Read below for the exact terms of use.
+
+- [Free License](#free-license)
+- [Company License](#company-license)
+
+## Free License
+
+Copyright © 2026 [Remotion](https://www.remotion.dev)
+
+### Eligibility
+
+You are eligible to use Remotion for free if you are:
+
+- an individual
+- a for-profit organization with up to 3 employees
+- a non-profit or not-for-profit organization
+- evaluating whether Remotion is a good fit, and are not yet using it in a commercial way
+
+### Allowed use cases
+
+Permission is hereby granted, free of charge, to any person eligible for the "Free License", to use the software non-commercially or commercially for the purpose of creating videos and images and to modify the software to their own liking, for the purpose of fulfilling their custom use case or to contribute bug fixes or improvements back to Remotion.
+
+### Disallowed use cases
+
+It is not allowed to copy or modify Remotion code for the purpose of selling, renting, licensing, relicensing, or sublicensing your own derivate of Remotion.
+
+### Warranty notice
+
+The software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement. In no event shall the author or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the software.
+
+### Support
+
+Support is provided on a best-we-can-do basis via GitHub Issues and Discord.
+
+## Company License
+
+You are required to obtain a Company License to use Remotion if you are not within the group of entities eligible for a Free License. This license will enable you to use Remotion for the allowed use cases specified in the Free License, and give you access to prioritized support (read the [Support Policy](https://www.remotion.dev/docs/support)).
+
+Visit [remotion.pro](https://www.remotion.pro/license) for pricing and to buy a license.
+
+### FAQs
+
+Are you not sure whether you need a Company License because of an edge case? Here are some [frequently asked questions](https://www.remotion.pro/faq).
+
+=== @remotion/sdk@4.0.541 ===
+Licence: Remotion License
+Text from: https://github.com/remotion-dev/remotion/blob/v4.0.541/LICENSE.md
+
+# Remotion License
+
+In Remotion 5.0, the license will slightly change. [View the changes here](https://github.com/remotion-dev/remotion/pull/3750).
+
+---
+
+Depending on the type of your legal entity, you are granted permission to use Remotion for your project. Individuals and small companies are allowed to use Remotion to create videos for free (even commercial), while a company license is required for for-profit organizations of a certain size. This two-tier system was designed to ensure funding for this project while still allowing the source code to be available and the program to be free for most. Read below for the exact terms of use.
+
+- [Free License](#free-license)
+- [Company License](#company-license)
+
+## Free License
+
+Copyright © 2026 [Remotion](https://www.remotion.dev)
+
+### Eligibility
+
+You are eligible to use Remotion for free if you are:
+
+- an individual
+- a for-profit organization with up to 3 employees
+- a non-profit or not-for-profit organization
+- evaluating whether Remotion is a good fit, and are not yet using it in a commercial way
+
+### Allowed use cases
+
+Permission is hereby granted, free of charge, to any person eligible for the "Free License", to use the software non-commercially or commercially for the purpose of creating videos and images and to modify the software to their own liking, for the purpose of fulfilling their custom use case or to contribute bug fixes or improvements back to Remotion.
+
+### Disallowed use cases
+
+It is not allowed to copy or modify Remotion code for the purpose of selling, renting, licensing, relicensing, or sublicensing your own derivate of Remotion.
+
+### Warranty notice
+
+The software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement. In no event shall the author or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the software.
+
+### Support
+
+Support is provided on a best-we-can-do basis via GitHub Issues and Discord.
+
+## Company License
+
+You are required to obtain a Company License to use Remotion if you are not within the group of entities eligible for a Free License. This license will enable you to use Remotion for the allowed use cases specified in the Free License, and give you access to prioritized support (read the [Support Policy](https://www.remotion.dev/docs/support)).
+
+Visit [remotion.pro](https://www.remotion.pro/license) for pricing and to buy a license.
+
+### FAQs
+
+Are you not sure whether you need a Company License because of an edge case? Here are some [frequently asked questions](https://www.remotion.pro/faq).
+
+=== @remotion/streaming@4.0.541 ===
+Licence: MIT
+Text from: https://github.com/remotion-dev/remotion/blob/v4.0.541/LICENSE.md
+
+# Remotion License
+
+In Remotion 5.0, the license will slightly change. [View the changes here](https://github.com/remotion-dev/remotion/pull/3750).
+
+---
+
+Depending on the type of your legal entity, you are granted permission to use Remotion for your project. Individuals and small companies are allowed to use Remotion to create videos for free (even commercial), while a company license is required for for-profit organizations of a certain size. This two-tier system was designed to ensure funding for this project while still allowing the source code to be available and the program to be free for most. Read below for the exact terms of use.
+
+- [Free License](#free-license)
+- [Company License](#company-license)
+
+## Free License
+
+Copyright © 2026 [Remotion](https://www.remotion.dev)
+
+### Eligibility
+
+You are eligible to use Remotion for free if you are:
+
+- an individual
+- a for-profit organization with up to 3 employees
+- a non-profit or not-for-profit organization
+- evaluating whether Remotion is a good fit, and are not yet using it in a commercial way
+
+### Allowed use cases
+
+Permission is hereby granted, free of charge, to any person eligible for the "Free License", to use the software non-commercially or commercially for the purpose of creating videos and images and to modify the software to their own liking, for the purpose of fulfilling their custom use case or to contribute bug fixes or improvements back to Remotion.
+
+### Disallowed use cases
+
+It is not allowed to copy or modify Remotion code for the purpose of selling, renting, licensing, relicensing, or sublicensing your own derivate of Remotion.
+
+### Warranty notice
+
+The software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement. In no event shall the author or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the software.
+
+### Support
+
+Support is provided on a best-we-can-do basis via GitHub Issues and Discord.
+
+## Company License
+
+You are required to obtain a Company License to use Remotion if you are not within the group of entities eligible for a Free License. This license will enable you to use Remotion for the allowed use cases specified in the Free License, and give you access to prioritized support (read the [Support Policy](https://www.remotion.dev/docs/support)).
+
+Visit [remotion.pro](https://www.remotion.pro/license) for pricing and to buy a license.
+
+### FAQs
+
+Are you not sure whether you need a Company License because of an edge case? Here are some [frequently asked questions](https://www.remotion.pro/faq).
+
+=== @remotion/studio-protocol@4.0.541 ===
+Licence: Remotion License
+Text from: https://github.com/remotion-dev/remotion/blob/v4.0.541/LICENSE.md
+
+# Remotion License
+
+In Remotion 5.0, the license will slightly change. [View the changes here](https://github.com/remotion-dev/remotion/pull/3750).
+
+---
+
+Depending on the type of your legal entity, you are granted permission to use Remotion for your project. Individuals and small companies are allowed to use Remotion to create videos for free (even commercial), while a company license is required for for-profit organizations of a certain size. This two-tier system was designed to ensure funding for this project while still allowing the source code to be available and the program to be free for most. Read below for the exact terms of use.
+
+- [Free License](#free-license)
+- [Company License](#company-license)
+
+## Free License
+
+Copyright © 2026 [Remotion](https://www.remotion.dev)
+
+### Eligibility
+
+You are eligible to use Remotion for free if you are:
+
+- an individual
+- a for-profit organization with up to 3 employees
+- a non-profit or not-for-profit organization
+- evaluating whether Remotion is a good fit, and are not yet using it in a commercial way
+
+### Allowed use cases
+
+Permission is hereby granted, free of charge, to any person eligible for the "Free License", to use the software non-commercially or commercially for the purpose of creating videos and images and to modify the software to their own liking, for the purpose of fulfilling their custom use case or to contribute bug fixes or improvements back to Remotion.
+
+### Disallowed use cases
+
+It is not allowed to copy or modify Remotion code for the purpose of selling, renting, licensing, relicensing, or sublicensing your own derivate of Remotion.
+
+### Warranty notice
+
+The software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement. In no event shall the author or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the software.
+
+### Support
+
+Support is provided on a best-we-can-do basis via GitHub Issues and Discord.
+
+## Company License
+
+You are required to obtain a Company License to use Remotion if you are not within the group of entities eligible for a Free License. This license will enable you to use Remotion for the allowed use cases specified in the Free License, and give you access to prioritized support (read the [Support Policy](https://www.remotion.dev/docs/support)).
+
+Visit [remotion.pro](https://www.remotion.pro/license) for pricing and to buy a license.
+
+### FAQs
+
+Are you not sure whether you need a Company License because of an edge case? Here are some [frequently asked questions](https://www.remotion.pro/faq).
+
+=== @remotion/studio-server@4.0.541 ===
+Licence: MIT
+Text from: https://github.com/remotion-dev/remotion/blob/v4.0.541/LICENSE.md
+
+# Remotion License
+
+In Remotion 5.0, the license will slightly change. [View the changes here](https://github.com/remotion-dev/remotion/pull/3750).
+
+---
+
+Depending on the type of your legal entity, you are granted permission to use Remotion for your project. Individuals and small companies are allowed to use Remotion to create videos for free (even commercial), while a company license is required for for-profit organizations of a certain size. This two-tier system was designed to ensure funding for this project while still allowing the source code to be available and the program to be free for most. Read below for the exact terms of use.
+
+- [Free License](#free-license)
+- [Company License](#company-license)
+
+## Free License
+
+Copyright © 2026 [Remotion](https://www.remotion.dev)
+
+### Eligibility
+
+You are eligible to use Remotion for free if you are:
+
+- an individual
+- a for-profit organization with up to 3 employees
+- a non-profit or not-for-profit organization
+- evaluating whether Remotion is a good fit, and are not yet using it in a commercial way
+
+### Allowed use cases
+
+Permission is hereby granted, free of charge, to any person eligible for the "Free License", to use the software non-commercially or commercially for the purpose of creating videos and images and to modify the software to their own liking, for the purpose of fulfilling their custom use case or to contribute bug fixes or improvements back to Remotion.
+
+### Disallowed use cases
+
+It is not allowed to copy or modify Remotion code for the purpose of selling, renting, licensing, relicensing, or sublicensing your own derivate of Remotion.
+
+### Warranty notice
+
+The software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement. In no event shall the author or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the software.
+
+### Support
+
+Support is provided on a best-we-can-do basis via GitHub Issues and Discord.
+
+## Company License
+
+You are required to obtain a Company License to use Remotion if you are not within the group of entities eligible for a Free License. This license will enable you to use Remotion for the allowed use cases specified in the Free License, and give you access to prioritized support (read the [Support Policy](https://www.remotion.dev/docs/support)).
+
+Visit [remotion.pro](https://www.remotion.pro/license) for pricing and to buy a license.
+
+### FAQs
+
+Are you not sure whether you need a Company License because of an edge case? Here are some [frequently asked questions](https://www.remotion.pro/faq).
+
+=== @remotion/studio-shared@4.0.541 ===
+Licence: MIT
+Text from: https://github.com/remotion-dev/remotion/blob/v4.0.541/LICENSE.md
+
+# Remotion License
+
+In Remotion 5.0, the license will slightly change. [View the changes here](https://github.com/remotion-dev/remotion/pull/3750).
+
+---
+
+Depending on the type of your legal entity, you are granted permission to use Remotion for your project. Individuals and small companies are allowed to use Remotion to create videos for free (even commercial), while a company license is required for for-profit organizations of a certain size. This two-tier system was designed to ensure funding for this project while still allowing the source code to be available and the program to be free for most. Read below for the exact terms of use.
+
+- [Free License](#free-license)
+- [Company License](#company-license)
+
+## Free License
+
+Copyright © 2026 [Remotion](https://www.remotion.dev)
+
+### Eligibility
+
+You are eligible to use Remotion for free if you are:
+
+- an individual
+- a for-profit organization with up to 3 employees
+- a non-profit or not-for-profit organization
+- evaluating whether Remotion is a good fit, and are not yet using it in a commercial way
+
+### Allowed use cases
+
+Permission is hereby granted, free of charge, to any person eligible for the "Free License", to use the software non-commercially or commercially for the purpose of creating videos and images and to modify the software to their own liking, for the purpose of fulfilling their custom use case or to contribute bug fixes or improvements back to Remotion.
+
+### Disallowed use cases
+
+It is not allowed to copy or modify Remotion code for the purpose of selling, renting, licensing, relicensing, or sublicensing your own derivate of Remotion.
+
+### Warranty notice
+
+The software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement. In no event shall the author or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the software.
+
+### Support
+
+Support is provided on a best-we-can-do basis via GitHub Issues and Discord.
+
+## Company License
+
+You are required to obtain a Company License to use Remotion if you are not within the group of entities eligible for a Free License. This license will enable you to use Remotion for the allowed use cases specified in the Free License, and give you access to prioritized support (read the [Support Policy](https://www.remotion.dev/docs/support)).
+
+Visit [remotion.pro](https://www.remotion.pro/license) for pricing and to buy a license.
+
+### FAQs
+
+Are you not sure whether you need a Company License because of an edge case? Here are some [frequently asked questions](https://www.remotion.pro/faq).
+
+=== @remotion/studio@4.0.541 ===
+Licence: MIT
+Text from: https://github.com/remotion-dev/remotion/blob/v4.0.541/LICENSE.md
+
+# Remotion License
+
+In Remotion 5.0, the license will slightly change. [View the changes here](https://github.com/remotion-dev/remotion/pull/3750).
+
+---
+
+Depending on the type of your legal entity, you are granted permission to use Remotion for your project. Individuals and small companies are allowed to use Remotion to create videos for free (even commercial), while a company license is required for for-profit organizations of a certain size. This two-tier system was designed to ensure funding for this project while still allowing the source code to be available and the program to be free for most. Read below for the exact terms of use.
+
+- [Free License](#free-license)
+- [Company License](#company-license)
+
+## Free License
+
+Copyright © 2026 [Remotion](https://www.remotion.dev)
+
+### Eligibility
+
+You are eligible to use Remotion for free if you are:
+
+- an individual
+- a for-profit organization with up to 3 employees
+- a non-profit or not-for-profit organization
+- evaluating whether Remotion is a good fit, and are not yet using it in a commercial way
+
+### Allowed use cases
+
+Permission is hereby granted, free of charge, to any person eligible for the "Free License", to use the software non-commercially or commercially for the purpose of creating videos and images and to modify the software to their own liking, for the purpose of fulfilling their custom use case or to contribute bug fixes or improvements back to Remotion.
+
+### Disallowed use cases
+
+It is not allowed to copy or modify Remotion code for the purpose of selling, renting, licensing, relicensing, or sublicensing your own derivate of Remotion.
+
+### Warranty notice
+
+The software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement. In no event shall the author or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the software.
+
+### Support
+
+Support is provided on a best-we-can-do basis via GitHub Issues and Discord.
+
+## Company License
+
+You are required to obtain a Company License to use Remotion if you are not within the group of entities eligible for a Free License. This license will enable you to use Remotion for the allowed use cases specified in the Free License, and give you access to prioritized support (read the [Support Policy](https://www.remotion.dev/docs/support)).
+
+Visit [remotion.pro](https://www.remotion.pro/license) for pricing and to buy a license.
+
+### FAQs
+
+Are you not sure whether you need a Company License because of an edge case? Here are some [frequently asked questions](https://www.remotion.pro/faq).
+
+=== @remotion/timeline-utils@4.0.541 ===
+Licence: MIT
+Text from: https://github.com/remotion-dev/remotion/blob/v4.0.541/LICENSE.md
+
+# Remotion License
+
+In Remotion 5.0, the license will slightly change. [View the changes here](https://github.com/remotion-dev/remotion/pull/3750).
+
+---
+
+Depending on the type of your legal entity, you are granted permission to use Remotion for your project. Individuals and small companies are allowed to use Remotion to create videos for free (even commercial), while a company license is required for for-profit organizations of a certain size. This two-tier system was designed to ensure funding for this project while still allowing the source code to be available and the program to be free for most. Read below for the exact terms of use.
+
+- [Free License](#free-license)
+- [Company License](#company-license)
+
+## Free License
+
+Copyright © 2026 [Remotion](https://www.remotion.dev)
+
+### Eligibility
+
+You are eligible to use Remotion for free if you are:
+
+- an individual
+- a for-profit organization with up to 3 employees
+- a non-profit or not-for-profit organization
+- evaluating whether Remotion is a good fit, and are not yet using it in a commercial way
+
+### Allowed use cases
+
+Permission is hereby granted, free of charge, to any person eligible for the "Free License", to use the software non-commercially or commercially for the purpose of creating videos and images and to modify the software to their own liking, for the purpose of fulfilling their custom use case or to contribute bug fixes or improvements back to Remotion.
+
+### Disallowed use cases
+
+It is not allowed to copy or modify Remotion code for the purpose of selling, renting, licensing, relicensing, or sublicensing your own derivate of Remotion.
+
+### Warranty notice
+
+The software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement. In no event shall the author or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the software.
+
+### Support
+
+Support is provided on a best-we-can-do basis via GitHub Issues and Discord.
+
+## Company License
+
+You are required to obtain a Company License to use Remotion if you are not within the group of entities eligible for a Free License. This license will enable you to use Remotion for the allowed use cases specified in the Free License, and give you access to prioritized support (read the [Support Policy](https://www.remotion.dev/docs/support)).
+
+Visit [remotion.pro](https://www.remotion.pro/license) for pricing and to buy a license.
+
+### FAQs
+
+Are you not sure whether you need a Company License because of an edge case? Here are some [frequently asked questions](https://www.remotion.pro/faq).
+
+=== @remotion/zod-types@4.0.541 ===
+Licence: MIT
+Text from: https://github.com/remotion-dev/remotion/blob/v4.0.541/LICENSE.md
+
+# Remotion License
+
+In Remotion 5.0, the license will slightly change. [View the changes here](https://github.com/remotion-dev/remotion/pull/3750).
+
+---
+
+Depending on the type of your legal entity, you are granted permission to use Remotion for your project. Individuals and small companies are allowed to use Remotion to create videos for free (even commercial), while a company license is required for for-profit organizations of a certain size. This two-tier system was designed to ensure funding for this project while still allowing the source code to be available and the program to be free for most. Read below for the exact terms of use.
+
+- [Free License](#free-license)
+- [Company License](#company-license)
+
+## Free License
+
+Copyright © 2026 [Remotion](https://www.remotion.dev)
+
+### Eligibility
+
+You are eligible to use Remotion for free if you are:
+
+- an individual
+- a for-profit organization with up to 3 employees
+- a non-profit or not-for-profit organization
+- evaluating whether Remotion is a good fit, and are not yet using it in a commercial way
+
+### Allowed use cases
+
+Permission is hereby granted, free of charge, to any person eligible for the "Free License", to use the software non-commercially or commercially for the purpose of creating videos and images and to modify the software to their own liking, for the purpose of fulfilling their custom use case or to contribute bug fixes or improvements back to Remotion.
+
+### Disallowed use cases
+
+It is not allowed to copy or modify Remotion code for the purpose of selling, renting, licensing, relicensing, or sublicensing your own derivate of Remotion.
+
+### Warranty notice
+
+The software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement. In no event shall the author or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the software.
+
+### Support
+
+Support is provided on a best-we-can-do basis via GitHub Issues and Discord.
+
+## Company License
+
+You are required to obtain a Company License to use Remotion if you are not within the group of entities eligible for a Free License. This license will enable you to use Remotion for the allowed use cases specified in the Free License, and give you access to prioritized support (read the [Support Policy](https://www.remotion.dev/docs/support)).
+
+Visit [remotion.pro](https://www.remotion.pro/license) for pricing and to buy a license.
+
+### FAQs
+
+Are you not sure whether you need a Company License because of an edge case? Here are some [frequently asked questions](https://www.remotion.pro/faq).
+
+=== esrecurse@4.3.0 ===
+Licence: BSD-2-Clause
+Text from: https://github.com/estools/esrecurse/blob/master/LICENSE.md
+
+### License
+
+Copyright (C) 2014 [Yusuke Suzuki](https://github.com/Constellation)
+ (twitter: [@Constellation](https://twitter.com/Constellation)) and other contributors.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+  * Redistributions of source code must retain the above copyright
+    notice, this list of conditions and the following disclaimer.
+
+  * Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in the
+    documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+=== glob-to-regexp@0.4.1 ===
+Licence: BSD-2-Clause
+Text from: standard text of BSD-2-Clause, as declared in the package's package.json
+
+Copyright (c) Nick Fitzgerald <fitzgen@gmail.com>
+
+Copyright (c) <year> <owner> 
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+=== kiwi-schema@0.5.0 ===
+Licence: MIT
+Text from: https://github.com/evanw/kiwi/blob/master/LICENSE.md
+
+Copyright (c) 2016-2023 Evan Wallace
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+=== svg-parser@2.1.0 ===
+Licence: MIT
+Text from: https://github.com/Rich-Harris/svg-parser/blob/master/LICENSE
+
+MIT License
+
+Copyright (c) 2016 Rich Harris
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

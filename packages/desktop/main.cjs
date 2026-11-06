@@ -1,11 +1,12 @@
 const {app,autoUpdater,BrowserWindow,clipboard,dialog,Menu,screen,shell,nativeImage}=require('electron');
-const {fork,spawn,spawnSync}=require('node:child_process');
+const {spawn,spawnSync}=require('node:child_process');
 const {join,dirname,basename}=require('node:path');
-const {readFileSync,writeFileSync,mkdirSync,createWriteStream}=require('node:fs');
+const {existsSync,readFileSync,writeFileSync,mkdirSync,createWriteStream}=require('node:fs');
 const {randomBytes}=require('node:crypto');
 const {fitWindow,isLocal,isExternal}=require('./policy.cjs');
 const {canCheck,startUpdates}=require('./updates.cjs');
 const {buildReport,keepTail,offerReport}=require('./crash.cjs');
+const {whatsNew}=require('./whats-new.cjs');
 const os=require('node:os');
 // Squirrel invokes these hooks during per-user install/update/uninstall. Never open the Studio for them.
 if(app.isPackaged && process.argv.some(a=>['--squirrel-install','--squirrel-updated','--squirrel-uninstall','--squirrel-obsolete'].includes(a))){
@@ -59,6 +60,13 @@ process.on('uncaughtException',async error=>{
  quitting=true;killBackend();app.exit(1);
 });
 const stateFile=()=>join(app.getPath('userData'),'window-state.json');
+// Once per version, over the Studio. Never in the way of a launch.
+function showWhatsNew(){
+ try{
+  const news=whatsNew({file:join(app.getPath('userData'),'whats-new.json'),version:app.getVersion(),notes:JSON.parse(readFileSync(join(__dirname,'whats-new.json'),'utf8')),lang,used:existsSync(stateFile())});
+  if(news)void dialog.showMessageBox(win,{type:'info',title:'Adam Studio',...news,buttons:['OK'],defaultId:0,noLink:true}).catch(e=>console.error('What is new:',e.message));
+ }catch(e){console.error('What is new:',e.message);}
+}
 function saved(){try{return JSON.parse(readFileSync(stateFile(),'utf8'));}catch{return {};}}
 function save(){if(!win||win.isDestroyed())return;try{mkdirSync(app.getPath('userData'),{recursive:true});writeFileSync(stateFile(),JSON.stringify({bounds:win.getNormalBounds(),maximized:win.isMaximized(),zoom:win.webContents.getZoomFactor()}));}catch(e){console.error('Window state:',e.message);}}
 function killBackend(){if(!child||child.exitCode!==null||forceKilled)return;forceKilled=true;if(process.platform==='win32'&&child.pid)spawnSync('taskkill',['/pid',String(child.pid),'/T','/F'],{windowsHide:true});else child.kill('SIGTERM');}
@@ -93,7 +101,8 @@ function startBackend(){return new Promise((resolve,reject)=>{
  const logFile=join(app.getPath('userData'),'backend.log');mkdirSync(dirname(logFile),{recursive:true});
  const log=createWriteStream(logFile);log.on('error',e=>console.error('Backend log:',e.message));
  const timeout=setTimeout(()=>reject(Error(`Le moteur Adam ne répond pas après 3 minutes. Relance Adam Studio. Détails : ${logFile}`)),BACKEND_START_MS);
- child=fork(join(root,'packages/desktop/backend.ts'),[],{execPath:runtime?runtime.node:process.env.ADAM_DESKTOP_NODE,execArgv:['--import','tsx'],cwd:root,env:{...(runtime?runtime.env:process.env),ADAM_DESKTOP_TOKEN:token},stdio:['ignore','pipe','pipe','ipc'],windowsHide:true});
+ // spawn and not fork: the RunAsNode fuse forbids fork. The engine runs on its own node.exe, the 'ipc' stream is the same.
+ child=spawn(runtime?runtime.node:process.env.ADAM_DESKTOP_NODE,['--import','tsx',join(root,'packages/desktop/backend.ts')],{cwd:root,env:{...(runtime?runtime.env:process.env),ADAM_DESKTOP_TOKEN:token},stdio:['ignore','pipe','pipe','ipc'],windowsHide:true});
  const keep=d=>{logTail=keepTail(logTail,String(d));log.write(d);};
  child.stdout.on('data',d=>{process.stdout.write(d);keep(d);});child.stderr.on('data',d=>{process.stderr.write(d);keep(d);});
  child.on('message',m=>{if(m.type==='ready'){clearTimeout(timeout);resolve(m);}if(m.id&&pending.has(m.id)){pending.get(m.id)(m);pending.delete(m.id);}});
@@ -144,7 +153,7 @@ app.whenReady().then(async()=>{
   child.send({type:'smoke-job'});await new Promise(resolve=>child.once('message',resolve));
   if(!(await request('status')).busy)throw Error('Active job was not detected');
   console.log('DESKTOP_SMOKE_OK '+JSON.stringify({...result,busyDetected:true,bounds:win.getBounds(),backendPid:child.pid}));await stop();
- }else win.show();
+ }else{win.show();showWhatsNew();}
 }).catch(async e=>{console.error(e);hideStarting();if(quitting)return; // Already closing, or the engine's exit already asked: one report, and that dialog must stay open.
  if(!smoke)await report({message:e.message,kind:'Échec au démarrage',error:e});quitting=true;killBackend();app.exit(1);});
 }
