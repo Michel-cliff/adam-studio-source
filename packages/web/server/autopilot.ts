@@ -19,6 +19,8 @@ export interface Pilot {
   script(dir: string, signal?: AbortSignal): Promise<void>;
   /** Interrupts the process owned by this project. */
   stop?(name: string): void;
+  /** True when a take's sound is already mixed (flagged at import): auto mode then adds no sound on its own. */
+  soundMixed?(dir: string): boolean;
 }
 
 export type AutoState = { state: "running" | "done" | "stopped" | "failed"; step: string; label: string; error?: string; at: number };
@@ -77,6 +79,8 @@ export class Autopilot {
         if (pending) { this.pilot.decide(dir, pending.id, pending.variants[0]?.key ?? "reject"); continue; }
         // The story needs no shapes to pick from: the script (the creator's, or written from the transcript) is enough.
         if (step === "structure") { await this.pilot.script(dir, r.controller.signal); if (r.stop) { r.state = "stopped"; return; } this.pilot.close(dir); continue; }
+        // A take whose sound is already mixed gets no music or effects unless the creator asks for them by hand: auto mode never asks.
+        if (step === "sound" && this.pilot.soundMixed?.(dir)) { this.pilot.close(dir); continue; }
         const preset = STEP_PRESET[step];
         if (preset && !asked.has(step) && !p.proposals.some((x) => x.step === step)) {
           asked.add(step);

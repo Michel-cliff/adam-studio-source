@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { exportSchemas, mergeStyle, resolve, type Project } from "@adam-studio/model";
 import { searchLocal } from "@adam-studio/library/src/local";
 import { readScript } from "./script";
@@ -32,6 +34,30 @@ function transcript(project: Project): string {
   }
   const text = lines.join("\n");
   return text.length > TRANSCRIPT_CHARS ? `${text.slice(0, TRANSCRIPT_CHARS)}\n… (cut here: get_transcript with a range for the rest)` : text;
+}
+
+/**
+ * The takes whose sound was flagged at import as already mixed (music or effects under the voice, or a noisy room): the
+ * analysis keeps that warning in the take's probe.json, and the sound step must know it to add no sound unprompted.
+ */
+function mixedSound(dir: string, project: Project): string[] {
+  const used = new Set(project.story.map((c) => c.asset));
+  const lines: string[] = [];
+  for (const a of project.assets) {
+    if (a.kind !== "video" || (used.size && !used.has(a.id))) continue;
+    const file = join(dir, "cache", a.id, "probe.json");
+    if (!existsSync(file)) continue;
+    try {
+      const warning = (JSON.parse(readFileSync(file, "utf8")).ingest as string[] | undefined)?.find((w) => /already mixed in/.test(w));
+      if (warning) lines.push(`${a.id}: ${warning.replace(/^[^:]*:\s*/, "")}`);
+    } catch { /* an unreadable probe: no flag */ }
+  }
+  return lines;
+}
+
+/** True when a take of the project was flagged at import as already mixed: auto mode then adds no sound. */
+export function hasMixedSound(dir: string): boolean {
+  try { return mixedSound(dir, load(dir).project).length > 0; } catch { return false; }
 }
 
 /** The creator's don'ts folder as rules: each file by name, with its notes. */
@@ -79,6 +105,9 @@ export function stepContext(dir: string, step: string): string {
     `## Elements of this step (${step === "hook" ? `starting before ${HOOK_MS / 1000} s` : kinds.join(", ") || "none"}; edit by id)`,
     json(elements.map((e) => ({ ...e, startMs: startMs.get(e.id) }))),
     ...(script ? ["## The creator's script", script] : []),
+    ...(step === "sound" && mixedSound(dir, project).length
+      ? ["## Sound of the takes (flagged at import)", ...mixedSound(dir, project), "Add no sound to these takes: no music, no effects, unless the creator's request asks for it. Say so in the proposal instead."]
+      : []),
     "## Transcript",
     transcript(project),
     "## Patch shape (variant patch, apply_patch)",

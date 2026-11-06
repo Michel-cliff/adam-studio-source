@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -29,5 +29,18 @@ describe("the context sent with an ask", () => {
 
   it("lists the creator's don'ts as rules", () => {
     expect(stepContext(dir, "hook")).toMatch(/## Don'ts[^\n]*\n- cheap-glitch \(image, [^)]+\): No RGB glitch on titles\./);
+  });
+
+  it("tells the sound step when a take already has its sound mixed in, and says nothing otherwise", () => {
+    expect(stepContext(dir, "sound")).not.toMatch(/## Sound of the takes/);
+    const asset = JSON.parse(readFileSync(join(dir, "project.json"), "utf8")).story[0].asset as string;
+    const file = join(dir, "cache", asset, "probe.json");
+    mkdirSync(join(dir, "cache", asset), { recursive: true });
+    const probe = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : {};
+    writeFileSync(file, JSON.stringify({ ...probe, ingest: [`${asset}.mp4: sound at -34 dBFS between words (a noisy room, or music already mixed in): the take is kept`] }));
+    const c = stepContext(dir, "sound");
+    expect(c).toMatch(new RegExp(`## Sound of the takes[^\\n]*\\n${asset}: [^\\n]*already mixed in`));
+    expect(c).toMatch(/Add no sound/);
+    expect(stepContext(dir, "hook")).not.toMatch(/## Sound of the takes/);
   });
 });

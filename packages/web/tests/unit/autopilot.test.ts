@@ -4,7 +4,7 @@ import { Autopilot, type Pilot } from "../../server/autopilot";
 const STEPS = ["cuts", "structure", "captions", "hook", "beats", "visuals", "sound", "look"];
 
 /** A project in memory: the first pass proposes cuts, every ask proposes A and B for its step. */
-function fake(opts: { askFails?: string } = {}) {
+function fake(opts: { askFails?: string; soundMixed?: boolean } = {}) {
   let wf: { current: string; steps: Record<string, string> } | null = null;
   const proposals: { id: string; step: string; status: unknown; variants: { key: string }[] }[] = [];
   const log: string[] = [];
@@ -32,6 +32,7 @@ function fake(opts: { askFails?: string } = {}) {
     },
     render: async () => { log.push("render"); return true; },
     script: async () => { log.push("script"); },
+    ...(opts.soundMixed ? { soundMixed: () => true } : {}),
   };
   return { pilot, log };
 }
@@ -45,6 +46,13 @@ describe("auto mode", () => {
       "first pass", "close cuts", "script", "close structure", "ask captions", "decide p.captions A",
       "ask hook", "decide p.hook A", "close beats", "ask visuals", "decide p.visuals A", "ask sound", "decide p.sound A", "close look", "render",
     ]);
+  });
+  it("adds no sound on its own to a take whose sound is already mixed: the sound step is closed, never asked", async () => {
+    const { pilot, log } = fake({ soundMixed: true });
+    expect((await new Autopilot(pilot).start("v", "/v")).state).toBe("done");
+    expect(log).not.toContain("ask sound");
+    expect(log).toContain("close sound");
+    expect(log).toContain("ask visuals");
   });
   it("moves on when the AI proposes nothing for a step", async () => {
     const { pilot, log } = fake({ askFails: "hook" });

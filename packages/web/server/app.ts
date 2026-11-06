@@ -16,7 +16,7 @@ import { BusyError, JobManager } from "./jobs";
 import { venvPython, WEB } from "./paths";
 import { askCommand, claudeBin } from "./claude";
 import { codexAskCommand, codexBin, installed, parseCodexUsage } from "./codex";
-import { stepContext } from "./context";
+import { hasMixedSound, stepContext } from "./context";
 import { libraryRoute } from "./library-routes";
 import { AiError, aiRunner, type AskAI } from "./ai";
 import { aiFailureText } from "./ai-errors";
@@ -141,6 +141,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     },
     render: async (name, dir) => (await ended((done) => jobs.start(name, buildCommand("render", dir, {}, capcutPython()), done))).state === "done",
     script: async (dir, signal) => { if (!readScript(dir).text.trim()) await draftScript(dir, ai, signal); },
+    soundMixed: hasMixedSound,
     stop: (name) => { const job = jobs.running(name); if (job) jobs.stop(job.id); },
   });
 
