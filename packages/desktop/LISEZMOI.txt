@@ -38,6 +38,7 @@ Installe Microsoft Visual C++ Redistributable (x64) : https://aka.ms/vc14/vc_red
 - L'export CapCut est expérimental et demande CapCut Desktop.
 - Les mises à jour se téléchargent toutes seules. Adam Studio te demande avant de redémarrer et ne le fait
   jamais pendant un rendu. Si tu préfères attendre, elle s'installe au prochain démarrage.
+  Tu peux fermer Adam Studio pendant une mise à jour : elle se termine en arrière-plan.
 - Licences des composants : menu Application, puis Licences.
 
 TES DONNÉES
@@ -91,7 +92,8 @@ GOOD TO KNOW
   You can switch AI from the main page.
 - The CapCut export is experimental and requires CapCut Desktop.
 - Updates download by themselves. Adam Studio asks before restarting and never does so during a render.
-  If you prefer to wait, the update installs the next time you start the app.
+  If you prefer to wait, the update installs the next time you start the app. You can close Adam Studio
+  during an update: it finishes in the background.
 - Component licences: Application menu, then Licences.
 
 YOUR DATA

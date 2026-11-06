@@ -38,7 +38,7 @@ if(smoke && app.isPackaged && !process.env.ADAM_DESKTOP_DATA){
  writeFileSync(join(dir,'onboarding.json'),JSON.stringify({completed:true}));
 }
 if(!app.requestSingleInstanceLock()){app.quit();}else{
-let win,starting,child,origin,lang='fr',quitting=false,checking=false,forceKilled=false;
+let win,starting,child,origin,updates,lang='fr',quitting=false,checking=false,forceKilled=false,hiddenForUpdate=false,hiddenLimit;
 const runtime=app.isPackaged?require('./runtime.cjs').packagedRuntime(process.resourcesPath,app.getPath('userData')):null;
 const pending=new Map();let seq=0;const root=runtime?runtime.root:join(__dirname,'../..');
 const token=randomBytes(32).toString('hex');
@@ -75,13 +75,15 @@ async function close(){
  if(checking||quitting)return;checking=true;
  try{
   let busy=true;try{busy=(await request('status')).busy;}catch{}
+  // An update is lost if the app closes during it, and sessions shorter than it would never get one. The window goes now, the process finishes.
+  if(!busy&&updates?.downloading()){hiddenForUpdate=true;save();win.hide();clearTimeout(hiddenLimit);hiddenLimit=setTimeout(()=>void stop(),HIDDEN_UPDATE_MS);return;}
   if(busy){const choice=await dialog.showMessageBox(win,{type:'question',title:'Adam Studio',message:lang==='fr'?'Une génération est en cours.':'A task is still running.',detail:lang==='fr'?'Tu peux revenir au Studio ou arrêter les tâches et fermer.':'Return to the Studio or stop the tasks and close.',buttons:lang==='fr'?['Revenir au Studio','Arrêter et fermer']:['Return to Studio','Stop and close'],defaultId:0,cancelId:0,noLink:true});if(choice.response!==1)return;}
   await stop();
  }finally{checking=false;}
 }
 // The first launch compiles the whole engine with nothing in cache while the antivirus reads every file: 14 s on a fast
 // computer, much more on a modest one. The wait is shown, and only a real hang ends it.
-const BACKEND_START_MS=180000;
+const BACKEND_START_MS=180000,HIDDEN_UPDATE_MS=40*60*1000;
 function showStarting(){
  starting=new BrowserWindow({width:420,height:260,frame:false,resizable:false,movable:true,minimizable:false,maximizable:false,fullscreenable:false,center:true,title:'Adam Studio',backgroundColor:'#252422',webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true}});
  void starting.loadFile(join(__dirname,'assets/starting.html'));
@@ -97,9 +99,11 @@ function startBackend(){return new Promise((resolve,reject)=>{
  child.on('message',m=>{if(m.type==='ready'){clearTimeout(timeout);resolve(m);}if(m.id&&pending.has(m.id)){pending.get(m.id)(m);pending.delete(m.id);}});
  child.on('error',reject);child.on('exit',async(code)=>{clearTimeout(timeout);if(!origin)reject(Error(`Le moteur Adam s’est arrêté (${code}).`));else if(!quitting){quitting=true;if(!smoke)await report({message:lang==='fr'?'Le moteur s’est arrêté. Relance Adam Studio.':'The engine stopped. Restart Adam Studio.',kind:`Moteur arrêté (code ${code})`});app.quit();}});
 });}
-app.on('second-instance',()=>{if(win){if(win.isMinimized())win.restore();win.show();win.focus();}else if(starting&&!starting.isDestroyed())starting.focus();});
+app.on('second-instance',()=>{if(hiddenForUpdate){hiddenForUpdate=false;clearTimeout(hiddenLimit);}if(win){if(win.isMinimized())win.restore();win.show();win.focus();}else if(starting&&!starting.isDestroyed())starting.focus();});
 app.on('before-quit',e=>{if(!quitting){e.preventDefault();void close();}});
 app.on('will-quit',killBackend);
+// Windows is shutting down or logging off: a hidden update never holds it back.
+app.on('session-end',()=>{quitting=true;hiddenForUpdate=false;killBackend();});
 app.whenReady().then(async()=>{
  if(!smoke)showStarting();
  const ready=await startBackend();origin=ready.url;lang=ready.lang;
@@ -122,9 +126,10 @@ app.whenReady().then(async()=>{
  win.webContents.on('will-navigate',(e,url)=>{if(!isLocal(url,origin))e.preventDefault();});
  win.webContents.on('will-redirect',(e,url)=>{if(!isLocal(url,origin))e.preventDefault();});
  win.webContents.setWindowOpenHandler(({url})=>{if(isLocal(url,origin))win.webContents.downloadURL(url);else if(isExternal(url))void shell.openExternal(url);return {action:'deny'};});
- const updates=canCheck({packaged:app.isPackaged,smoke,argv:process.argv})?startUpdates({autoUpdater,version:app.getVersion(),lang,busy:async()=>(await request('status')).busy,ask:async({message,detail,buttons})=>(await dialog.showMessageBox(win,{type:'info',title:'Adam Studio',message,detail,buttons,defaultId:0,cancelId:buttons.length-1,noLink:true})).response,restart:()=>void installUpdate(),log:error=>console.error('Update:',error?.message||error)}):null;
- const appMenu=[...(updates?[{label:lang==='fr'?'Rechercher les mises à jour':'Check for updates',click:()=>updates.check(true)}]:[]),...(runtime?[{label:lang==='fr'?'Licences':'Licences',click:()=>void shell.openPath(join(root,'licenses'))}]:[]),{label:lang==='fr'?'Signaler un problème':'Report a problem',click:()=>void report({kind:'Signalement',type:'info'})},{type:'separator'},{label:lang==='fr'?'Quitter':'Quit',click:()=>void close()}];
- Menu.setApplicationMenu(Menu.buildFromTemplate([{label:lang==='fr'?'Application':'Application',submenu:appMenu},{label:lang==='fr'?'Édition':'Edit',submenu:[{role:'undo'},{role:'redo'},{type:'separator'},{role:'cut'},{role:'copy'},{role:'paste'},{role:'selectAll'}]},{label:lang==='fr'?'Affichage':'View',submenu:[{role:'reload'},{role:'resetZoom'},{role:'zoomIn'},{role:'zoomOut'},{role:'togglefullscreen'}]}]));
+ updates=canCheck({packaged:app.isPackaged,smoke,argv:process.argv})?startUpdates({autoUpdater,version:app.getVersion(),lang,busy:async()=>(await request('status')).busy,ask:async({message,detail,buttons})=>(await dialog.showMessageBox(win,{type:'info',title:'Adam Studio',message,detail,buttons,defaultId:0,cancelId:buttons.length-1,noLink:true})).response,restart:()=>void installUpdate(),log:error=>console.error('Update:',error?.message||error),closing:()=>hiddenForUpdate,onState:active=>{buildMenu();if(!active&&hiddenForUpdate)void stop();}}):null;
+ const buildMenu=()=>{const appMenu=[...(updates?[{label:updates.downloading()?(lang==='fr'?'Mise à jour en cours…':'Update in progress…'):(lang==='fr'?'Rechercher les mises à jour':'Check for updates'),click:()=>updates.check(true)}]:[]),...(runtime?[{label:lang==='fr'?'Licences':'Licences',click:()=>void shell.openPath(join(root,'licenses'))}]:[]),{label:lang==='fr'?'Signaler un problème':'Report a problem',click:()=>void report({kind:'Signalement',type:'info'})},{type:'separator'},{label:lang==='fr'?'Quitter':'Quit',click:()=>void close()}];
+ Menu.setApplicationMenu(Menu.buildFromTemplate([{label:lang==='fr'?'Application':'Application',submenu:appMenu},{label:lang==='fr'?'Édition':'Edit',submenu:[{role:'undo'},{role:'redo'},{type:'separator'},{role:'cut'},{role:'copy'},{role:'paste'},{role:'selectAll'}]},{label:lang==='fr'?'Affichage':'View',submenu:[{role:'reload'},{role:'resetZoom'},{role:'zoomIn'},{role:'zoomOut'},{role:'togglefullscreen'}]}]));};
+ buildMenu();
  win.on('close',e=>{if(!quitting){e.preventDefault();void close();}});
  let saveTimer;for(const event of ['move','resize','maximize','unmaximize'])win.on(event,()=>{clearTimeout(saveTimer);saveTimer=setTimeout(save,300);});
  const adapt=()=>{if(win&&!win.isDestroyed()&&!win.isMaximized())win.setBounds(fitWindow(win.getBounds(),screen.getAllDisplays().map(d=>d.workArea)));};

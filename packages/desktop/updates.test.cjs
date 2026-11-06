@@ -93,3 +93,31 @@ test('a first version with only a full package stays a plain name',()=>{
 test('a list without this version stops the build instead of publishing nothing',()=>{
  assert.throws(()=>releasesForFeed(SQUIRREL_RELEASES,'0.2.0'),/0\.2\.0/);
 });
+test('downloading means a real update is on its way, not a mere check',()=>{
+ const states=[];const {updater,s}=setup({onState:d=>states.push(d)});
+ assert.equal(s.downloading(),false);
+ s.check();assert.equal(s.downloading(),false);
+ updater.emit('update-available');assert.equal(s.downloading(),true);
+ updater.emit('update-downloaded',{},'','0.1.1');assert.equal(s.downloading(),false);
+ assert.deepEqual(states,[true,false]);
+});
+test('a failed update is no longer downloading, so a hidden app can close',()=>{
+ const states=[];const {updater,s}=setup({onState:d=>states.push(d)});
+ s.check();updater.emit('update-available');updater.emit('error',Error('offline'));
+ assert.equal(s.downloading(),false);assert.deepEqual(states,[true,false]);
+});
+test('nothing is asked when the person already closed the app: it installs at the next start',async()=>{
+ const {updater,asked,s}=setup({closing:()=>true});
+ s.check();updater.emit('update-available');updater.emit('update-downloaded',{},'','0.1.1');await flush();
+ assert.equal(asked.length,0);
+});
+test('reopened in time, the person gets the question as usual',async()=>{
+ const {updater,asked,s,restarts}=setup({closing:()=>false});
+ s.check();updater.emit('update-available');updater.emit('update-downloaded',{},'','0.1.1');await flush();
+ assert.equal(asked.length,1);assert.equal(asked[0].kind,'ready');assert.equal(restarts(),1);
+});
+test('asking during a download says so, and that closing the app is fine',async()=>{
+ const {updater,asked,s}=setup();
+ s.check();updater.emit('update-available');s.check(true);await flush();
+ assert.equal(asked.length,1);assert.match(asked[0].message,/télécharge/);assert.match(asked[0].detail,/fermer/);
+});
