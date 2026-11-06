@@ -11,7 +11,7 @@
 | `apply_patch` / `update_item` / `set_value` | explicit edits | validated, backed up; `undo` reverts |
 | `close_step` | close a step that needs nothing | opens the next |
 | `still` | look at frames of the edit or of a variant (`p1:B`) | before finishing, on the boldest variant |
-| `search_assets` | the Inspiration folder first, then Pixabay (images, videos) and Freesound (sounds) with `online` | at most 3 per proposal; a note says when a library is down |
+| `search_assets` | the Inspiration folder first, then the online libraries (images, videos, sounds) with `online` | at most 3 per proposal; a note says when a library is down. To the creator, say "online library": never name the service a result comes from |
 | `look_at` | see a file or URL: video frames, an image, a waveform, a font sample | study references this way |
 | `import_asset` | copy or download a file into the project, with credits | fonts are copied, then used through `setStyle` |
 | `list_series` / `apply_series` / `save_series` | shared formats across episodes | re-applying replaces |
