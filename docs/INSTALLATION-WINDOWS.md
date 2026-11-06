@@ -27,7 +27,7 @@ Les projets, DA et réglages existants d’Adam sont réutilisés. La désinstal
 - Setup relancé alors qu'Adam est installé : il ferme l'application sans demander, même pendant un rendu, efface le dossier du programme puis réinstalle. Les données et les projets sont ailleurs et ne sont pas touchés. La mise à jour depuis l'application, elle, ne redémarre jamais pendant un rendu.
 - Journal réel : `%LOCALAPPDATA%\SquirrelTemp\Squirrel-Install.log`.
 
-Squirrel ne permet ni d'empêcher le double lancement ni d'afficher une fenêtre plus tôt : la consigne est dans `LISEZMOI.txt`.
+Squirrel ne permet ni d'empêcher le double lancement ni d'afficher une fenêtre plus tôt. Le ZIP contient donc `Installer Adam Studio.exe` (`packages/desktop/installer-launcher.cs`, compilé par `make-installer.mjs` avec le compilateur C# de Windows), qui s'ouvre tout de suite, refuse un second lancement ou une application ouverte, signale un ZIP non décompressé, puis lance `fichiers/AdamStudio-Setup.exe`. Le Setup seul reste publié sur GitHub et reste lançable à la main.
 
 ## Limites connues
 

@@ -14,16 +14,15 @@ tu passes moins de temps sur la technique et plus de temps sur ce que tu veux ra
 Plus d'informations sur mon travail : https://www.cliffiscurious.com
 
 INSTALLER
-1. Décompresse ce ZIP, puis lance AdamStudio-Setup.exe UNE SEULE FOIS.
+1. Décompresse ce ZIP (clic droit, « Extraire tout »), puis lance « Installer Adam Studio.exe ».
 2. Windows peut afficher « Windows a protégé votre ordinateur » : l'application n'est pas encore signée.
    Clique sur « Informations complémentaires », puis « Exécuter quand même ».
-3. Patiente : l'installation prend 5 à 10 minutes, parfois plus sur un ordinateur modeste. Rien ne s'affiche
-   pendant la première ou les deux premières minutes, c'est normal. Ne relance pas le fichier pendant ce temps :
-   un second lancement fait échouer l'installation.
+3. Patiente : l'installation prend 5 à 10 minutes, parfois plus sur un ordinateur modeste. Ne lance pas
+   directement le fichier du dossier « fichiers » : un second lancement fait échouer l'installation.
 4. Adam Studio s'ouvre, et se retrouve ensuite dans le menu Démarrer.
 
 SI TU VOIS « INSTALLATION HAS FAILED »
-Ferme ce message et attends que l'animation disparaisse. Relance ensuite AdamStudio-Setup.exe, une seule fois :
+Ferme ce message et attends que l'animation disparaisse. Relance ensuite « Installer Adam Studio.exe » :
 il répare l'installation. Tes projets ne sont pas touchés.
 
 SI L'APPLICATION NE DÉMARRE PAS OU QUE L'IMPORT ÉCHOUE
@@ -69,16 +68,15 @@ spend less time on the technical side and more time on what you want to tell.
 More about my work: https://www.cliffiscurious.com
 
 INSTALL
-1. Unzip this file, then run AdamStudio-Setup.exe ONCE.
+1. Unzip this file (right-click, "Extract All"), then run "Installer Adam Studio.exe".
 2. Windows may show "Windows protected your PC": the application is not signed yet.
    Click "More info", then "Run anyway".
-3. Be patient: the install takes 5 to 10 minutes, sometimes more on a modest computer. Nothing appears for
-   the first minute or two, this is normal. Do not run the file again in the meantime: a second run makes
-   the install fail.
+3. Be patient: the install takes 5 to 10 minutes, sometimes more on a modest computer. Do not run the file
+   in the "fichiers" folder directly: a second run makes the install fail.
 4. Adam Studio opens, and is then available from the Start menu.
 
 IF YOU SEE "INSTALLATION HAS FAILED"
-Close the message and wait for the animation to disappear. Then run AdamStudio-Setup.exe again, once:
+Close the message and wait for the animation to disappear. Then run "Installer Adam Studio.exe" again:
 it repairs the install. Your projects are not touched.
 
 IF THE APP DOES NOT START OR THE IMPORT FAILS

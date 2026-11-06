@@ -1,4 +1,4 @@
-import {createRequire} from 'node:module';import {dirname,join} from 'node:path';import {fileURLToPath} from 'node:url';import {copyFileSync,existsSync,mkdirSync,createReadStream,readFileSync,rmSync,writeFileSync} from 'node:fs';import {createHash} from 'node:crypto';
+import {createRequire} from 'node:module';import {dirname,join} from 'node:path';import {fileURLToPath} from 'node:url';import {copyFileSync,existsSync,linkSync,mkdirSync,createReadStream,readFileSync,rmSync,writeFileSync} from 'node:fs';import {createHash} from 'node:crypto';
 const here=dirname(fileURLToPath(import.meta.url)),require=createRequire(import.meta.url),{createWindowsInstaller}=require('electron-winstaller');
 // npm installations with lifecycle scripts disabled still need the host 7-Zip helper.
 const installerRoot=dirname(require.resolve('electron-winstaller/package.json'));
@@ -21,7 +21,13 @@ console.log('WINDOWS_INSTALLER_READY '+file);
 const {execFileSync}=await import('node:child_process');
 const version=JSON.parse(readFileSync(join(here,'package.json'),'utf8')).version,zipName=`AdamStudio-${version}-Windows.zip`,zip=join(outputDirectory,zipName);
 copyFileSync(join(here,'LISEZMOI.txt'),join(outputDirectory,'LISEZMOI.txt'));rmSync(zip,{force:true});
-execFileSync(join(process.env.SystemRoot||'C:\\Windows','System32/tar.exe'),['-a','-c','-f',zipName,'AdamStudio-Setup.exe','LISEZMOI.txt'],{cwd:outputDirectory,stdio:'inherit',windowsHide:true});
+// People open a small launcher that answers at once and refuses a second run: Setup itself shows nothing for a minute or two.
+const windows=process.env.SystemRoot||'C:\\Windows',staging=join(outputDirectory,'zip-staging');
+rmSync(staging,{recursive:true,force:true});mkdirSync(join(staging,'fichiers'),{recursive:true});
+execFileSync(join(windows,'Microsoft.NET/Framework64/v4.0.30319/csc.exe'),['-nologo','-target:winexe','-codepage:65001','-utf8output',`-win32icon:${join(here,'assets/adam.ico')}`,'-r:System.Windows.Forms.dll','-r:System.Drawing.dll','-r:System.Core.dll',`-out:${join(staging,'Installer Adam Studio.exe')}`,join(here,'installer-launcher.cs')],{stdio:'inherit',windowsHide:true});
+copyFileSync(join(here,'LISEZMOI.txt'),join(staging,'LISEZMOI.txt'));linkSync(file,join(staging,'fichiers/AdamStudio-Setup.exe'));
+execFileSync(join(windows,'System32/tar.exe'),['-a','-c','-f',zip,'Installer Adam Studio.exe','LISEZMOI.txt','fichiers'],{cwd:staging,stdio:'inherit',windowsHide:true});
+rmSync(staging,{recursive:true,force:true});
 const zipDigest=createHash('sha256');for await(const chunk of createReadStream(zip))zipDigest.update(chunk);
 writeFileSync(join(outputDirectory,'SHA256SUMS.txt'),`${hash}  AdamStudio-Setup.exe\n${zipDigest.digest('hex')}  ${zipName}\n`);
 // The RELEASES to publish. The one beside the packages stays as Squirrel wrote it: the next build needs it to make its delta.
