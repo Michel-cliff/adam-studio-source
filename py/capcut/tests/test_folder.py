@@ -1,7 +1,7 @@
 import pytest
 
 from adam_capcut.errors import ExportError
-from adam_capcut.folder import MARKER, prepare_project_dir
+from adam_capcut.folder import MARKER, neutralize, prepare_project_dir
 from adam_capcut.lab import lab_path, load_lab
 
 
@@ -67,3 +67,29 @@ def test_replace_never_overrides_an_open_or_foreign_project(tmp_path, template):
     (tmp_path / "mine").mkdir()
     with pytest.raises(ExportError, match="was not created by Adam Studio"):
         prepare_project_dir(tmp_path, "mine", template, replace=True)
+
+
+def test_an_export_keeps_nothing_of_the_computer_the_template_came_from(lab, tmp_path):
+    import json
+    template = lab_path() / lab[1].get_draft_profile().template_dir
+    dest = prepare_project_dir(tmp_path, "demo", template)
+    neutralize(dest, "Mon épisode")
+    contents = [json.loads((dest / f).read_text(encoding="utf-8")) for f in ("draft_info.json", "draft_info.json.bak")]
+    meta = json.loads((dest / "draft_meta_info.json").read_text(encoding="utf-8"))
+    everything = "".join(p.read_text(encoding="utf-8", errors="replace") for p in dest.rglob("*") if p.is_file())
+    for known in ("sunguannan", "c4ca4238a0b923820dcc509a6f75849b", "307563e0192a94465c0e927fbc482942", "c3371f2d4fb02791c067ce44d8fb4ed5", "989869B1-B560-489C-9C6F-4B444F24BF36"):
+        assert known not in everything, known
+    assert meta["draft_name"] == "Mon épisode" and meta["draft_fold_path"] == str(dest) and meta["draft_root_path"] == str(dest.parent)
+    for d in contents:
+        assert d["platform"]["device_id"] == "" and d["platform"]["app_version"] and d["platform"]["os"]
+
+
+def test_two_exports_are_two_projects(tmp_path, template):
+    import json
+    (template / "draft_meta_info.json").write_text('{"draft_id": "SAME"}')
+    a = prepare_project_dir(tmp_path, "a", template)
+    b = prepare_project_dir(tmp_path, "b", template)
+    neutralize(a, "a")
+    neutralize(b, "b")
+    ids = [json.loads((d / "draft_meta_info.json").read_text())["draft_id"] for d in (a, b)]
+    assert ids[0] != ids[1] and "SAME" not in ids

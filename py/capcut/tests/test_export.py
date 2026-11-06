@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -62,3 +63,12 @@ def test_rebuilds_its_own_project_but_not_while_it_is_open(lab, project, tmp_pat
     (dest / ".locked").touch()
     with pytest.raises(ExportError, match="is open in CapCut"):
         export(project, name="again", projects_root=tmp_path, prepare=False)
+
+
+def test_a_real_export_keeps_nothing_of_the_template_computer(lab, project, tmp_path):
+    dest = export(project, name="neutre", projects_root=tmp_path, prepare=False)
+    meta = json.loads((dest / "draft_meta_info.json").read_text(encoding="utf-8"))
+    everything = "".join(p.read_text(encoding="utf-8", errors="replace") for p in dest.rglob("*") if p.is_file() and p.suffix in ("", ".json", ".bak", ".tmp"))
+    assert meta["draft_name"] == "neutre" and meta["draft_fold_path"] == str(dest)
+    for known in ("sunguannan", "c4ca4238a0b923820dcc509a6f75849b", "307563e0192a94465c0e927fbc482942", "c3371f2d4fb02791c067ce44d8fb4ed5"):
+        assert known not in everything, known

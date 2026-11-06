@@ -10,7 +10,7 @@ from .errors import ExportError
 # Front element kinds built as native CapCut items (titles and big words as texts, images as photos).
 NATIVE_FRONT_KINDS = {"title", "text.behindSubject", "image"}
 from .fonts import apply_fonts
-from .folder import MARKER, default_projects_root, prepare_project_dir
+from .folder import MARKER, default_projects_root, neutralize, prepare_project_dir
 from .lab import lab_path, load_lab
 from .media import copy_media
 from .units import safe_name
@@ -54,6 +54,7 @@ def export(project_dir, *, name: str | None = None, projects_root=None, prepare:
         raise ExportError(f"the prepare step expects native CapCut items for {', '.join(unknown)}, which this exporter cannot build: update NATIVE_FRONT_KINDS on both sides")
     script, entries, roles = build_script(pjd, timeline, plan, media)
     profiles.write_profile_content(profile, dest, apply_fonts(script.dumps(profile), plan["fonts"], roles))
+    neutralize(dest, title)
     (dest / MARKER).touch()
     report = project_dir / "renders" / f"{folder}.capcut-report.json"
     report.parent.mkdir(parents=True, exist_ok=True)
