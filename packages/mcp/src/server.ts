@@ -9,6 +9,7 @@ import { projectsRoot, SETTINGS_FILE, uiLang } from "@adam-studio/web/server/set
 import { daFirstPass, readDA } from "@adam-studio/render/src/lib/da";
 import { z } from "zod";
 import { nameInRoot, runAction, runSetup, stills, tail } from "./run";
+import { checkLook, checkSource, landing } from "@adam-studio/library/src/access";
 import { importAsset, lookAt } from "@adam-studio/library/src/importer";
 import { inspirationRoot, searchLocal, type LibraryKind } from "@adam-studio/library/src/local";
 import { searchOnline } from "@adam-studio/library/src/online";
@@ -112,17 +113,22 @@ tool("search_assets", "Searches the creator's Inspiration folder first (their ow
     return text(JSON.stringify({ inspiration: inspirationRoot(), local, online: web.items, notes: web.notes }, null, 1));
   });
 
-tool("look_at", "Shows a file or URL as a picture: four frames of a video, an image, the waveform of a sound, a font sample.",
+// The folders the AI may open media from, whatever a text it read told it to do.
+const mediaRoots = (...more: string[]) => [inspirationRoot(), root(), dirname(SETTINGS_FILE), ...more];
+
+tool("look_at", "Shows a media file of the projects or the Inspiration folder, a result of the online libraries, or a link or path the creator wrote, as a picture: four frames of a video, an image, the waveform of a sound, a font sample.",
   { source: z.string().describe("absolute path or https URL") }, async ({ source }) => {
-    const l = await lookAt(source);
+    checkLook(source, mediaRoots());
+    const l = await lookAt(source, /^https:/i.test(source) ? landing(source) : undefined);
     return { content: [{ type: "text" as const, text: `${l.kind}: ${l.note}` }, ...(l.jpeg ? [{ type: "image" as const, data: l.jpeg, mimeType: "image/jpeg" }] : [])] };
   });
 
-tool("import_asset", "Copies a file (path) or downloads one (url) into the project's assets folder, records credits, and adds it as an asset. cutout: an image comes in as a paper cut-out (background removed, transparent PNG; not available in the installed app); show it with an image element whose props.paper is true. Fonts are copied only (use them in the style).",
+tool("import_asset", "Copies a media file of the projects or the Inspiration folder, or a path the creator wrote (path), or downloads a result of the online libraries or a link the creator wrote (url), into the project's assets folder, records credits, and adds it as an asset. cutout: an image comes in as a paper cut-out (background removed, transparent PNG; not available in the installed app); show it with an image element whose props.paper is true. Fonts are copied only (use them in the style).",
   { project, source: z.strictObject({ path: z.string().optional(), url: z.string().optional(), kind: kind.optional(), title: z.string().optional(), license: z.string().optional(), creator: z.string().optional(), page: z.string().optional(), cutout: z.boolean().optional() }), id: z.string().optional() },
   async ({ project: p, source, id }) => {
     const dir = dirOf(p);
-    const a = await importAsset(dir, source, id);
+    checkSource(source, mediaRoots(dir));
+    const a = await importAsset(dir, source, id, source.url ? landing(source.url) : undefined);
     if (a.kind === "font") return text(`font copied to ${a.path}`);
     const r = addAssetIn(dir, { id: a.id, kind: a.kind, path: a.path });
     return text(`asset "${a.id}" (${a.kind}) added: ${a.path}\n${r.lint.join("\n") || "lint: clean"}`);

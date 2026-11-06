@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { Command } from "./actions";
-import { adamServer, askBrief, type AskExtras } from "./claude";
+import { adamServerFor, askBrief, type AskExtras } from "./claude";
 import type { Usage } from "./usage";
 
 /** Codex CLI's executable: ADAM_CODEX, the npm install's codex.exe on Windows, or `codex` on the PATH. */
@@ -54,7 +54,7 @@ function serverArgs(name: string, s: Record<string, any>): string[] {
  */
 export function codexAskCommand(project: string, step: string, prompt: string, model = "default", look: string | null = null, extras: AskExtras = {}): Command {
   const { system, mode } = askBrief(project, step, prompt, look, { ...extras, skills: [] });
-  const servers = { "adam-studio": adamServer(), ...(extras.servers ?? {}) } as Record<string, Record<string, any>>;
+  const servers = { "adam-studio": adamServerFor(prompt), ...(extras.servers ?? {}) } as Record<string, Record<string, any>>;
   return {
     cmd: codexBin(),
     args: ["exec", "--json", "--skip-git-repo-check", "--ephemeral", "--sandbox", "read-only", "-c", 'approval_policy="never"',

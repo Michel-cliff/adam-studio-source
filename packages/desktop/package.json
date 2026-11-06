@@ -6,7 +6,7 @@
   "main": "main.cjs",
   "scripts": {
     "start": "node launch.mjs",
-    "test": "node --test policy.test.cjs runtime.test.cjs updates.test.cjs crash.test.cjs",
+    "test": "node --test policy.test.cjs runtime.test.cjs updates.test.cjs crash.test.cjs whats-new.test.cjs",
     "smoke": "node launch.mjs --smoke-test",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "prepare:runtime": "node prepare-runtime.mjs",
@@ -17,7 +17,9 @@
   "devDependencies": {
     "@electron-forge/cli": "8.0.1",
     "@electron-forge/maker-squirrel": "8.0.1",
-    "electron": "45.2.2",
+    "@electron-forge/plugin-fuses": "8.0.1",
+    "@electron/fuses": "2.1.3",
+    "electron": "45.2.3",
     "electron-winstaller": "5.4.4"
   },
   "type": "module",

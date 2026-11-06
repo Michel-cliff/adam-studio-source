@@ -30,7 +30,7 @@ function packagedRuntime(resources,userData,originalEnv=process.env){
  const hfReady=folder=>list(join(folder,'hub/models--mobiuslabsgmbh--faster-whisper-large-v3-turbo/snapshots')).some(name=>size(join(folder,'hub/models--mobiuslabsgmbh--faster-whisper-large-v3-turbo/snapshots',name,'model.bin'))>1000000&&size(join(folder,'hub/models--mobiuslabsgmbh--faster-whisper-large-v3-turbo/snapshots',name,'config.json'))>0);
  const hf=hfCandidates.find(hfReady)||hfDefault;
  const torchCandidates=[torchDefault,originalEnv.TORCH_HOME,originalEnv.ADAM_HOST_TORCH_HOME,host&&join(host,'.cache/torch'),hostApp&&join(hostApp,'Adam Studio/models/torch')].filter(Boolean);
- const torchScore=folder=>Number(size(join(folder,'hub/PeterL1n_RobustVideoMatting_master/hubconf.py'))>0&&size(join(folder,'hub/checkpoints/rvm_mobilenetv3.pth'))>1000000)+Number(size(join(folder,'hub/checkpoints/big-lama.pt'))>1000000);
+ const torchScore=folder=>Number(size(join(folder,'hub/PeterL1n_RobustVideoMatting_53d74c6826735f01f4406b5ca9075eee27bec094/hubconf.py'))>0&&size(join(folder,'hub/checkpoints/rvm_mobilenetv3.pth'))>1000000)+Number(size(join(folder,'hub/checkpoints/big-lama.pt'))>1000000);
  const torch=torchCandidates.reduce((best,folder)=>torchScore(folder)>torchScore(best)?folder:best,torchDefault);
  const skillSource=join(root,'skills/adam-studio'),skillHome=originalEnv.USERPROFILE||originalEnv.HOME||require('node:os').homedir();
  const skillTarget=join(originalEnv.CLAUDE_CONFIG_DIR||join(skillHome,'.claude'),'skills/adam-studio');

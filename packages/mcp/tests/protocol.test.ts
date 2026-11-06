@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -34,4 +34,40 @@ describe("MCP server over stdio", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   }, 300000);
+  it("keeps the AI inside the media folders and away from any other address", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "adam mcp guard-"));
+    makeSynthetic(dir, {});
+    const client = new Client({ name: "test", version: "0" });
+    await client.connect(new StdioClientTransport({ command: process.execPath, args: [TSX, join(import.meta.dirname, "..", "src", "server.ts")], stderr: "inherit" }));
+    const call = async (name: string, args: Record<string, unknown>) => {
+      const r = await client.callTool({ name, arguments: args });
+      return { isError: r.isError, text: (r.content as { text?: string }[])[0]?.text ?? "" };
+    };
+    try {
+      expect(await call("look_at", { source: "C:\Windows\win.ini" })).toMatchObject({ isError: true, text: expect.stringContaining("Inspiration") });
+      expect(await call("look_at", { source: "https://evil.example/a.png?secret=1" })).toMatchObject({ isError: true, text: expect.stringContaining("online libraries") });
+      expect(await call("import_asset", { project: dir, source: { path: "C:\Windows\win.ini", kind: "image" } })).toMatchObject({ isError: true, text: expect.stringContaining("Inspiration") });
+      expect(await call("import_asset", { project: dir, source: { url: "https://evil.example/a.png" } })).toMatchObject({ isError: true, text: expect.stringContaining("online libraries") });
+      expect(await call("import_asset", { project: dir, source: { url: "https://pixabay.com/a.png" }, id: "..\..\evil" })).toMatchObject({ isError: true, text: expect.stringContaining("asset id") });
+    } finally {
+      await client.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 60000);
+
+  it("opens what the creator wrote in their request, and only that", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "adam mcp words-")), picture = join(dir, "logo.png");
+    writeFileSync(picture, "x");
+    const client = new Client({ name: "test", version: "0" });
+    await client.connect(new StdioClientTransport({ command: process.execPath, args: [TSX, join(import.meta.dirname, "..", "src", "server.ts")], stderr: "inherit", env: { ...(process.env as Record<string, string>), ADAM_CREATOR_WORDS: `regarde ${picture} merci` } }));
+    const look = async (source: string) => ((await client.callTool({ name: "look_at", arguments: { source } })).content as { text?: string }[])[0]?.text ?? "";
+    try {
+      // Past the guard: the file is opened, and ffmpeg says it is not a real picture.
+      expect(await look(picture)).not.toContain("Inspiration");
+      expect(await look(join(dir, "other.png"))).toContain("Inspiration");
+    } finally {
+      await client.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 60000);
 });

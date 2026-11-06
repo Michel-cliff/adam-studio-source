@@ -101,9 +101,15 @@ export const adamServer = () => {
   return { ...server, env };
 };
 
+/** Adam's server for one request: the links and paths the creator wrote in it can be opened (library/src/access.ts). */
+export const adamServerFor = (prompt: string) => {
+  const server = adamServer() as Record<string, any>;
+  return { ...server, env: { ...(server.env ?? {}), ADAM_CREATOR_WORDS: prompt.slice(0, 8000) } };
+};
+
 export function askCommand(project: string, step: string, prompt: string, model: ClaudeModel = "default", look: string | null = null, extras: AskExtras = {}): Command {
   const { system, mode } = askBrief(project, step, prompt, look, extras);
-  const mcp = JSON.stringify({ mcpServers: { "adam-studio": adamServer(), ...(extras.servers ?? {}) } });
+  const mcp = JSON.stringify({ mcpServers: { "adam-studio": adamServerFor(prompt), ...(extras.servers ?? {}) } });
   // A skill is read with Skill, then its files with Read, Glob and Grep: no shell, no writes outside the tools.
   const allowed = ["mcp__adam-studio", ...(extras.tools ?? []), ...(extras.skills?.length ? ["Skill", "Read", "Glob", "Grep"] : [])];
   return {

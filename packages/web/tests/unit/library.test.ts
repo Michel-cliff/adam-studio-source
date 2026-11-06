@@ -85,6 +85,10 @@ describe("library routes", () => {
     expect((await fetch(`${base}/api/library/file?path=${encodeURIComponent(join(root, "secret.wav"))}`)).status).toBe(404);
     expect((await post("/api/library/import", { project: "ep1", source: { path: join(root, "secret.wav") } })).status).toBe(400);
     expect((await post("/api/library/import", { project: "ep1", source: { url: "http://example.com/a.mp3" } })).status).toBe(400);
+    const evil = await post("/api/library/import", { project: "ep1", source: { url: "https://evil.example/a.mp3" } });
+    expect(evil.status).toBe(400);
+    expect(await evil.text()).toContain("online libraries");
+    expect((await post("/api/library/import", { project: "ep1", source: { path: join(inspi, "Sons", "boom.wav") }, id: "../../evil" })).status).toBe(400);
     expect((await post("/api/library/import", { project: "../x", source: { path: join(inspi, "Sons", "boom.wav") } })).status).toBe(400);
   });
 });

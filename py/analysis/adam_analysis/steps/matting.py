@@ -9,6 +9,7 @@ import torch
 from PIL import Image
 
 from ..errors import AnalysisError
+from ..models import lama_inpaint, load_rvm
 from ..probe import probe
 
 from .versions import MATTING_VERSION
@@ -21,7 +22,9 @@ def rvm():
     global _rvm
     if _rvm is None:
         try:
-            _rvm = torch.hub.load("PeterL1n/RobustVideoMatting", "mobilenetv3", trust_repo=True).eval()
+            _rvm = load_rvm()
+        except AnalysisError:
+            raise
         except Exception as e:
             raise AnalysisError(f"cannot load RobustVideoMatting (the first run downloads it, network needed): {e}") from None
     return _rvm
@@ -102,9 +105,7 @@ def make_plate(edit: Path, dst: Path) -> None:
     hole = np.isnan(med[..., 0])
     med = np.nan_to_num(med).astype(np.uint8)
     if hole.any():
-        from simple_lama_inpainting import SimpleLama
-
         mask = cv2.dilate(hole.astype(np.uint8) * 255, np.ones((9, 9), np.uint8))
-        filled = np.array(SimpleLama()(Image.fromarray(med), Image.fromarray(mask).convert("L")).convert("RGB"))[:h, :w]
+        filled = np.array(lama_inpaint(Image.fromarray(med), Image.fromarray(mask).convert("L")).convert("RGB"))[:h, :w]
         med = np.where(mask[..., None] > 0, filled, med)
     Image.fromarray(med).save(dst, format="PNG")

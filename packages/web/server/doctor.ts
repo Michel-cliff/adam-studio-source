@@ -64,9 +64,9 @@ function missingFonts(c: Ctx): string[] {
   return FONTS.filter((f) => !files.some((x) => x.startsWith(f.name.toLowerCase().replace(/[^a-z]/g, "")))).map((f) => f.name);
 }
 
-const IMPORTS = "import torch, faster_whisper, cv2, simple_lama_inpainting";
+const IMPORTS = "import torch, faster_whisper, cv2, PIL";
 const whisperDir = (c: Ctx) => join(process.env.HF_HOME ?? join(c.home, ".cache", "huggingface"), "hub", "models--mobiuslabsgmbh--faster-whisper-large-v3-turbo");
-const rvmDir = (c: Ctx) => join(process.env.TORCH_HOME ?? join(c.home, ".cache", "torch"), "hub", "PeterL1n_RobustVideoMatting_master");
+const rvmDir = (c: Ctx) => join(process.env.TORCH_HOME ?? join(c.home, ".cache", "torch"), "hub", "PeterL1n_RobustVideoMatting_53d74c6826735f01f4406b5ca9075eee27bec094");
 const hasFile = (c: Ctx, path: string, min = 0) => c.probe.size ? (c.probe.size(path) ?? 0) > min : c.probe.exists(path);
 export function modelsReady(c: Ctx): boolean {
   const w = whisperDir(c), t = process.env.TORCH_HOME ?? join(c.home, ".cache", "torch");
@@ -138,8 +138,7 @@ export function fixSteps(c: Ctx, id: string): Step[] {
     ];
     case "models": return [{ cmd: vpy, args: ["-c", [
       "from faster_whisper import WhisperModel", "WhisperModel('large-v3-turbo', device='cpu', compute_type='int8')",
-      "import torch", "torch.hub.load('PeterL1n/RobustVideoMatting', 'mobilenetv3', trust_repo=True)",
-      "from simple_lama_inpainting import SimpleLama", "SimpleLama()"].join("\n")] }];
+      "from adam_analysis.models import ensure_lama, ensure_rvm", "ensure_rvm()", "ensure_lama()"].join("\n")] }];
     case "ai": return [{ cmd: npmCmd, args: ["install", "-g", ...(process.env.ADAM_TOOLS ? ["--prefix", process.env.ADAM_TOOLS] : []), "@anthropic-ai/claude-code"] }];
     case "skill": return process.env.ADAM_PACKAGED ? [{ cmd: process.execPath, args: ["-e", [
       "const fs=require('node:fs'),path=require('node:path');",

@@ -10,21 +10,26 @@ export type ImportSource = { path?: string; url?: string; kind?: LibraryKind; ti
 export type Imported = { id: string; kind: LibraryKind; path: string; file: string };
 
 const slug = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 40) || "asset";
+const DEFAULT_EXT = { video: ".mp4", image: ".jpg", audio: ".mp3", font: ".ttf", lottie: ".json" } as const;
+// An id becomes a file name: it must stay one, inside the assets folder.
+const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 
 /**
  * Copies a local file, or downloads a URL, into `<project>/assets/` and records where it came from (license,
  * author, page) in `assets/CREDITS.md`. Returns the asset to add to the project (path relative to the project).
  */
-export async function importAsset(projectDir: string, src: ImportSource, id?: string): Promise<Imported> {
+export async function importAsset(projectDir: string, src: ImportSource, id?: string, hosts?: (url: string) => boolean): Promise<Imported> {
   if (!src.path && !src.url) throw new Error("give a path or a url");
   if (src.cutout && process.env.ADAM_PACKAGED) throw new Error("cut-outs are not available in the installed app yet: import the image as it is");
   const name = src.path ? basename(src.path) : basename(new URL(src.url!).pathname) || "download";
   const kind = src.kind ?? kindOf(name);
   if (!kind) throw new Error(`cannot tell what ${name} is: give kind (video, image, audio, font, lottie)`);
+  const assetId = id ?? slug(src.title ?? basename(name, extname(name)));
+  if (!SAFE_ID.test(assetId)) throw new Error(`"${assetId}" cannot be an asset id: letters, digits, - and _ only, 64 at most`);
   const folder = join(projectDir, "assets");
   mkdirSync(folder, { recursive: true });
-  const assetId = id ?? slug(src.title ?? basename(name, extname(name)));
-  const ext = extname(name) || ({ video: ".mp4", image: ".jpg", audio: ".mp3", font: ".ttf", lottie: ".json" } as const)[kind];
+  // The extension follows the kind: a program named as an image comes in as an image file, and never runs.
+  const ext = kindOf(name) === kind ? extname(name) : DEFAULT_EXT[kind];
   const file = join(folder, `${assetId}${ext}`);
   if (existsSync(file)) throw new Error(`${file} exists: pick another id`);
   if (src.path) {
@@ -33,6 +38,7 @@ export async function importAsset(projectDir: string, src: ImportSource, id?: st
   } else {
     const r = await fetch(src.url!, { headers: { "User-Agent": "AdamStudio/0.1" }, signal: AbortSignal.timeout(120000) });
     if (!r.ok) throw new Error(`download failed: ${r.status} ${src.url}`);
+    if (hosts && !hosts(r.url)) throw new Error(`the download was sent elsewhere: ${new URL(r.url).hostname}`);
     writeFileSync(file, Buffer.from(await r.arrayBuffer()));
   }
   if (src.url || src.license) {
@@ -62,12 +68,13 @@ function cutoutPython(): string {
  * A picture of a file for Claude to look at, as base64 JPEG: four frames of a video, the image itself, the waveform
  * of a sound, or a sample line of a font. Local paths and URLs both work.
  */
-export async function lookAt(pathOrUrl: string): Promise<{ kind: LibraryKind; jpeg: string; note: string }> {
+export async function lookAt(pathOrUrl: string, hosts?: (url: string) => boolean): Promise<{ kind: LibraryKind; jpeg: string; note: string }> {
   let file = pathOrUrl;
   let temp: string | null = null;
   if (/^https?:\/\//.test(pathOrUrl)) {
     const r = await fetch(pathOrUrl, { headers: { "User-Agent": "AdamStudio/0.1" }, signal: AbortSignal.timeout(60000) });
     if (!r.ok) throw new Error(`download failed: ${r.status}`);
+    if (hosts && !hosts(r.url)) throw new Error(`the download was sent elsewhere: ${new URL(r.url).hostname}`);
     temp = join(tmpdir(), `adam-look-${process.pid}-${Date.now()}${extname(new URL(pathOrUrl).pathname) || ".bin"}`);
     writeFileSync(temp, Buffer.from(await r.arrayBuffer()));
     file = temp;

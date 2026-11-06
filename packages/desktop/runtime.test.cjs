@@ -6,7 +6,7 @@ test('a manifest cannot select an executable outside the installed payload',()=>
 
 test('reuse complete host model caches without importing host account data, and stage the bundled skill',()=>{
  const resources=fixture(),host=path.join(resources,'host'),profile=path.join(resources,'empty-profile'),data=path.join(resources,'user');
- const files=[['.cache/huggingface/hub/models--mobiuslabsgmbh--faster-whisper-large-v3-turbo/snapshots/rev/model.bin',1000001],['.cache/huggingface/hub/models--mobiuslabsgmbh--faster-whisper-large-v3-turbo/snapshots/rev/config.json',10],['.cache/torch/hub/PeterL1n_RobustVideoMatting_master/hubconf.py',10],['.cache/torch/hub/checkpoints/rvm_mobilenetv3.pth',1000001],['.cache/torch/hub/checkpoints/big-lama.pt',1000001]];
+ const files=[['.cache/huggingface/hub/models--mobiuslabsgmbh--faster-whisper-large-v3-turbo/snapshots/rev/model.bin',1000001],['.cache/huggingface/hub/models--mobiuslabsgmbh--faster-whisper-large-v3-turbo/snapshots/rev/config.json',10],['.cache/torch/hub/PeterL1n_RobustVideoMatting_53d74c6826735f01f4406b5ca9075eee27bec094/hubconf.py',10],['.cache/torch/hub/checkpoints/rvm_mobilenetv3.pth',1000001],['.cache/torch/hub/checkpoints/big-lama.pt',1000001]];
  for(const [name,size]of files){const file=path.join(host,name);fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,Buffer.alloc(size));}
  const source=path.join(resources,'payload/skills/adam-studio');fs.mkdirSync(source,{recursive:true});fs.writeFileSync(path.join(source,'SKILL.md'),'bundled skill');
  const env={USERPROFILE:profile,HOME:profile,ADAM_HOST_HOME:host,CODEX_HOME:path.join(profile,'.codex')};

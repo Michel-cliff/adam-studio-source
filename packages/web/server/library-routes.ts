@@ -3,6 +3,7 @@ import { createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, rmS
 import { pipeline } from "node:stream/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { basename, dirname, extname, join, relative, isAbsolute } from "node:path";
+import { libraryUrl } from "@adam-studio/library/src/access";
 import { importAsset, type ImportSource } from "@adam-studio/library/src/importer";
 import { inspirationRoot, kindOf, REFERENCE_FOLDERS, scanInspiration, searchLocal, type LibraryKind, type ReferenceFolder } from "@adam-studio/library/src/local";
 import { searchOnline } from "@adam-studio/library/src/online";
@@ -132,10 +133,10 @@ export async function libraryRoute(c: Ctx): Promise<boolean> {
     if (!safeName(project) || !existsSync(join(c.root, project, "project.json"))) throw new ToolError(`no project "${project}"`);
     const source = (b.source ?? {}) as ImportSource;
     if (source.path && !insideInspiration(source.path)) throw new ToolError("local imports come from the Inspiration folder");
-    if (source.url && !/^https:\/\//.test(source.url)) throw new ToolError("only https downloads");
+    if (source.url && !libraryUrl(source.url)) throw new ToolError("only results of the online libraries can be downloaded");
     const dir = join(c.root, project);
     let imported;
-    try { imported = await importAsset(dir, source, b.id || undefined); } catch (e) { throw new ToolError((e as Error).message); }
+    try { imported = await importAsset(dir, source, b.id || undefined, libraryUrl); } catch (e) { throw new ToolError((e as Error).message); }
     if (imported.kind === "font") { send(200, { imported, message: `font copied to ${imported.path}: use it in the style (fonts.caption or fonts.title)` }); return true; }
     send(200, { imported, ...addAssetIn(dir, { id: imported.id, kind: imported.kind, path: imported.path }) });
     return true;

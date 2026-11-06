@@ -1,5 +1,12 @@
 import { isAbsolute, relative, resolve } from "node:path";
 
+/** The session token, taken out of the environment: everything this process starts (the AI among them) inherits it otherwise. */
+export function takeSessionToken(env: NodeJS.ProcessEnv = process.env): string | undefined {
+  const token = env.ADAM_DESKTOP_TOKEN;
+  delete env.ADAM_DESKTOP_TOKEN;
+  return token;
+}
+
 export function hostAllowed(host: string | undefined, port: number): boolean {
   return host === `127.0.0.1:${port}` || host === `localhost:${port}`;
 }

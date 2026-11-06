@@ -2,11 +2,13 @@ import {execFile,spawnSync} from "node:child_process";
 import {createApp} from '../web/server/app';
 import {adamServer,claudeBin} from '../web/server/claude';
 import {connectorFiles,refreshConnectors} from '../web/server/desktop';
+import {takeSessionToken} from '../web/server/guards';
 import {JobManager} from '../web/server/jobs';
 import {SETTINGS_FILE,uiLang} from '../web/server/settings';
+const sessionToken=takeSessionToken();
 const settingsFile=process.env.ADAM_DESKTOP_SETTINGS||SETTINGS_FILE;
 const jobs=new JobManager();
-const server=createApp({settingsFile,jobs,sessionToken:process.env.ADAM_DESKTOP_TOKEN});
+const server=createApp({settingsFile,jobs,sessionToken});
 const send = (message: object) => { if (process.connected) process.send?.(message); };
 let closing=false;
 const shutdown=()=>{

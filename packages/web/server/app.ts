@@ -487,7 +487,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       return;
     }
     const file = path === "/" ? join(dist, "index.html") : inside(dist, decodeURIComponent(path.slice(1)));
-    return serveFile(req, res, file && existsSync(file) ? file : join(dist, "index.html"));
+    return serveFile(req, res, file && existsSync(file) ? file : join(dist, "index.html"), { app: true });
   }
 
   let activeRequests = 0;
