@@ -6,7 +6,7 @@
       "Adam vérifie chaque montage avec les règles de ta direction artistique (longueur des plans, changements d'échelle, passages en 4:3, couleur rare) et te dit ce qui reste.",
       "Nouveaux habillages : une barre de progression par blocs, une ouverture façon écran CRT et un carton de fin en bureau d'ordinateur qui ouvre l'épisode suivant.",
       "Les images de vérification et les variantes montrent ta direction artistique, comme le rendu final.",
-      "Sécurité renforcée : téléchargements limités aux adresses publiques, accès au studio par le navigateur protégé, modèles d'IA vérifiés. La première transcription retélécharge le modèle de transcription (environ 1,6 Go)."
+      "Sécurité renforcée : téléchargements limités aux adresses publiques, accès au studio par le navigateur protégé, modèles d'IA vérifiés. Le modèle de transcription est vérifié avant chaque usage."
     ],
     "en": [
       "Your art direction can now set the grade, grain, fonts, colours and where texts sit.",
@@ -14,7 +14,7 @@
       "Adam checks every edit against your art direction's rules (shot length, changes of scale, 4:3 windows, a rare colour) and tells you what is left.",
       "New dressing: a progress bar filled by blocks, a CRT screen opening and an end card as a computer desktop that opens the next episode.",
       "Check frames and variants show your art direction, like the final render.",
-      "Stronger security: downloads limited to public addresses, a protected browser access to the studio, verified AI models. The first transcription downloads the transcription model again (about 1.6 GB)."
+      "Stronger security: downloads limited to public addresses, a protected browser access to the studio, verified AI models. The transcription model is checked before each use."
     ]
   },
   "0.1.5": {
