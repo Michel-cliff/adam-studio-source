@@ -1,3 +1,4 @@
+import { realInside, safeName } from "./guards";
 import { editStamp, videoStamp } from "@adam-studio/render/src/lib/edit-stamp";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
@@ -36,7 +37,7 @@ function renders(dir: string): RenderView[] {
 export function listProjects(root: string): ProjectListItem[] {
   if (!existsSync(root)) return [];
   return readdirSync(root, { withFileTypes: true })
-    .filter((d) => d.isDirectory() && existsSync(join(root, d.name, "project.json")))
+    .filter((d) => d.isDirectory() && safeName(d.name) && realInside(join(root, d.name), join(root, d.name, "project.json")))
     .map((d) => {
       const dir = join(root, d.name);
       const { raw, error } = readProject(dir);
@@ -91,14 +92,14 @@ function proposal(dir: string, p: Raw): ProposalView {
 
 export function projectView(root: string, name: string): Omit<ProjectView, "jobs"> | null {
   const dir = join(root, name);
-  if (!existsSync(join(dir, "project.json"))) return null;
+  if (!safeName(name) || !realInside(root, dir) || !realInside(dir, join(dir, "project.json"))) return null;
   const { raw, error } = readProject(dir);
   const assets: Raw[] = Array.isArray(raw?.assets) ? raw.assets.filter((a: Raw) => a.kind === "video") : [];
   return {
     name, ok: !error, ...(error ? { error } : {}), format: raw?.canvas?.format, video: raw?.format ?? "facecam", modified: statSync(join(dir, "project.json")).mtimeMs,
-    takes: raw ? assets.map((a) => take(dir, raw, a)) : [],
+    takes: raw && !error ? assets.map((a) => take(dir, raw, a)) : [],
     renders: renders(dir),
-    proposals: Array.isArray(raw?.proposals) ? raw.proposals.map((p: Raw) => proposal(dir, p)) : [],
+    proposals: !error && Array.isArray(raw?.proposals) ? raw.proposals.map((p: Raw) => proposal(dir, p)) : [],
     workflow: raw?.workflow ?? null,
     // What was imported into this video (images, sounds, Lottie, b-roll), not the takes.
     assets: Array.isArray(raw?.assets) ? raw.assets.filter((a: Raw) => String(a.path).startsWith("assets/")).map((a: Raw) => ({ id: a.id, kind: a.kind, path: a.path })) : [],

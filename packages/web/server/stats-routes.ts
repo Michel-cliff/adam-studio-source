@@ -1,10 +1,12 @@
+import { randomUUID } from "node:crypto";
+import { limitBytes } from "@adam-studio/library/src/public-network";
 import { createWriteStream, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { basename, extname, isAbsolute, join, relative } from "node:path";
+import { basename, extname, join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { AiError, jsonIn, type AskAI } from "./ai";
 import { serveFile } from "./files";
-import { safeName } from "./guards";
+import { realInside, safeName } from "./guards";
 import { listProjects } from "./projects";
 import { watchRef } from "./refwatch";
 import {
@@ -85,14 +87,13 @@ async function saveBody(req: IncomingMessage, folder: string, name: string, ok: 
   const clean = diskName(name);
   if (!clean || !ok.test(clean)) throw new StatsError(`cannot use ${clean || "this file"}`);
   mkdirSync(folder, { recursive: true });
-  const file = join(folder, `${Date.now().toString(36)}-${clean}`);
-  try { await pipeline(req, createWriteStream(file)); } catch (e) { rmSync(file, { force: true }); throw new StatsError(`upload failed: ${(e as Error).message}`); }
+  const file = join(folder, `${randomUUID()}-${clean}`);
+  try { await pipeline(req, limitBytes(300 * 1024 ** 2), createWriteStream(file, { flags: "wx" })); } catch (e) { rmSync(file, { force: true }); throw new StatsError(`upload failed: ${(e as Error).message}`); }
   return file;
 }
 
 function inside(dir: string, file: string): boolean {
-  const r = relative(dir, file);
-  return Boolean(r) && !r.startsWith("..") && !isAbsolute(r);
+  return Boolean(realInside(dir, file));
 }
 
 /** Statistics routes; returns false when the path is not one of them. */

@@ -1,9 +1,14 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { EventEmitter } from "node:events";
+import { describe, expect, it, vi } from "vitest";
 import { allowedFile, checkLook, checkSource, landing, libraryUrl, publicUrl } from "../src/access";
 import { importAsset } from "../src/importer";
+
+const network = vi.hoisted(() => ({ request: vi.fn(), lookup: vi.fn() }));
+vi.mock("node:https", () => ({ request: network.request }));
+vi.mock("node:dns/promises", () => ({ lookup: network.lookup }));
 
 const temp = () => mkdtempSync(join(tmpdir(), "adam-access-"));
 
@@ -44,12 +49,18 @@ describe("what a URL can reach", () => {
   });
 
   it("stops a download sent elsewhere by the server", async () => {
-    const dir = temp(), real = globalThis.fetch;
-    globalThis.fetch = (async () => Object.defineProperty(new Response("x"), "url", { value: "https://evil.example/a.jpg" })) as typeof fetch;
-    try {
-      await expect(importAsset(dir, { url: "https://pixabay.com/a.jpg" }, "a", libraryUrl)).rejects.toThrow(/sent elsewhere/);
-      expect(existsSync(join(dir, "assets", "a.jpg"))).toBe(false);
-    } finally { globalThis.fetch = real; }
+    const dir = temp();
+    network.lookup.mockClear().mockResolvedValue([{ address: "8.8.8.8", family: 4 }]);
+    network.request.mockClear().mockImplementation((_opts, resolve) => {
+      const req = new EventEmitter();
+      return Object.assign(req, { end: () => resolve({
+        statusCode: 302, headers: { location: "https://evil.example/a.jpg" }, destroy() {},
+      }) });
+    });
+    await expect(importAsset(dir, { url: "https://pixabay.com/a.jpg" }, "a", libraryUrl)).rejects.toThrow(/sent elsewhere/);
+    expect(network.lookup).toHaveBeenCalledExactlyOnceWith("pixabay.com", { all: true });
+    expect(network.request).toHaveBeenCalledTimes(1);
+    expect(existsSync(join(dir, "assets", "a.jpg"))).toBe(false);
   });
 });
 

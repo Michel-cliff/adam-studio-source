@@ -1,4 +1,4 @@
-import { createReadStream, statSync } from "node:fs";
+import { createReadStream, statSync, type ReadStream } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { extname } from "node:path";
 
@@ -19,7 +19,16 @@ export const APP_CSP = [
 // A file of a project or a library, opened directly: no script, and a page of its own origin, unable to reach the panel.
 const DATA_CSP = "sandbox; script-src 'none'";
 
-export function serveFile(req: IncomingMessage, res: ServerResponse, file: string, opts: { app?: boolean } = {}): void {
+function streamFile(res: ServerResponse, file: string, range?: { start: number; end: number }): ReadStream {
+  const stream = createReadStream(file, range);
+  res.once("close", () => stream.destroy());
+  stream.once("error", () => res.destroy());
+  stream.once("close", () => { if (!res.writableEnded) res.destroy(); });
+  stream.pipe(res);
+  return stream;
+}
+
+export function serveFile(req: IncomingMessage, res: ServerResponse, file: string, opts: { app?: boolean } = {}): ReadStream | undefined {
   let size: number, mtime: number;
   try { const s = statSync(file); if (!s.isFile()) throw new Error("not a file"); size = s.size; mtime = s.mtimeMs; } catch { res.writeHead(404).end(); return; }
   const type = (opts.app ? APP_TYPES : TYPES)[extname(file).toLowerCase()] ?? "application/octet-stream";
@@ -34,10 +43,9 @@ export function serveFile(req: IncomingMessage, res: ServerResponse, file: strin
     if (start > end || start >= size) { res.writeHead(416, { "Content-Range": `bytes */${size}` }).end(); return; }
     res.writeHead(206, { ...base, "Content-Length": end - start + 1, "Content-Range": `bytes ${start}-${end}/${size}` });
     if (req.method === "HEAD") { res.end(); return; }
-    createReadStream(file, { start, end }).pipe(res);
-    return;
+    return streamFile(res, file, { start, end });
   }
   res.writeHead(200, { ...base, "Content-Length": size });
   if (req.method === "HEAD") { res.end(); return; }
-  createReadStream(file).pipe(res);
+  return streamFile(res, file);
 }

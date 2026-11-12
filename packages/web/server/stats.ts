@@ -77,7 +77,7 @@ export function platformOf(url: string): string {
 }
 
 export function addRef(dir: string, from: { url?: string; file?: string; name?: string }): Ref {
-  if (from.url && !/^https?:\/\/\S+$/.test(from.url)) throw new Error("paste a full link (https://…)");
+  if (from.url && !/^https:\/\/\S+$/i.test(from.url)) throw new Error("paste a full link (https://…)");
   if (!from.url && !from.file) throw new Error("paste a link or drop a video");
   const s = readStats(dir);
   if (from.url && s.refs.some((r) => r.url === from.url)) throw new Error("this reference is already in your list");

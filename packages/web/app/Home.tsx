@@ -129,7 +129,8 @@ export function Home() {
   // Deleting moves the folder to the projects folder's .trash: recoverable until emptied by hand.
   const remove = async (name: string) => {
     if (!confirm(uiText(`Delete “${name}”?\n\nIt moves to the .trash folder inside your projects folder: you can still get it back from there.`))) return;
-    try { await api(`/projects/${enc(name)}`, { method: "DELETE" }); await load(); } catch (e) { setError((e as Error).message); }
+    setError("");
+    try { await api(`/projects/${enc(name)}`, { method: "DELETE" }); await load(); } catch (e) { setError(uiText((e as Error).message)); }
   };
   const saveRoot = () => api("/settings", { method: "PUT", body: { projectsRoot: root } }).then(() => { setEditRoot(false); void load(); }, (e) => setError(e.message));
   // The sidebar lists every matching project; only three recent previews occupy the centre.

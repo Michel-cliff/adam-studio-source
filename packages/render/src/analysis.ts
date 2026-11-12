@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import type { Project, Timeline } from "@adam-studio/model";
 import { missingAnalysis, sourceChanged } from "./media";
 import { CliError } from "./project-io";
+import { mediaPath } from "./project-paths";
 import type { Take } from "./takes";
 
 export const CHEAP_STEPS = ["edit", "proxy", "transcript", "silences"];
@@ -28,7 +29,8 @@ export function analysisArgs(projectDir: string, videos: Record<string, string>,
 
 export function runAnalysis(projectDir: string, videos: Record<string, string>, steps: string[], opts: { fps: number; lang?: string; force?: boolean }): void {
   if (Object.keys(videos).length === 0 || steps.length === 0) return;
-  const r = spawnSync(analysisPython(), analysisArgs(projectDir, videos, steps, opts), { stdio: "inherit" });
+  const checked = Object.fromEntries(Object.entries(videos).map(([id, path]) => [id, mediaPath(projectDir, path, "video")]));
+  const r = spawnSync(analysisPython(), analysisArgs(projectDir, checked, steps, opts), { stdio: "inherit" });
   if (r.status !== 0) throw new CliError("The analysis failed: see the message above.");
 }
 

@@ -60,7 +60,7 @@ export function ConnectorsPanel({ onClose, onCount }: { onClose: () => void; onC
   const [health, setHealth] = useState<Record<string, Health | "checking">>({});
   const check = (name: string) => {
     setHealth((h) => ({ ...h, [name]: "checking" }));
-    api<Health>(`/connectors/health?name=${enc(name)}`).then((r) => setHealth((h) => ({ ...h, [name]: r })), (e) => setHealth((h) => ({ ...h, [name]: { state: "down", detail: e.message } })));
+    api<Health>(`/connectors/health?name=${enc(name)}`, { method: "POST" }).then((r) => setHealth((h) => ({ ...h, [name]: r })), (e) => setHealth((h) => ({ ...h, [name]: { state: "down", detail: e.message } })));
   };
   const set = (l: Connector[]) => {
     setList(l); onCount?.(l.filter((c) => c.enabled).length);

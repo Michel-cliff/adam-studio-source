@@ -1,18 +1,26 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, rmSync } from "node:fs";
-import { relative, isAbsolute, join } from "node:path";
+import { relative, isAbsolute, join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { buildCommand, cliCommand, type Command } from "@adam-studio/web/server/actions";
 import { JobManager } from "@adam-studio/web/server/jobs";
 import { venvPython } from "@adam-studio/web/server/paths";
 import type { JobView } from "@adam-studio/web/server/types";
 import { ToolError } from "@adam-studio/web/server/store";
+import { SETTINGS_FILE } from "@adam-studio/web/server/settings";
 
-const PANEL = `http://127.0.0.1:${process.env.ADAM_UI_PORT ?? 4317}`;
+const port = Number(process.env.ADAM_UI_PORT ?? 4317);
+const PANEL = `http://127.0.0.1:${port}`;
 const local = new JobManager();
 
-async function panelUp(): Promise<boolean> {
-  try { return (await (await fetch(`${PANEL}/api/ping`, { signal: AbortSignal.timeout(800) })).json()).app === "adam-studio"; } catch { return false; }
+async function panelKey(): Promise<string | undefined> {
+  try {
+    const key = readFileSync(join(dirname(SETTINGS_FILE), "browser-mcp-" + port + ".key"), "utf8");
+    if (!/^[a-f0-9]{64}$/.test(key)) return undefined;
+    const res = await fetch(`${PANEL}/api/ping`, { headers: { "x-adam-mcp": key }, signal: AbortSignal.timeout(800), redirect: "error" });
+    if (res.ok && (await res.json()).app === "adam-studio") return key;
+  } catch { /* A standalone MCP may run without a browser panel. */ }
+  return undefined;
 }
 
 function waitLocal(job: JobView): Promise<JobView> {
@@ -28,14 +36,16 @@ export function nameInRoot(dir: string, root: string): string | null {
   return r && !r.startsWith("..") && !isAbsolute(r) && !/[\\/]/.test(r) ? r : null;
 }
 
-async function viaPanel(path: string, body: unknown): Promise<JobView> {
-  const r = await fetch(`${PANEL}/api${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+async function viaPanel(path: string, body: unknown, key: string): Promise<JobView> {
+  const r = await fetch(`${PANEL}/api${path}`, { method: "POST", headers: { "Content-Type": "application/json", "x-adam-mcp": key }, body: JSON.stringify(body), redirect: "error" });
   const data = await r.json();
   if (!r.ok) throw new ToolError(data.error ?? `panel answered ${r.status}`);
   let job: JobView = data.job;
   while (job.state === "running" || job.state === "queued") {
     await new Promise((res) => setTimeout(res, 1000));
-    job = await (await fetch(`${PANEL}/api/jobs/${job.id}`)).json();
+    const status = await fetch(`${PANEL}/api/jobs/${encodeURIComponent(job.id)}`, { headers: { "x-adam-mcp": key }, redirect: "error" });
+    if (!status.ok) throw new ToolError("The Studio could not return the job status.");
+    job = await status.json();
   }
   return job;
 }
@@ -46,15 +56,15 @@ async function viaPanel(path: string, body: unknown): Promise<JobView> {
  */
 export async function runAction(dir: string, root: string, action: string, options: Record<string, unknown>): Promise<JobView> {
   const name = nameInRoot(dir, root);
-  if (name && (await panelUp())) return viaPanel(`/projects/${encodeURIComponent(name)}/jobs`, { action, options });
+  const key = name ? await panelKey() : undefined;
+  if (name && key) return viaPanel(`/projects/${encodeURIComponent(name)}/jobs`, { action, options }, key);
   let command: Command;
   try { command = buildCommand(action, dir, options, venvPython("capcut", "ADAM_CAPCUT_PYTHON")); } catch (e) { throw new ToolError((e as Error).message); }
   return waitLocal(local.start(dir, command));
 }
 
 /** new / add through the panel when it runs, else locally. */
-export async function runSetup(kind: "new" | "add", name: string | null, command: Command, body: unknown): Promise<JobView> {
-  if (name && (await panelUp())) return viaPanel(kind === "new" ? "/projects" : `/projects/${encodeURIComponent(name)}/add`, body);
+export async function runSetup(name: string | null, command: Command): Promise<JobView> {
   return waitLocal(local.start(name ?? command.args.join(" "), command));
 }
 

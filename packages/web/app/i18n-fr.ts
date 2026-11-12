@@ -708,6 +708,9 @@ export const FR: Record<string, string> = {
 
 export const PATTERNS: [RegExp, string][] = [
   [/^(\d+) NEW$/, "$1 NOUV."],
+  [/^This project is being moved to the trash\.$/, "Ce projet est en cours de déplacement vers la corbeille."],
+  [/^The project and its trash must be regular folders\.$/, "Le projet et sa corbeille doivent être des dossiers ordinaires."],
+  [/^Windows cannot move this project\. Close its previews and files in other apps, then try again\. Check access to the projects folder if it still fails\.$/, "Windows ne peut pas déplacer ce projet. Ferme ses aperçus et ses fichiers dans les autres applications, puis réessaie. Si le problème persiste, vérifie les droits d’accès au dossier de projets."],
   [/^Delete “(.+)” from your Inspiration folder\?\n\nIt moves to the folder's \.trash\.$/, "Supprimer « $1 » du dossier Inspiration ?\n\nLe fichier sera déplacé dans sa corbeille (.trash)."],
   [/^Remove “(.+)” from (.+)\?\n\nIts file moves to the project's \.trash\.$/, "Retirer « $1 » de $2 ?\n\nLe fichier sera déplacé dans la corbeille du projet (.trash)."],
   [/^Delete “(.+)”\?\n\nIt moves to the \.trash folder inside your projects folder: you can still get it back from there\.$/, "Supprimer « $1 » ?\n\nLe projet sera déplacé dans la corbeille (.trash) de ton dossier de projets. Tu pourras le restaurer."],

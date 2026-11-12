@@ -137,7 +137,7 @@ export function fixSteps(c: Ctx, id: string): Step[] {
       { cmd: vpy, args: ["-m", "pip", "install", "-e", join(c.repo, "py", "analysis")] },
     ];
     case "models": return [{ cmd: vpy, args: ["-c", [
-      "from faster_whisper import WhisperModel", "WhisperModel('large-v3-turbo', device='cpu', compute_type='int8')",
+      "from adam_analysis.steps.transcript import model", "model()",
       "from adam_analysis.models import ensure_lama, ensure_rvm", "ensure_rvm()", "ensure_lama()"].join("\n")] }];
     case "ai": return [{ cmd: npmCmd, args: ["install", "-g", ...(process.env.ADAM_TOOLS ? ["--prefix", process.env.ADAM_TOOLS] : []), "@anthropic-ai/claude-code"] }];
     case "skill": return process.env.ADAM_PACKAGED ? [{ cmd: process.execPath, args: ["-e", [

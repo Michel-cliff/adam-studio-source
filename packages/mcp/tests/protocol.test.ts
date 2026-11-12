@@ -1,6 +1,6 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { describe, expect, it } from "vitest";
@@ -12,7 +12,7 @@ describe("MCP server over stdio", () => {
     const dir = mkdtempSync(join(tmpdir(), "adam mcp proto-"));
     makeSynthetic(dir, { withProposal: true });
     const client = new Client({ name: "test", version: "0" });
-    await client.connect(new StdioClientTransport({ command: process.execPath, args: [TSX, join(import.meta.dirname, "..", "src", "server.ts")], stderr: "inherit" }));
+    await client.connect(new StdioClientTransport({ command: process.execPath, args: [TSX, join(import.meta.dirname, "..", "src", "server.ts")], stderr: "inherit", env: { ...(process.env as Record<string, string>), USERPROFILE: dir, HOME: dir, ADAM_PROJECTS: dirname(dir) } }));
     try {
       const names = (await client.listTools()).tools.map((t) => t.name).sort();
       expect(names).toEqual(["add_rushes", "apply_patch", "close_step", "create_project", "decide", "get_project", "get_reference", "get_transcript",
@@ -38,7 +38,7 @@ describe("MCP server over stdio", () => {
     const dir = mkdtempSync(join(tmpdir(), "adam mcp guard-"));
     makeSynthetic(dir, {});
     const client = new Client({ name: "test", version: "0" });
-    await client.connect(new StdioClientTransport({ command: process.execPath, args: [TSX, join(import.meta.dirname, "..", "src", "server.ts")], stderr: "inherit" }));
+    await client.connect(new StdioClientTransport({ command: process.execPath, args: [TSX, join(import.meta.dirname, "..", "src", "server.ts")], stderr: "inherit", env: { ...(process.env as Record<string, string>), USERPROFILE: dir, HOME: dir, ADAM_PROJECTS: dirname(dir) } }));
     const call = async (name: string, args: Record<string, unknown>) => {
       const r = await client.callTool({ name, arguments: args });
       return { isError: r.isError, text: (r.content as { text?: string }[])[0]?.text ?? "" };

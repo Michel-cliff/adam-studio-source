@@ -31,7 +31,7 @@ export type LocalItem = {
 };
 
 const EXT: Record<string, LibraryKind> = {
-  ".mp4": "video", ".mov": "video", ".mkv": "video", ".webm": "video", ".m4v": "video",
+  ".mp4": "video", ".mov": "video", ".mkv": "video", ".webm": "video", ".m4v": "video", ".avi": "video",
   ".png": "image", ".jpg": "image", ".jpeg": "image", ".webp": "image", ".gif": "image", ".svg": "image",
   ".wav": "audio", ".mp3": "audio", ".ogg": "audio", ".m4a": "audio", ".flac": "audio",
   ".ttf": "font", ".otf": "font",

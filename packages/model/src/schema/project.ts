@@ -7,7 +7,7 @@ const Unit = z.number().min(0).max(1);
 export const CanvasSchema = z.strictObject({ format: FormatSchema, fps: z.number().int().positive() });
 
 export const AssetSchema = z.strictObject({
-  id: z.string().min(1),
+  id: z.string().regex(/^[A-Za-z0-9_][A-Za-z0-9_.-]*$/).refine((id) => !id.endsWith(".") && !/^(?:__proto__|constructor|prototype|con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(id)),
   kind: z.enum(["video", "audio", "image", "lottie"]),
   path: z.string().min(1),
   meta: z

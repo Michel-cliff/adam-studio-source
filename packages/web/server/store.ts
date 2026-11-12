@@ -10,6 +10,7 @@ import { cutWords, tightenPauses } from "./cuts";
 import { moveCaption, moveElement, moveStory, resizeElement } from "./moves";
 import { firstPass, type FirstPassParams, type FirstPassSummary } from "./firstpass";
 import { safeName } from "./guards";
+import { projectStylePath } from "@adam-studio/render/src/project-paths";
 
 export class ToolError extends Error {}
 
@@ -38,9 +39,8 @@ export function load(dir: string): { project: Project; style: Style } {
 
 function loadStyle(dir: string, project: Project): Style {
   const p = { value: project };
-  const stylePath = isAbsolute(p.value.style) ? p.value.style : join(dir, p.value.style);
   let rawStyle: unknown;
-  try { rawStyle = JSON.parse(readFileSync(stylePath, "utf8")); } catch (e) { throw new ToolError(`cannot read ${p.value.style}: ${(e as Error).message}`); }
+  try { rawStyle = JSON.parse(readFileSync(projectStylePath(dir, p.value.style), "utf8")); } catch (e) { throw new ToolError(`cannot read ${p.value.style}: ${(e as Error).message}`); }
   const s = parseStyle(rawStyle);
   if (!s.ok) throw errors(p.value.style, s.errors);
   return s.value;
@@ -142,13 +142,17 @@ export function splitIn(dir: string, id: string, offsetMs: number) {
 export function setValue(dir: string, pointer: string, value: unknown) {
   if (!pointer.startsWith("/")) throw new ToolError(`a JSON Pointer starts with "/", got "${pointer}"`);
   const keys = pointer.slice(1).split("/").map((k) => k.replace(/~1/g, "/").replace(/~0/g, "~"));
+  if (keys.some((k) => k === "__proto__" || k === "constructor" || k === "prototype")) throw new ToolError("forbidden JSON Pointer key");
   const raw = loadRaw(dir);
   let node: any = raw;
   for (const k of keys.slice(0, -1)) {
-    if (node === null || typeof node !== "object" || !(k in node)) throw new ToolError(`nothing at ${pointer} ("${k}" is missing)`);
+    if (node === null || typeof node !== "object" || !Object.hasOwn(node, k)) throw new ToolError(`nothing at ${pointer} ("${k}" is missing)`);
     node = node[k];
   }
   const last = keys.at(-1)!;
+  if (node === null || typeof node !== "object") throw new ToolError("JSON Pointer parent is not an object");
+  if (Array.isArray(node) && !(last === "-" && value !== undefined) &&
+      (!/^(0|[1-9][0-9]*)$/.test(last) || Number(last) >= node.length)) throw new ToolError("JSON Pointer array index is out of bounds");
   if (value === undefined) {
     if (Array.isArray(node)) node.splice(Number(last), 1);
     else delete node[last];

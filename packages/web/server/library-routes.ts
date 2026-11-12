@@ -2,13 +2,14 @@ import { createHash } from "node:crypto";
 import { createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
 import { pipeline } from "node:stream/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { basename, dirname, extname, join, relative, isAbsolute } from "node:path";
+import { basename, dirname, extname, join, relative } from "node:path";
+import { limitBytes } from "@adam-studio/library/src/public-network";
 import { libraryUrl } from "@adam-studio/library/src/access";
 import { importAsset, type ImportSource } from "@adam-studio/library/src/importer";
 import { inspirationRoot, kindOf, REFERENCE_FOLDERS, scanInspiration, searchLocal, type LibraryKind, type ReferenceFolder } from "@adam-studio/library/src/local";
 import { searchOnline } from "@adam-studio/library/src/online";
 import { serveFile } from "./files";
-import { safeName } from "./guards";
+import { realInside, safeName } from "./guards";
 import { addAssetIn, ToolError } from "./store";
 
 const KINDS = new Set(["video", "image", "audio", "font", "lottie"]);
@@ -26,8 +27,7 @@ type Ctx = {
 };
 
 function insideInspiration(path: string): boolean {
-  const r = relative(inspirationRoot(), path);
-  return Boolean(r) && !r.startsWith("..") && !isAbsolute(r);
+  return Boolean(realInside(inspirationRoot(), path));
 }
 
 const digest = (file: string) => createHash("sha1").update(readFileSync(file)).digest("hex");
@@ -108,15 +108,19 @@ export async function libraryRoute(c: Ctx): Promise<boolean> {
     const kind = kindOf(name);
     if (!name || !kind) throw new ToolError(`cannot use ${name || "this file"}: drop a video, image, sound, font or Lottie file`);
     const project = url.searchParams.get("project");
-    if (project && (!safeName(project) || !existsSync(join(c.root, project, "project.json")))) throw new ToolError(`no project "${project}"`);
+    if (project && (!safeName(project) || !realInside(c.root, join(c.root, project, "project.json")))) throw new ToolError(`no project "${project}"`);
     const category = folderParam(url.searchParams.get("category"));
     const folder = category && category !== "other" ? join(inspirationRoot(), "references", category) : join(inspirationRoot(), "Uploads");
     mkdirSync(folder, { recursive: true });
+    if (!realInside(inspirationRoot(), folder)) throw new ToolError("Invalid library folder.");
     const ext = extname(name), stem = basename(name, ext);
     let saved = join(folder, name);
     for (let i = 2; existsSync(saved); i++) saved = join(folder, `${stem} (${i})${ext}`);
-    try { await pipeline(c.req, createWriteStream(saved, { flags: "wx" })); }
-    catch (e) { rmSync(saved, { force: true }); throw new ToolError(`upload failed: ${(e as Error).message}`); }
+    let owned = false;
+    const stream = createWriteStream(saved, { flags: "wx" });
+    stream.once("open", () => { owned = true; });
+    try { await pipeline(c.req, limitBytes(300 * 1024 ** 2), stream); }
+    catch (e) { if (owned) rmSync(saved, { force: true }); throw new ToolError(`upload failed: ${(e as Error).message}`); }
     const twin = sameFile(saved);
     if (twin) { rmSync(saved, { force: true }); send(409, { error: `already in your library: ${relative(inspirationRoot(), twin)}`, existing: twin }); return true; }
     if (!project) { send(200, { saved, kind }); return true; }
@@ -130,7 +134,7 @@ export async function libraryRoute(c: Ctx): Promise<boolean> {
   if (path === "/api/library/import" && method === "POST") {
     const b = await c.body();
     const project = String(b.project ?? "");
-    if (!safeName(project) || !existsSync(join(c.root, project, "project.json"))) throw new ToolError(`no project "${project}"`);
+    if (!safeName(project) || !realInside(c.root, join(c.root, project, "project.json"))) throw new ToolError(`no project "${project}"`);
     const source = (b.source ?? {}) as ImportSource;
     if (source.path && !insideInspiration(source.path)) throw new ToolError("local imports come from the Inspiration folder");
     if (source.url && !libraryUrl(source.url)) throw new ToolError("only results of the online libraries can be downloaded");

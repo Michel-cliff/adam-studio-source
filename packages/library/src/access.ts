@@ -41,9 +41,9 @@ function real(path: string): string {
 
 /** A media file inside one of the folders: never a document, a key or a network share. */
 export function allowedFile(path: string, roots: string[], words = ""): boolean {
-  if (!isAbsolute(path) || path.startsWith("\\\\") || path.startsWith("//")) return false;
+  if (!isAbsolute(path) || path.startsWith("\\\\") || path.startsWith("//") || /[:\u0000]/.test(path.replace(/^[a-z]:/i, ""))) return false;
   const file = real(path);
-  if (!kindOf(file)) return false;
+  if (!kindOf(file) || file.startsWith("\\\\") || file.startsWith("//")) return false;
   if (said(path, words)) return true;
   return roots.some((root) => {
     const r = relative(real(root), file);

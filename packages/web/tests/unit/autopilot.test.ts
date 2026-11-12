@@ -4,7 +4,7 @@ import { Autopilot, type Pilot } from "../../server/autopilot";
 const STEPS = ["cuts", "structure", "captions", "hook", "beats", "visuals", "sound", "look"];
 
 /** A project in memory: the first pass proposes cuts, every ask proposes A and B for its step. */
-function fake(opts: { askFails?: string; soundMixed?: boolean } = {}) {
+function fake(opts: { askFails?: string; soundMixed?: boolean; pendingSound?: boolean } = {}) {
   let wf: { current: string; steps: Record<string, string> } | null = null;
   const proposals: { id: string; step: string; status: unknown; variants: { key: string }[] }[] = [];
   const log: string[] = [];
@@ -17,6 +17,7 @@ function fake(opts: { askFails?: string; soundMixed?: boolean } = {}) {
     load: () => ({ workflow: wf && { ...wf, steps: { ...wf.steps } }, proposals: proposals.map((p) => ({ ...p })) }),
     firstPass: () => {
       wf = { current: "cuts", steps: Object.fromEntries(STEPS.map((s) => [s, s === "cuts" ? "open" : "locked"])) };
+      if (opts.pendingSound) proposals.push({ id: "p.sound", step: "sound", status: "pending", variants: [{ key: "A" }] });
       log.push("first pass");
     },
     decide: (_d, id, k) => {
@@ -53,6 +54,12 @@ describe("auto mode", () => {
     expect(log).not.toContain("ask sound");
     expect(log).toContain("close sound");
     expect(log).toContain("ask visuals");
+  });
+  it("rejects an already pending sound variant for a mixed take", async () => {
+    const { pilot, log } = fake({ soundMixed: true, pendingSound: true });
+    expect((await new Autopilot(pilot).start("v", "/v")).state).toBe("done");
+    expect(log).toContain("decide p.sound reject");
+    expect(log).not.toContain("decide p.sound A");
   });
   it("moves on when the AI proposes nothing for a step", async () => {
     const { pilot, log } = fake({ askFails: "hook" });

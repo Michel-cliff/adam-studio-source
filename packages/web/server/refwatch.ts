@@ -5,40 +5,46 @@ import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { AiError, jsonIn, type AskAI } from "./ai";
+import { withReferenceProxy } from "./reference-proxy";
 import { uiLang } from "./settings";
 import { readStats, topicOf, TOPICS, trends, updateRef, type Beat, type Ref, type Saw, type Topic } from "./stats";
 
 const run = promisify(execFile);
 const FRAMES = 8;
+const downloaderEnv = () => Object.fromEntries(Object.entries(process.env).filter(([key]) =>
+  /^(path|pathext|systemroot|windir|comspec|temp|tmp|home|userprofile|appdata|localappdata|programfiles(?:\(x86\))?)$/i.test(key)));
 
 // Separate video and audio merged into one MP4 first: YouTube's single-file format 18 often stops after a few
 // hundred KB while yt-dlp reports success. H.264 when there is one, any codec next, the single file last.
 export const videoFormat = "bv*[height<=720][vcodec^=avc1]+ba[ext=m4a]/bv*[height<=720]+ba/b[height<=720]/b";
 
 async function download(url: string, folder: string, signal?: AbortSignal): Promise<{ video: string; title: string; subs: string }> {
-  mkdirSync(folder, { recursive: true });
-  // The video first: without it there is nothing to watch.
-  const { stdout } = await run("yt-dlp", ["--no-playlist", "--no-progress", "-f", videoFormat, "--merge-output-format", "mp4", "--max-filesize", "300M",
-    "-o", join(folder, "video.%(ext)s"), "--print", "after_move:title", url], { timeout: 300_000, windowsHide: true, maxBuffer: 1 << 24, signal });
-  const video = readdirSync(folder).find((f) => /^video\.(mp4|webm|mkv|mov)$/.test(f));
-  if (!video) throw new Error("the video could not be downloaded from this link");
-  // The captions are a bonus: platforms often refuse them (HTTP 429), the frames are enough then.
-  try {
-    await run("yt-dlp", ["--no-playlist", "--no-progress", "--skip-download", "--write-auto-subs", "--write-subs", "--sub-langs", "fr.*,en.*",
-      "--convert-subs", "srt", "-o", join(folder, "video.%(ext)s"), url], { timeout: 120_000, windowsHide: true, maxBuffer: 1 << 24, signal });
-  } catch { /* no captions: watched from the frames only */ }
-  const srt = readdirSync(folder).find((f) => f.endsWith(".srt"));
-  const subs = srt ? readFileSync(join(folder, srt), "utf8").split("\n").filter((l) => l && !/^\d+$/.test(l) && !/-->/.test(l)).join(" ") : "";
-  return { video: join(folder, video), title: stdout.trim().split("\n").pop() ?? "", subs };
+  return withReferenceProxy(async (proxy) => {
+    mkdirSync(folder, { recursive: true });
+    const policy = ["--ignore-config", "--no-plugin-dirs", "--proxy", proxy, "--downloader", "native", "--no-playlist", "--no-progress"];
+    // The video first: without it there is nothing to watch.
+    const { stdout } = await run("yt-dlp", [...policy, "-f", videoFormat, "--merge-output-format", "mp4", "--max-filesize", "300M",
+      "-o", join(folder, "video.%(ext)s"), "--print", "after_move:title", "--", url], { timeout: 300_000, windowsHide: true, env: downloaderEnv(), maxBuffer: 1 << 24, signal });
+    const video = readdirSync(folder).find((f) => /^video\.(mp4|webm|mkv|mov)$/.test(f));
+    if (!video) throw new Error("the video could not be downloaded from this link");
+    // The captions are a bonus: platforms often refuse them (HTTP 429), the frames are enough then.
+    try {
+      await run("yt-dlp", [...policy, "--skip-download", "--write-auto-subs", "--write-subs", "--sub-langs", "fr.*,en.*",
+        "--convert-subs", "srt", "-o", join(folder, "video.%(ext)s"), "--", url], { timeout: 120_000, windowsHide: true, env: downloaderEnv(), maxBuffer: 1 << 24, signal });
+    } catch { /* no captions: watched from the frames only */ }
+    const srt = readdirSync(folder).find((f) => f.endsWith(".srt"));
+    const subs = srt ? readFileSync(join(folder, srt), "utf8").split("\n").filter((l) => l && !/^\d+$/.test(l) && !/-->/.test(l)).join(" ") : "";
+    return { video: join(folder, video), title: stdout.trim().split("\n").pop() ?? "", subs };
+  });
 }
 
 async function frames(video: string, folder: string): Promise<string[]> {
-  const { stdout } = await run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", video], { windowsHide: true });
+  const { stdout } = await run("ffprobe", ["-v", "error", "-protocol_whitelist", "file,pipe", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", video], { windowsHide: true });
   const d = Math.max(1, Number(stdout.trim()) || 10);
   const out: string[] = [];
   for (let i = 0; i < FRAMES; i++) {
     const f = join(folder, `frame-${i}.jpg`);
-    await run("ffmpeg", ["-v", "error", "-y", "-ss", ((d * (i + 0.5)) / FRAMES).toFixed(2), "-i", video, "-frames:v", "1", "-vf", "scale=360:-2", f], { windowsHide: true });
+    await run("ffmpeg", ["-v", "error", "-y", "-protocol_whitelist", "file,pipe", "-ss", ((d * (i + 0.5)) / FRAMES).toFixed(2), "-i", video, "-frames:v", "1", "-vf", "scale=360:-2", f], { windowsHide: true });
     if (existsSync(f)) out.push(f);
   }
   return out;

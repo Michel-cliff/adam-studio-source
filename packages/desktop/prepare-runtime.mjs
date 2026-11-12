@@ -45,7 +45,16 @@ for(const [file,folder]of [['Anton-Regular.ttf','anton'],['DMSerifDisplay-Regula
 const capcutLab=process.env.ADAM_CAPCUT_LAB||join(process.env.USERPROFILE||'','ClaudeCapcut/VectCutAPI');
 for(const name of ['pyJianYingDraft','draft_profiles.py','settings','template','LICENSE']){if(!existsSync(join(capcutLab,name)))throw Error(`CapCut library incomplete: ${name} missing in ${capcutLab}`);copy(join(capcutLab,name),join(payload,'capcut-lab',name));}
 // The template carries the folder of the Mac it was made on: the export writes the real one, nothing needs this.
-const capcutMeta=join(payload,'capcut-lab/template/draft_meta_info.json');writeFileSync(capcutMeta,JSON.stringify({...JSON.parse(readFileSync(capcutMeta,'utf8')),draft_fold_path:'',draft_root_path:'',draft_name:''}));
+const templateDir = join(payload, 'capcut-lab/template');
+const privateTemplateKeys = new Set(['device_id', 'hard_disk_id', 'mac_address', 'draft_fold_path', 'draft_root_path', 'draft_name']);
+for (const entry of readdirSync(templateDir, { recursive: true, withFileTypes: true })) {
+  if (!entry.isFile() || !/\.(json|bak|tmp)$/i.test(entry.name)) continue;
+  const file = join(entry.parentPath, entry.name);
+  const raw = readFileSync(file, 'utf8');
+  if (!/"(?:device_id|hard_disk_id|mac_address|draft_fold_path|draft_root_path|draft_name)"\s*:/.test(raw)) continue;
+  const data = JSON.parse(raw);
+  writeFileSync(file, JSON.stringify(data, (key, value) => privateTemplateKeys.has(key) ? '' : value));
+}
 console.log('Preparing Node and multimedia tools');
 mkdirSync(bin,{recursive:true});copy(process.execPath,join(bin,'node.exe'));
 const npmRoot=join(dirname(process.execPath),'node_modules/npm');if(!existsSync(npmRoot))throw Error('Build host npm runtime missing');copy(npmRoot,join(bin,'node_modules/npm'));
@@ -55,12 +64,23 @@ for(const [name,path]of Object.entries(toolPaths)){const actual=realpathSync(pat
 }
 console.log('Preparing relocatable Python runtime');
 const analysisPython=join(root,'py/analysis/.venv/Scripts/python.exe');
-const base=execFileSync(analysisPython,['-c','import sys;print(sys.base_prefix)'],{encoding:'utf8',windowsHide:true}).trim();const py=join(payload,'python');mkdirSync(py,{recursive:true});
-for(const name of readdirSync(base)){if(/^(python.*\.(exe|dll)|vcruntime.*\.dll|LICENSE\.txt)$/.test(name))copy(join(base,name),join(py,name));}
+const runtimePython=process.env.ADAM_PYTHON_BASE?resolve(process.env.ADAM_PYTHON_BASE):analysisPython;
+const base=execFileSync(runtimePython,['-I','-c','import sys; assert sys.version_info[:2] == (3, 12); print(sys.base_prefix)'],{encoding:'utf8',windowsHide:true}).trim();const py=join(payload,'python');mkdirSync(py,{recursive:true});
+for(const name of readdirSync(base)){if(/^(python.*\.exe|[^\\/]+\.dll|LICENSE(?:\.txt)?)$/i.test(name))copy(join(base,name),join(py,name));}
 copy(join(base,'DLLs'),join(py,'DLLs'));
 cpSync(join(base,'Lib'),join(py,'Lib'),{recursive:true,filter:p=>filter(p)&&!relative(join(base,'Lib'),p).split(sep).includes('site-packages')});
 const site=join(py,'Lib/site-packages');mkdirSync(site,{recursive:true});
-for(const env of ['analysis','capcut']){const source=join(root,'py',env,'.venv/Lib/site-packages');for(const entry of readdirSync(source)){if(env==='capcut'&&!/^(imageio|PIL|pillow)/i.test(entry))continue;if(entry.endsWith('.pth')||entry.startsWith('__editable__')||excluded.has(entry)||existsSync(join(site,entry)))continue;copy(join(source,entry),join(site,entry));}}
+// Application modules come from the source tree. Do not retain stale wheel metadata from the host venv.
+const isAppMetadata=entry=>/^adam_(analysis|capcut)-[^\\/]+\.dist-info$/.test(entry);
+for(const entry of readdirSync(site).filter(isAppMetadata))rmSync(join(site,entry),{recursive:true,force:true});
+for(const env of ['analysis','capcut']){const source=join(root,'py',env,'.venv/Lib/site-packages');for(const entry of readdirSync(source)){if(env==='capcut'&&!/^(imageio|PIL|pillow)/i.test(entry))continue;if(entry.endsWith('.pth')||entry.startsWith('__editable__')||isAppMetadata(entry)||excluded.has(entry)||existsSync(join(site,entry)))continue;copy(join(source,entry),join(site,entry));}}
+const fixedPython = ['filelock==4.2.10', 'Pillow==13.0.0', 'pip==26.3', 'setuptools==84.1.0'];
+const cleanPythonEnv = {...process.env};
+delete cleanPythonEnv.PYTHONHOME;
+delete cleanPythonEnv.PYTHONPATH;
+execFileSync(join(py, 'python.exe'), ['-I', '-m', 'pip', '--isolated', 'install', '--upgrade', '--only-binary=:all:', '--no-deps', ...fixedPython], {
+  cwd: payload, env: cleanPythonEnv, stdio: 'inherit', windowsHide: true,
+});
 for(const name of ['adam_analysis','adam_capcut'])copy(join(payload,'py',name==='adam_analysis'?'analysis':'capcut',name),join(site,name));
 writeFileSync(join(payload,'third-party-packages.json'),JSON.stringify(notices,null,2));
 // What the tools' own folders do not carry: their licence, and for yt-dlp what its bundled executable is under.
@@ -80,7 +100,7 @@ writeFileSync(join(payload,'BUILD-NOTICE.txt'),'Adam Studio for Windows x64. No 
 const chrome=find(join(payload,'node_modules/.remotion'),'chrome-headless-shell.exe');if(!chrome)throw Error('Remotion browser missing');
 writeFileSync(join(payload,'runtime.json'),JSON.stringify({version:1,node:'bin/node.exe',python:'python/python.exe',browser:relative(payload,chrome)},null,2));
 const env={...process.env,PYTHONNOUSERSITE:'1',PYTHONDONTWRITEBYTECODE:'1'};delete env.PYTHONHOME;delete env.PYTHONPATH;
-execFileSync(join(py,'python.exe'),['-I','-c','import sys,numpy,torch,cv2,faster_whisper,adam_analysis.models,adam_capcut,imageio,PIL;assert int(PIL.__version__.split(".")[0])>=12,PIL.__version__;print("PACKAGED_PYTHON_OK",sys.prefix)'],{cwd:payload,env,stdio:'inherit',windowsHide:true});
+execFileSync(join(py,'python.exe'),['-I','-c','import sys,numpy,torch,cv2,faster_whisper,adam_analysis.models,adam_capcut,imageio,PIL;assert PIL.__version__=="13.0.0",PIL.__version__;print("PACKAGED_PYTHON_OK",sys.prefix)'],{cwd:payload,env,stdio:'inherit',windowsHide:true});
 execFileSync(join(py,'python.exe'),['-I','-c','import sys;sys.path.insert(0,sys.argv[1]);import draft_profiles,pyJianYingDraft,pyJianYingDraft.text_segment;p=draft_profiles.get_draft_profile();assert p.name=="capcut_legacy",p.name;print("PACKAGED_CAPCUT_OK",p.name)',join(payload,'capcut-lab')],{cwd:payload,env,stdio:'inherit',windowsHide:true});
 for(const dir of ['capcut-lab','capcut-lab/pyJianYingDraft','capcut-lab/settings'])rmSync(join(payload,dir,'__pycache__'),{recursive:true,force:true});
 execFileSync(join(bin,'node.exe'),['--version'],{stdio:'inherit',windowsHide:true});execFileSync(join(bin,'ffmpeg.exe'),['-v','error','-version'],{stdio:'pipe',windowsHide:true});

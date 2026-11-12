@@ -23,7 +23,7 @@ function signedIn(name: string, home: string): boolean {
 async function checkHttp(name: string, server: Server, home: string, timeoutMs: number): Promise<Health> {
   try {
     const r = await fetch(server.url!, {
-      method: "POST", signal: AbortSignal.timeout(timeoutMs),
+      method: "POST", redirect: "error", signal: AbortSignal.timeout(timeoutMs),
       headers: { "content-type": "application/json", accept: "application/json, text/event-stream", ...server.headers },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: INITIALIZE }),
     });
@@ -37,8 +37,15 @@ function checkStdio(server: Server, timeoutMs: number): Promise<Health> {
   return new Promise((resolve) => {
     // npx and the like are .cmd files on Windows: only a shell can start those.
     const shell = process.platform === "win32" && /(^|[\\/])(npx|npm|pnpm|yarn)$|\.(cmd|bat)$/i.test(server.command!);
-    const args = (server.args ?? []).map((a) => (shell && /\s/.test(a) ? `"${a}"` : a));
-    const child = spawn(server.command!, args, { env: { ...process.env, ...server.env }, stdio: ["pipe", "pipe", "pipe"], windowsHide: true, shell });
+    const requestedArgs = server.args ?? [];
+    if (shell && [server.command!, ...requestedArgs].some((part) => /[%!&|<>^()"\r\n]/.test(part))) {
+      resolve({ state: "down", detail: "Unsafe Windows shell arguments." });
+      return;
+    }
+    const args = requestedArgs.map((a) => shell && /\s/.test(a) ? `"${a}"` : a);
+    const env = Object.fromEntries(Object.entries(process.env).filter(([key]) =>
+      /^(path|pathext|systemroot|windir|comspec|temp|tmp|home|userprofile|appdata|localappdata|programfiles(?:\(x86\))?|npm_config_cache)$/i.test(key)));
+    const child = spawn(server.command!, args, { env: { ...env, ...server.env }, stdio: ["pipe", "pipe", "pipe"], windowsHide: true, shell });
     let settled = false, buffer = "", stderr = "";
     const finish = (h: Health) => {
       if (settled) return;
@@ -53,9 +60,10 @@ function checkStdio(server: Server, timeoutMs: number): Promise<Health> {
     child.on("error", (e) => finish({ state: "down", detail: short(e.message) }));
     child.on("exit", (code) => finish({ state: "down", detail: short(stderr) || `stopped (${code})` }));
     child.stdin.on("error", () => {});
-    child.stderr.on("data", (d) => { stderr += d; });
+    child.stderr.on("data", (d) => { stderr = (stderr + d).slice(-4096); });
     child.stdout.on("data", (d) => {
       buffer += d;
+      if (buffer.length > 1_000_000) return finish({ state: "down", detail: "Connector output is too large." });
       let i: number;
       while ((i = buffer.indexOf("\n")) >= 0) {
         const line = buffer.slice(0, i).trim();

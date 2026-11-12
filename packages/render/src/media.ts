@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, linkSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
-import { dirname, extname, isAbsolute, join } from "node:path";
+import { dirname, extname, join } from "node:path";
 import type { Project, Timeline } from "@adam-studio/model";
 import { slideWindows, subjectWindows } from "./lib/subject";
 import type { MediaFiles, RenderProps } from "./props";
+import { mediaPath, realInside } from "./project-paths";
 
 export class MediaError extends Error {}
 
@@ -23,15 +24,12 @@ export function planMedia(projectDir: string, project: Project, timeline: Timeli
   const media: Record<string, MediaFiles> = {};
   const missing: string[] = [];
   const assets = new Map(project.assets.map((a) => [a.id, a]));
-  const at = (p: string) => {
-    const expanded = expandEnv(p);
-    return isAbsolute(expanded) ? expanded : join(projectDir, expanded);
-  };
   const add = (asset: string, key: keyof MediaFiles, from: string, to: string, step: string) => {
     if (!existsSync(from)) {
       missing.push(`${to} for asset "${asset}" (${step})`);
       return;
     }
+    if (key !== "file" && !realInside(projectDir, from)) throw new MediaError("Cache file is outside the project.");
     files.set(to, from);
     media[asset] = { ...media[asset], [key]: to };
   };
@@ -73,12 +71,12 @@ export function planMedia(projectDir: string, project: Project, timeline: Timeli
       missing.push(`asset "${id}" is not declared in the project`);
       continue;
     }
-    add(id, "file", at(asset.path), `assets/${id}${extname(asset.path)}`, "check the asset path");
+    add(id, "file", mediaPath(projectDir, asset.path, asset.kind), `assets/${id}${extname(asset.path)}`, "check the asset path");
   }
 
   // Named after the source file, so review variants with different fonts can share one public dir.
   const fontName = (key: "caption" | "title") => {
-    const from = at(timeline.style.fonts[key].file);
+    const from = mediaPath(projectDir, expandEnv(timeline.style.fonts[key].file), "font");
     return { from, to: `fonts/${key}-${createHash("sha1").update(from).digest("hex").slice(0, 8)}${extname(from)}` };
   };
   const caption = fontName("caption");
@@ -113,7 +111,7 @@ export function missingAnalysis(projectDir: string, project: Project, timeline: 
 export function sourceChanged(projectDir: string, project: Project, asset: string): boolean {
   const path = project.assets.find((a) => a.id === asset)?.path;
   if (!path) return false;
-  const file = isAbsolute(path) ? path : join(projectDir, path);
+  const file = mediaPath(projectDir, path, "video");
   let stamp: { size: number; mtimeMs: number } | undefined;
   try { stamp = JSON.parse(readFileSync(join(projectDir, "cache", asset, "manifest.json"), "utf8")).source ?? undefined; } catch { return false; }
   if (!stamp || !existsSync(file)) return false;

@@ -1,15 +1,16 @@
-import { dirname, join } from "node:path";
+import { existsSync } from "node:fs";
+import { dirname, isAbsolute, join } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { exportSchemas, type Decision } from "@adam-studio/model";
 import { addCommand, checkVideos, newProjectCommand, textProjectCommand } from "@adam-studio/web/server/actions";
-import { safeName } from "@adam-studio/web/server/guards";
+import { realInside, safeName } from "@adam-studio/web/server/guards";
 import { listProjects } from "@adam-studio/web/server/projects";
 import { projectsRoot, SETTINGS_FILE, uiLang } from "@adam-studio/web/server/settings";
 import { daFirstPass, readDA } from "@adam-studio/render/src/lib/da";
 import { z } from "zod";
 import { nameInRoot, runAction, runSetup, stills, tail } from "./run";
-import { checkLook, checkSource, landing } from "@adam-studio/library/src/access";
+import { allowedFile, checkLook, checkSource, creatorWords, landing } from "@adam-studio/library/src/access";
 import { importAsset, lookAt } from "@adam-studio/library/src/importer";
 import { inspirationRoot, searchLocal, type LibraryKind } from "@adam-studio/library/src/local";
 import { searchOnline } from "@adam-studio/library/src/online";
@@ -38,10 +39,27 @@ console.log = console.error;
 
 const server = new McpServer({ name: "adam-studio", version: "0.1.0" }, { instructions: INSTRUCTIONS });
 const root = () => projectsRoot();
-const dirOf = (project: string) => projectDir(project, root());
+const dirOf = (project: string) => {
+  const dir = projectDir(project, root());
+  if (!realInside(root(), dir) || !realInside(dir, join(dir, "project.json"))) throw new ToolError("project is outside the projects folder");
+  return dir;
+};
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
 const written = (r: { lint: string[]; durationMs: number }) => text(`saved. duration ${r.durationMs} ms\n${r.lint.length ? r.lint.join("\n") : "lint: clean"}`);
-const project = z.string().describe("project name in the projects folder, or an absolute path");
+const project = z.string().describe("project name or path inside the projects folder");
+
+function checkFontPatch(dir: string, input: unknown): void {
+  const fonts = (input as { setStyle?: { fonts?: Record<string, { file?: unknown }> } })?.setStyle?.fonts;
+  if (!fonts || typeof fonts !== "object") return;
+  for (const font of Object.values(fonts)) {
+    const file = font?.file;
+    if (file === undefined) continue;
+    if (typeof file !== "string" || !/\.(ttf|otf|woff2?)$/i.test(file) ||
+        (isAbsolute(file) ? !allowedFile(file, [dir, inspirationRoot()], creatorWords()) : !realInside(dir, join(dir, file)))) {
+      throw new ToolError("Import the font into this project before using it.");
+    }
+  }
+}
 
 function tool<S extends z.ZodRawShape>(name: string, description: string, shape: S, fn: (args: z.infer<z.ZodObject<S>>) => Promise<any> | any) {
   server.registerTool(name, { description, inputSchema: shape }, (async (args: z.infer<z.ZodObject<S>>) => {
@@ -69,7 +87,7 @@ tool("get_reference", "JSON schemas and references: project, style, timeline, fr
   });
 
 tool("apply_patch", "Applies a patch (the same shape as a variant's patch: addElements, addCaptions, setStory, setStructure, setStyle, removeElements).",
-  { project, patch: z.record(z.string(), z.unknown()) }, ({ project: p, patch }) => written(patchProject(dirOf(p), patch)));
+  { project, patch: z.record(z.string(), z.unknown()) }, ({ project: p, patch }) => { const dir = dirOf(p); checkFontPatch(dir, patch); return written(patchProject(dir, patch)); });
 
 tool("update_item", "Deep-merges changes into one story clip or element, found by id (arrays and scalars replace).",
   { project, collection: z.enum(["story", "elements"]), id: z.string(), changes: z.record(z.string(), z.unknown()) },
@@ -79,11 +97,17 @@ tool("set_value", "Sets any value of project.json by JSON Pointer (e.g. /caption
   { project, pointer: z.string(), value: z.unknown().optional(), remove: z.boolean().optional() },
   ({ project: p, pointer, value, remove }) => {
     if (!remove && value === undefined) throw new ToolError("give a value, or remove: true");
+    if (!/^\/(?:story|elements|captions|structure|styleOverrides)\//.test(pointer) ||
+        /^\/styleOverrides\/fonts(?:\/|$)/.test(pointer)) throw new ToolError("this field cannot be edited through set_value");
     return written(setValue(dirOf(p), pointer, remove ? undefined : value));
   });
 
 tool("propose", "Adds a proposal {id, step, anchor?, reason, variants: [{key: A|B|C, label, why, patch}]} (why: what changes, where, what the viewer gets, in the transcript's language), or new variants for one sent back with \"more\". Follow the editing rules in the first-pass brief.",
-  { project, proposal: z.record(z.string(), z.unknown()) }, ({ project: p, proposal }) => written(propose(dirOf(p), proposal)));
+  { project, proposal: z.record(z.string(), z.unknown()) }, ({ project: p, proposal }) => {
+    const dir = dirOf(p);
+    if (Array.isArray(proposal.variants)) for (const variant of proposal.variants) checkFontPatch(dir, variant?.patch);
+    return written(propose(dir, proposal));
+  });
 
 tool("decide", "Records the creator's decision on a proposal: A, B or C applies that variant; reject; more asks for new variants.",
   { project, proposal: z.string(), decision: z.enum(["A", "B", "C", "reject", "more"]), note: z.string().optional() },
@@ -114,7 +138,12 @@ tool("search_assets", "Searches the creator's Inspiration folder first (their ow
   });
 
 // The folders the AI may open media from, whatever a text it read told it to do.
-const mediaRoots = (...more: string[]) => [inspirationRoot(), root(), dirname(SETTINGS_FILE), ...more];
+const mediaRoots = () => [inspirationRoot(), root()];
+const checkedRushes = (paths: string[]) => {
+  const videos = checkVideos(paths);
+  for (const path of videos) checkSource({ path }, mediaRoots());
+  return videos;
+};
 
 tool("look_at", "Shows a media file of the projects or the Inspiration folder, a result of the online libraries, or a link or path the creator wrote, as a picture: four frames of a video, an image, the waveform of a sound, a font sample.",
   { source: z.string().describe("absolute path or https URL") }, async ({ source }) => {
@@ -127,7 +156,7 @@ tool("import_asset", "Copies a media file of the projects or the Inspiration fol
   { project, source: z.strictObject({ path: z.string().optional(), url: z.string().optional(), kind: kind.optional(), title: z.string().optional(), license: z.string().optional(), creator: z.string().optional(), page: z.string().optional(), cutout: z.boolean().optional() }), id: z.string().optional() },
   async ({ project: p, source, id }) => {
     const dir = dirOf(p);
-    checkSource(source, mediaRoots(dir));
+    checkSource(source, mediaRoots());
     const a = await importAsset(dir, source, id, source.url ? landing(source.url) : undefined);
     if (a.kind === "font") return text(`font copied to ${a.path}`);
     const r = addAssetIn(dir, { id: a.id, kind: a.kind, path: a.path });
@@ -166,11 +195,12 @@ tool("create_project", "Creates a project in the projects folder from rushes (ab
   async ({ name, videos, format, lang, video, script }) => {
     if (!safeName(name)) throw new ToolError(`not a valid project name: "${name}"`);
     const dir = join(root(), name);
+    if (existsSync(dir)) throw new ToolError("A folder already exists for this project name.");
     if (video === "text") {
-      const job = await runSetup("new", name, textProjectCommand(dir, script ?? ""), { name, video });
+      const job = await runSetup(name, textProjectCommand(dir, script ?? ""));
       return { isError: job.state !== "done", content: [{ type: "text" as const, text: tail(job) }] };
     }
-    const job = await runSetup("new", name, newProjectCommand(dir, checkVideos(videos), format, lang, undefined, video), { name, videos, format, lang, video });
+    const job = await runSetup(name, newProjectCommand(dir, checkedRushes(videos), format, lang, undefined, video));
     return { isError: job.state !== "done", content: [{ type: "text" as const, text: tail(job) }] };
   });
 
@@ -178,7 +208,7 @@ tool("add_rushes", "Adds rushes (absolute paths) to a project and analyzes them.
   { project, videos: z.array(z.string()).min(1), lang: z.string().optional() },
   async ({ project: p, videos, lang }) => {
     const dir = dirOf(p);
-    const job = await runSetup("add", nameInRoot(dir, root()), addCommand(dir, checkVideos(videos), lang), { videos, lang });
+    const job = await runSetup(nameInRoot(dir, root()), addCommand(dir, checkedRushes(videos), lang));
     return { isError: job.state !== "done", content: [{ type: "text" as const, text: tail(job) }] };
   });
 

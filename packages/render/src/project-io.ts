@@ -1,6 +1,8 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import { isAbsolute, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { parseProject, parseStyle, type FieldError, type Project, type Style } from "@adam-studio/model";
+
+import { projectStylePath, realInside } from "./project-paths";
 
 export class CliError extends Error {}
 
@@ -18,9 +20,11 @@ function readJson(path: string): unknown {
 
 export function loadProject(projectDir: string): { dir: string; project: Project; style: Style } {
   const dir = resolve(projectDir);
-  const p = parseProject(readJson(join(dir, "project.json")));
+  const file = realInside(dir, join(dir, "project.json"));
+  if (!file) throw new CliError("Project file is missing or outside the project folder.");
+  const p = parseProject(readJson(file));
   if (!p.ok) throw new CliError(formatErrors("project.json", p.errors));
-  const stylePath = isAbsolute(p.value.style) ? p.value.style : join(dir, p.value.style);
+  const stylePath = projectStylePath(dir, p.value.style);
   const s = parseStyle(readJson(stylePath));
   if (!s.ok) throw new CliError(formatErrors(p.value.style, s.errors));
   return { dir, project: p.value, style: s.value };

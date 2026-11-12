@@ -8,6 +8,7 @@ import hashlib
 import os
 import urllib.request
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import numpy as np
 import torch
@@ -80,7 +81,17 @@ def ensure_lama() -> Path:
 
 def load_rvm():
     code, weights = ensure_rvm()
-    model = torch.hub.load(str(code), "mobilenetv3", source="local", trust_repo=True, pretrained=False)
+    # The shared cache may contain extra modules or cached bytecode.
+    with TemporaryDirectory(prefix="adam-rvm-") as temporary:
+        clean = Path(temporary)
+        for rel, digest in RVM_CODE.items():
+            content = (code / rel).read_bytes()
+            if hashlib.sha256(content).hexdigest() != digest:
+                raise AnalysisError(f"{rel} changed while preparing the model")
+            path = clean / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(content)
+        model = torch.hub.load(str(clean), "mobilenetv3", source="local", trust_repo=True, pretrained=False)
     model.load_state_dict(torch.load(weights, map_location="cpu", weights_only=True))
     return model.eval()
 

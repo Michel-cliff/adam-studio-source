@@ -76,11 +76,12 @@ export class Autopilot {
         const step = wf.current;
         set(step);
         const pending = p.proposals.find((x) => x.step === step && x.status === "pending");
-        if (pending) { this.pilot.decide(dir, pending.id, pending.variants[0]?.key ?? "reject"); continue; }
+        const keepMixedSound = step === "sound" && this.pilot.soundMixed?.(dir);
+        if (pending) { this.pilot.decide(dir, pending.id, keepMixedSound ? "reject" : pending.variants[0]?.key ?? "reject"); continue; }
         // The story needs no shapes to pick from: the script (the creator's, or written from the transcript) is enough.
         if (step === "structure") { await this.pilot.script(dir, r.controller.signal); if (r.stop) { r.state = "stopped"; return; } this.pilot.close(dir); continue; }
         // A take whose sound is already mixed gets no music or effects unless the creator asks for them by hand: auto mode never asks.
-        if (step === "sound" && this.pilot.soundMixed?.(dir)) { this.pilot.close(dir); continue; }
+        if (keepMixedSound) { this.pilot.close(dir); continue; }
         const preset = STEP_PRESET[step];
         if (preset && !asked.has(step) && !p.proposals.some((x) => x.step === step)) {
           asked.add(step);

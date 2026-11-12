@@ -7,8 +7,8 @@ const TEXT={
  en:{ready:'An Adam Studio update is ready.',readyDetail:v=>`${v?`Version ${v}. `:''}Your projects do not change. If you would rather wait, it installs at the next start.`,ready2:['Restart now','Later'],latest:'You have the latest version of Adam Studio.',downloading:'An update is downloading.',downloadingDetail:'This can take several minutes. Adam Studio will tell you when it is ready. You can also close it: the update finishes by itself.',failed:'Could not check for updates.',failedDetail:'Check your internet connection, then try again.',ok:'OK'},
 };
 const canCheck=({packaged,smoke,argv})=>Boolean(packaged&&!smoke&&!argv.includes('--squirrel-firstrun'));
-const feedUrl=(version,env=process.env)=>env.ADAM_UPDATE_FEED||`https://update.electronjs.org/${OWNER_REPO}/win32-x64/${version}`;
-function startUpdates({autoUpdater,version,lang,busy,ask,restart,log,closing=()=>false,onState=()=>{},after=setTimeout,every=setInterval,env=process.env}){
+const feedUrl=(version,env={})=>env.ADAM_UPDATE_FEED||`https://update.electronjs.org/${OWNER_REPO}/win32-x64/${version}`;
+function startUpdates({autoUpdater,version,lang,busy,ask,restart,log,closing=()=>false,onState=()=>{},after=setTimeout,every=setInterval,env={}}){
  const t=TEXT[lang]||TEXT.fr;
  let working=false,manual=false,downloaded=false,offered=false,release='',downloading=false;
  const setDownloading=value=>{if(downloading===value)return;downloading=value;onState(value);};

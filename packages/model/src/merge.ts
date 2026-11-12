@@ -8,8 +8,9 @@ function isPlain(v: unknown): v is Plain {
 export function deepMerge(base: Plain, patch: Plain): Plain {
   const out: Plain = { ...base };
   for (const [k, v] of Object.entries(patch)) {
-    const current = out[k];
-    out[k] = isPlain(v) && isPlain(current) ? deepMerge(current, v) : v;
+    if (k === "__proto__" || k === "constructor" || k === "prototype") continue;
+    const current = Object.hasOwn(out, k) ? out[k] : undefined;
+    out[k] = isPlain(v) ? deepMerge(isPlain(current) ? current : {}, v) : v;
   }
   return out;
 }

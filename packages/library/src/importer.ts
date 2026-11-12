@@ -1,9 +1,12 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, constants, copyFileSync, createWriteStream, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, extname, join } from "node:path";
+import { randomUUID } from "node:crypto";
+import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
 import { kindOf, type LibraryKind } from "./local";
+import { limitBytes, openPublicDownload } from "./public-network";
 
 // cutout: an image comes in as a paper cut-out (its background removed on this machine, py/cutout), a transparent PNG.
 export type ImportSource = { path?: string; url?: string; kind?: LibraryKind; title?: string; license?: string; creator?: string; page?: string; cutout?: boolean };
@@ -13,6 +16,27 @@ const slug = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,
 const DEFAULT_EXT = { video: ".mp4", image: ".jpg", audio: ".mp3", font: ".ttf", lottie: ".json" } as const;
 // An id becomes a file name: it must stay one, inside the assets folder.
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+
+let activeDownloads = 0;
+
+async function download(url: string, path: string, timeout: number, allowed?: (url: string) => boolean): Promise<void> {
+  if (activeDownloads >= 2) throw new Error("Too many downloads are running.");
+  activeDownloads++;
+  try {
+    const signal = AbortSignal.timeout(timeout);
+    const response = await openPublicDownload(url, signal, allowed);
+    const max = 300 * 1024 * 1024;
+    if (Number(response.headers["content-length"]) > max) {
+      response.destroy();
+      throw new Error("This file exceeds the allowed size.");
+    }
+    let owned = false;
+    const stream = createWriteStream(path, { flags: "wx" });
+    stream.once("open", () => { owned = true; });
+    try { await pipeline(response, limitBytes(max), stream, { signal }); }
+    catch (error) { if (owned) rmSync(path, { force: true }); throw error; }
+  } finally { activeDownloads--; }
+}
 
 /**
  * Copies a local file, or downloads a URL, into `<project>/assets/` and records where it came from (license,
@@ -28,22 +52,21 @@ export async function importAsset(projectDir: string, src: ImportSource, id?: st
   if (!SAFE_ID.test(assetId)) throw new Error(`"${assetId}" cannot be an asset id: letters, digits, - and _ only, 64 at most`);
   const folder = join(projectDir, "assets");
   mkdirSync(folder, { recursive: true });
+  if (!lstatSync(folder).isDirectory() || realpathSync.native(folder) !== join(realpathSync.native(projectDir), "assets")) throw new Error("Invalid project assets folder.");
   // The extension follows the kind: a program named as an image comes in as an image file, and never runs.
   const ext = kindOf(name) === kind ? extname(name) : DEFAULT_EXT[kind];
   const file = join(folder, `${assetId}${ext}`);
   if (existsSync(file)) throw new Error(`${file} exists: pick another id`);
   if (src.path) {
     if (!existsSync(src.path)) throw new Error(`not found: ${src.path}`);
-    copyFileSync(src.path, file);
+    copyFileSync(src.path, file, constants.COPYFILE_EXCL);
   } else {
-    const r = await fetch(src.url!, { headers: { "User-Agent": "AdamStudio/0.1" }, signal: AbortSignal.timeout(120000) });
-    if (!r.ok) throw new Error(`download failed: ${r.status} ${src.url}`);
-    if (hosts && !hosts(r.url)) throw new Error(`the download was sent elsewhere: ${new URL(r.url).hostname}`);
-    writeFileSync(file, Buffer.from(await r.arrayBuffer()));
+    await download(src.url!, file, 120_000, hosts);
   }
   if (src.url || src.license) {
     const credits = join(folder, "CREDITS.md");
-    if (!existsSync(credits)) writeFileSync(credits, "# Credits\n\n");
+    if (!existsSync(credits)) writeFileSync(credits, "# Credits\n\n", { flag: "wx" });
+    if (!lstatSync(credits).isFile()) throw new Error("Invalid credits file.");
     appendFileSync(credits, `- ${basename(file)}: "${src.title ?? name}" by ${src.creator || "unknown"}, ${src.license ?? "license unknown"}${src.page ? `, ${src.page}` : ""}\n`);
   }
   if (src.cutout && kind === "image") {
@@ -72,20 +95,17 @@ export async function lookAt(pathOrUrl: string, hosts?: (url: string) => boolean
   let file = pathOrUrl;
   let temp: string | null = null;
   if (/^https?:\/\//.test(pathOrUrl)) {
-    const r = await fetch(pathOrUrl, { headers: { "User-Agent": "AdamStudio/0.1" }, signal: AbortSignal.timeout(60000) });
-    if (!r.ok) throw new Error(`download failed: ${r.status}`);
-    if (hosts && !hosts(r.url)) throw new Error(`the download was sent elsewhere: ${new URL(r.url).hostname}`);
-    temp = join(tmpdir(), `adam-look-${process.pid}-${Date.now()}${extname(new URL(pathOrUrl).pathname) || ".bin"}`);
-    writeFileSync(temp, Buffer.from(await r.arrayBuffer()));
+    temp = join(tmpdir(), `adam-look-${randomUUID()}${extname(new URL(pathOrUrl).pathname) || ".bin"}`);
+    await download(pathOrUrl, temp, 60_000, hosts);
     file = temp;
   }
   const kind = kindOf(file) ?? "image";
-  const out = join(tmpdir(), `adam-look-${process.pid}-${Date.now()}.jpg`);
-  const ff = (args: string[]) => execFileSync("ffmpeg", ["-v", "error", "-y", ...args, "-frames:v", "1", "-q:v", "4", out]);
+  const out = join(tmpdir(), `adam-look-${randomUUID()}.jpg`);
+  const ff = (args: string[]) => execFileSync("ffmpeg", ["-v", "error", "-y", "-protocol_whitelist", "file,pipe", ...args, "-frames:v", "1", "-q:v", "4", out]);
   let note = "";
   try {
     if (kind === "video") {
-      const d = Number.parseFloat(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file], { encoding: "utf8" })) || 1;
+      const d = Number.parseFloat(execFileSync("ffprobe", ["-v", "error", "-protocol_whitelist", "file,pipe", "-show_entries", "format=duration", "-of", "csv=p=0", file], { encoding: "utf8" })) || 1;
       ff(["-i", file, "-vf", `fps=${(4 / d).toFixed(4)},scale=-2:480,tile=4x1`]);
       note = `four frames across ${d.toFixed(1)} s`;
     } else if (kind === "audio") {

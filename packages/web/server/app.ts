@@ -1,17 +1,21 @@
+import { randomUUID } from "node:crypto";
+import { limitBytes } from "@adam-studio/library/src/public-network";
 import { execFileSync } from "node:child_process";
-import { closeSync, createWriteStream, existsSync, mkdirSync, openSync, readSync, readdirSync, renameSync, rmSync, statSync } from "node:fs";
+import { closeSync, createWriteStream, existsSync, lstatSync, mkdirSync, openSync, readSync, readdirSync, renameSync, rmSync, statSync, type ReadStream } from "node:fs";
+import { rename } from "node:fs/promises";
+import { setTimeout as delay } from "node:timers/promises";
 import { pipeline } from "node:stream/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { homedir } from "node:os";
-import { basename, dirname, extname, join } from "node:path";
+import { basename, dirname, extname, join, resolve } from "node:path";
 import { checkConnector } from "./connector-health";
 import { addConnector, askServers, connectorConfig, listConnectors, removeConnector, setEnabled } from "./connectors";
 import { listSkills } from "./skills";
 import { ActionError, addCommand, buildCommand, checkVideos, newProjectCommand, textProjectCommand, VIDEO_EXT } from "./actions";
 import { serveFile } from "./files";
 import { listFolder } from "./fsbrowse";
-import { hostAllowed, inside, originAllowed, safeName } from "./guards";
+import { hostAllowed, inside, originAllowed, realInside, safeName } from "./guards";
 import { BusyError, JobManager } from "./jobs";
 import { venvPython, WEB } from "./paths";
 import { askCommand, claudeBin } from "./claude";
@@ -43,6 +47,7 @@ import { ClaudeQuota } from "./claude-quota";
 import { CodexQuota } from "./codex-quota";
 import { parseLimits, recordLimits, parseUsage, recordUsage, usageSummary } from "./usage";
 import { thumbnail } from "./thumb";
+import type { BrowserSession } from "./browser-session";
 import { watchProjects } from "./watch";
 
 /** Two files with the same size and bytes (videos are big: compared in chunks, stopping at the first difference). */
@@ -78,7 +83,7 @@ function sse(res: ServerResponse): (data: unknown) => void {
   return (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 }
 
-export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capcutPython?: () => string | null; dist?: string; home?: string; ai?: AskAI; sessionToken?: string } = {}): Server & { hasActiveWork(): boolean } {
+export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capcutPython?: () => string | null; dist?: string; home?: string; ai?: AskAI; sessionToken?: string; browserSession?: BrowserSession } = {}): Server & { hasActiveWork(): boolean } {
   const home = opts.home ?? homedir();
   const settingsFile = opts.settingsFile ?? SETTINGS_FILE;
   const doctor = new Doctor(dirname(settingsFile));
@@ -145,14 +150,34 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     stop: (name) => { const job = jobs.running(name); if (job) jobs.stop(job.id); },
   });
 
+  const projectKey = (dir: string) => process.platform === "win32" ? resolve(dir).toLowerCase() : resolve(dir);
+  const deleting = new Set<string>();
+  const projectStreams = new Map<string, Set<ReadStream>>();
+  const mcpJobs = new Set<string>();
+  const serveProjectFile = (req: IncomingMessage, res: ServerResponse, dir: string, file: string) => {
+    const key = projectKey(dir);
+    if (deleting.has(key)) throw new HttpError(409, "This project is being moved to the trash.");
+    const stream = serveFile(req, res, file);
+    if (!stream) return;
+    const streams = projectStreams.get(key) ?? new Set<ReadStream>();
+    projectStreams.set(key, streams);
+    streams.add(stream);
+    stream.once("close", () => {
+      streams.delete(stream);
+      if (!streams.size) projectStreams.delete(key);
+    });
+  };
+
   const projectDir = (raw: string): { name: string; dir: string } => {
     const name = decodeURIComponent(raw);
     if (!safeName(name)) throw new HttpError(404, "no such project");
-    return { name, dir: join(projectsRoot(settingsFile), name) };
+    const dir = join(projectsRoot(settingsFile), name);
+    if (deleting.has(projectKey(dir))) throw new HttpError(409, "This project is being moved to the trash.");
+    return { name, dir };
   };
   const existing = (raw: string) => {
     const p = projectDir(raw);
-    if (!existsSync(join(p.dir, "project.json"))) throw new HttpError(404, `no project "${p.name}"`);
+    if (!realInside(projectsRoot(settingsFile), p.dir) || !realInside(p.dir, join(p.dir, "project.json"))) throw new HttpError(404, `no project "${p.name}"`);
     return p;
   };
   const started = (res: ServerResponse, job: unknown) => send(res, 202, { job });
@@ -244,7 +269,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     // Skills Claude Code has, and the connectors (MCP servers) Claude may use from the studio.
     if (path === "/api/skills" && method === "GET") return send(res, 200, listSkills(home));
     if (path === "/api/connectors" && method === "GET") return send(res, 200, listConnectors(home, connectorsFile));
-    if (path === "/api/connectors/health" && method === "GET") {
+    if (path === "/api/connectors/health" && method === "POST") {
       const name = url.searchParams.get("name") ?? "";
       const config = connectorConfig(name, home, connectorsFile);
       if (!config) throw new HttpError(404, "no such connector");
@@ -269,7 +294,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     if (path === "/api/projects" && method === "GET") {
       const root = projectsRoot(settingsFile);
       if (url.searchParams.get("full") === "1") {
-        const names = [...new Set([...(existsSync(root) ? readdirSync(root).filter(n => safeName(n) && existsSync(join(root, n, "project.json"))) : []), ...jobs.projectNames()])];
+        const names = [...new Set([...(existsSync(root) ? readdirSync(root).filter(n => safeName(n) && realInside(root, join(root, n)) && realInside(join(root, n), join(root, n, "project.json"))) : []), ...jobs.projectNames()])];
         return send(res, 200, names.flatMap(name => { const list = jobs.list(name), view = projectView(root, name); const p = view ? { ...view, jobs: list.map(lightJob) } : pendingProject(name, list); return p ? [p] : []; }));
       }
       const list = listProjects(root);
@@ -280,7 +305,9 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const b = await body(req);
       const name = typeof b.name === "string" ? b.name : "";
       if (!safeName(name)) throw new HttpError(400, `not a valid project name: "${name}"`);
-      const dir = join(projectsRoot(settingsFile), name);
+      const root = projectsRoot(settingsFile);
+      const dir = join(root, name);
+      if (deleting.has(projectKey(dir)) || (existsSync(dir) && !realInside(root, dir))) throw new HttpError(409, "Project folder is unavailable.");
       if (existsSync(join(dir, "project.json"))) throw new HttpError(409, `a project "${name}" already exists: add rushes to it instead`);
       const command = b.video === "text" ? textProjectCommand(dir, String(b.script ?? "")) : newProjectCommand(dir, checkVideos(b.videos), String(b.format ?? "9:16"), b.lang || undefined, b.series || undefined, b.video || undefined);
       // "Let Adam finish" from the start: the import, the steps, the export, without coming back in between.
@@ -292,8 +319,10 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       return started(res, job);
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)$/)) && method === "GET") {
-      const { name } = projectDir(m[1]!);
-      const view = projectView(projectsRoot(settingsFile), name), list = jobs.list(name);
+      const { name, dir } = projectDir(m[1]!);
+      const root = projectsRoot(settingsFile);
+      const view = realInside(root, dir) && realInside(dir, join(dir, "project.json")) ? projectView(root, name) : null;
+      const list = jobs.list(name);
       const pending = !view ? pendingProject(name, list) : null;
       if (!view && !pending) throw new HttpError(404, `no project "${name}"`);
       return send(res, 200, view ? { ...view, jobs: list.map(lightJob) } : pending);
@@ -310,13 +339,37 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     // Deleting moves the folder to <projects>/.trash/<name> <date>: nothing is lost until the creator empties it.
     if ((m = path.match(/^\/api\/projects\/([^/]+)$/)) && method === "DELETE") {
       const { name, dir } = existing(m[1]!);
-      if (jobs.running(name)) throw new HttpError(409, `${name} is busy: stop its job first`);
-      const trash = join(projectsRoot(settingsFile), ".trash");
-      mkdirSync(trash, { recursive: true });
-      const to = join(trash, `${name} ${new Date().toISOString().replace(/[:.]/g, "-")}`);
-      renameSync(dir, to);
-      notify(name);
-      return send(res, 200, { trashed: to });
+      const busy = () => jobs.running(name) || autopilot.status(name)?.state === "running";
+      if (busy()) throw new HttpError(409, `${name} is busy: stop its job first`);
+      const key = projectKey(dir);
+      deleting.add(key);
+      try {
+        const trash = join(dirname(dir), ".trash");
+        mkdirSync(trash, { recursive: true });
+        if (!lstatSync(trash).isDirectory() || !lstatSync(dir).isDirectory()) {
+          throw new HttpError(409, "The project and its trash must be regular folders.");
+        }
+        const to = join(trash, `${name} ${new Date().toISOString().replace(/[:.]/g, "-")}`);
+        await Promise.all([...projectStreams.get(key) ?? []].map((stream) => new Promise<void>((done) => {
+          stream.once("close", done);
+          stream.destroy();
+        })));
+        for (const wait of [0, 100, 250, 500]) {
+          if (wait) await delay(wait);
+          if (busy()) throw new HttpError(409, `${name} is busy: stop its job first`);
+          try {
+            await rename(dir, to);
+            notify(name);
+            return send(res, 200, { trashed: to });
+          } catch (error) {
+            const code = (error as NodeJS.ErrnoException).code;
+            if (code !== "EPERM" && code !== "EBUSY" && code !== "EACCES") throw error;
+          }
+        }
+        throw new HttpError(409, "Windows cannot move this project. Close its previews and files in other apps, then try again. Check access to the projects folder if it still fails.");
+      } finally {
+        deleting.delete(key);
+      }
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/add$/)) && method === "POST") {
       const { name, dir } = existing(m[1]!);
@@ -327,13 +380,23 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const { name, dir } = existing(m[1]!);
       const b = await body(req);
       const options = b.options && typeof b.options === "object" ? b.options : {};
-      return started(res, jobs.start(name, buildCommand(String(b.action), dir, options, capcutPython())));
+      if (opts.browserSession && req.headers["x-adam-mcp"] &&
+          (!["analyze", "render", "review", "cards", "capcut"].includes(String(b.action)) || options.replace)) {
+        throw new HttpError(403, "This job requires the Studio session.");
+      }
+      const job = jobs.start(name, buildCommand(String(b.action), dir, options, capcutPython()));
+      if (opts.browserSession && req.headers["x-adam-mcp"]) {
+        for (const id of mcpJobs) if (!jobs.get(id)) mcpJobs.delete(id);
+        mcpJobs.add(job.id);
+      }
+      return started(res, job);
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/files\/(.+)$/)) && (method === "GET" || method === "HEAD")) {
       const { dir } = existing(m[1]!);
       const file = inside(dir, m[2]!.split("/").map(decodeURIComponent).join("/"));
-      if (!file) throw new HttpError(404, "no such file");
-      return serveFile(req, res, file);
+      const checked = file && realInside(dir, file);
+      if (!checked) throw new HttpError(404, "no such file");
+      return serveProjectFile(req, res, dir, checked);
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/preview$/)) && method === "GET") {
       const { name, dir } = existing(m[1]!);
@@ -350,7 +413,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const { name, dir } = existing(m[1]!);
       const file = mediaFile(dir, name, m[2]!.split("/").map(decodeURIComponent).join("/"));
       if (!file) throw new HttpError(404, "no such media");
-      return serveFile(req, res, file);
+      return serveProjectFile(req, res, dir, file);
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/ask$/)) && method === "POST") {
       const { name, dir } = existing(m[1]!);
@@ -376,7 +439,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       const { dir } = existing(m[1]!);
       const file = await thumbnail(dir);
       if (!file) throw new HttpError(404, "no picture yet");
-      return serveFile(req, res, file);
+      return serveProjectFile(req, res, dir, file);
     }
     // The video's script: read, edited by the creator, or drafted by the AI from the transcript.
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/script$/)) && (method === "GET" || method === "PUT")) {
@@ -437,7 +500,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     if (path === "/api/tasks" && method === "GET") return send(res, 200, jobs.tasks());
     if ((m = path.match(/^\/api\/jobs\/([^/]+)$/)) && method === "GET") {
       const job = jobs.get(m[1]!);
-      if (!job) throw new HttpError(404, "no such job");
+      if (!job || (opts.browserSession && req.headers["x-adam-mcp"] && !mcpJobs.has(job.id))) throw new HttpError(404, "no such job");
       return send(res, 200, url.searchParams.has("meta") ? { ...job, output: "" } : job);
     }
     if ((m = path.match(/^\/api\/jobs\/([^/]+)\/stop$/)) && method === "POST") {
@@ -461,13 +524,15 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       if (!name || !VIDEO_EXT.test(name)) throw new HttpError(400, `not a video file: ${name || "?"}`);
       const folder = join(projectsRoot(settingsFile), ".rushes");
       mkdirSync(folder, { recursive: true });
-      const tmp = join(folder, `.incoming-${Date.now().toString(36)}`);
-      try { await pipeline(req, createWriteStream(tmp)); } catch (e) { rmSync(tmp, { force: true }); throw new HttpError(400, `upload failed: ${(e as Error).message}`); }
+      if (!realInside(projectsRoot(settingsFile), folder)) throw new HttpError(400, "Invalid rushes folder.");
+      const tmp = join(folder, `.incoming-${randomUUID()}`);
+      // A ceiling against a runaway upload, not a rush size: ten minutes of 4K from a phone pass 3 GB.
+      try { await pipeline(req, limitBytes(32 * 1024 ** 3), createWriteStream(tmp, { flags: "wx" })); } catch (e) { rmSync(tmp, { force: true }); throw new HttpError(400, `upload failed: ${(e as Error).message}`); }
       const ext = extname(name), stem = basename(name, ext);
       for (let i = 1; ; i++) {
         const target = join(folder, i === 1 ? name : `${stem} (${i})${ext}`);
         if (!existsSync(target)) { renameSync(tmp, target); return send(res, 200, { path: target }); }
-        if (sameBytes(tmp, target)) { rmSync(tmp, { force: true }); return send(res, 200, { path: target }); }
+        if (realInside(folder, target) && sameBytes(tmp, target)) { rmSync(tmp, { force: true }); return send(res, 200, { path: target }); }
       }
     }
     if (path === "/api/series" && method === "GET") return send(res, 200, listSeries());
@@ -487,18 +552,19 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       return;
     }
     const file = path === "/" ? join(dist, "index.html") : inside(dist, decodeURIComponent(path.slice(1)));
-    return serveFile(req, res, file && existsSync(file) ? file : join(dist, "index.html"), { app: true });
+    serveFile(req, res, file && existsSync(file) ? file : join(dist, "index.html"), { app: true });
   }
 
   let activeRequests = 0;
   const server = createServer((req, res) => {
+    const port = (server.address() as AddressInfo).port;
     if (opts.sessionToken && req.headers["x-adam-desktop-token"] !== opts.sessionToken) { send(res, 403, { error: "desktop session required" }); return; }
     if (!["GET", "HEAD"].includes(req.method ?? "GET")) { activeRequests++; res.once("close", () => { activeRequests--; }); }
-    const port = (server.address() as AddressInfo).port;
     if (!hostAllowed(req.headers.host, port) || !originAllowed(req.method ?? "GET", req.headers.origin, port)) {
       send(res, 403, { error: "refused: the panel only answers itself" });
       return;
     }
+    if (opts.browserSession && !opts.browserSession.authorize(req, res, port)) return;
     route(req, res, port).catch((e: unknown) => {
       if (res.headersSent) { res.end(); return; }
       if (e instanceof AiError) return send(res, 503, { error: e.message, aiFailure: true });

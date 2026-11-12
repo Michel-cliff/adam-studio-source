@@ -19,6 +19,12 @@ test('the feed names the version, and can be pointed elsewhere to test',()=>{
  assert.equal(feedUrl('0.1.0',{}),'https://update.electronjs.org/Michel-cliff/adam-studio-releases/win32-x64/0.1.0');
  assert.equal(feedUrl('0.1.0',{ADAM_UPDATE_FEED:'http://127.0.0.1:9000'}),'http://127.0.0.1:9000');
 });
+test('production ignores the inherited test feed',()=>{
+ const old=process.env.ADAM_UPDATE_FEED;
+ process.env.ADAM_UPDATE_FEED='http://127.0.0.1:9000';
+ try { assert.match(feedUrl('0.1.5'),/adam-studio-releases/); }
+ finally { if(old===undefined) delete process.env.ADAM_UPDATE_FEED; else process.env.ADAM_UPDATE_FEED=old; }
+});
 test('the first check waits for Squirrel to let go, then comes back regularly',()=>{
  const {updater,timers,repeats}=setup();
  assert.equal(updater.feed,'https://update.electronjs.org/Michel-cliff/adam-studio-releases/win32-x64/0.1.0');
