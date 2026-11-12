@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { OpenCrtPropsSchema } from "./kinds";
 import { FormatSchema } from "./project";
 
 const Hex = z.string().regex(/^#[0-9A-Fa-f]{6}$/, "expected a #RRGGBB color");
@@ -91,6 +92,8 @@ export const StyleSchema = z.strictObject({
     // italic serif and the highlight colour (the switch reads by its shape, not only its colour).
     highlightAs: z.enum(["color", "block", "serif"]).default("color"),
   }),
+  // The opening every edit of this style starts with (a CRT power-on), drawn over its first frames.
+  opening: OpenCrtPropsSchema.optional(),
   // A progress bar along the bottom over the whole edit, filled by visible blocks (pixel art) or continuously
   // (block 0). Sizes in px on a 1080-wide frame.
   progress: z.strictObject({

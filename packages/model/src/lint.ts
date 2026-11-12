@@ -33,7 +33,7 @@ function keptWords(project: Project) {
 }
 
 /** Kinds that dress the frame when they come in: a change the eye reads, like a cut. */
-const DRESS_KINDS = new Set(["image", "title", "card", "text.stack", "text.behindSubject", "lottie", "hud.panel", "hud.stat"]);
+const DRESS_KINDS = new Set(["image", "title", "card", "text.stack", "text.behindSubject", "lottie", "hud.panel", "hud.stat", "endcard.desktop"]);
 const ANIMATED_INTROS = new Set(["glitch"]);
 
 /** Longest stretch of the edit between two of the given frames, with its bounds. */

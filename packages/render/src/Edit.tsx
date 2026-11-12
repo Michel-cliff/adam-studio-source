@@ -71,9 +71,12 @@ export const Edit: FC<RenderProps> = (props) => {
       <Scanlines amount={scanlinesAt(timeline, frame)} />
       {cam.flash > 0 ? <AbsoluteFill style={{ backgroundColor: "white", opacity: cam.flash }} /> : null}
       {full && grade.vignette > 0 ? <AbsoluteFill style={{ background: vignetteBackground(grade.vignette), opacity: 1 - (win?.amount ?? 0) }} /> : null}
-      {full ? <ElementLayer timeline={timeline} media={media} layer="front" /> : null}
+      {full ? <ElementLayer timeline={timeline} media={media} layer="front" covers={false} /> : null}
       {full ? <Captions timeline={timeline} /> : null}
+      {/* What covers the frame goes over the captions: the end card, the progress bar over it, the opening over all. */}
+      {full ? <ElementLayer timeline={timeline} media={media} layer="front" kind="endcard.desktop" /> : null}
       {full && timeline.style.progress ? <ProgressBar progress={timeline.style.progress} durationFrames={timeline.durationFrames} /> : null}
+      {full ? <ElementLayer timeline={timeline} media={media} layer="front" kind="open.crt" /> : null}
       <AudioLayer timeline={timeline} media={media} clipAudioOnly={!full} />
     </AbsoluteFill>
   );

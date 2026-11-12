@@ -68,6 +68,13 @@ export function resolve(projectIn: Project, styleIn: Style, options: ResolveOpti
   }];
   });
   const { elements, sfx } = resolveElements(ctx);
+  // The style's opening: an element over the first frames of every edit (and a CapCut overlay like the others).
+  const opening = style.opening;
+  if (opening) {
+    const lastFrame = ctx.frame(ctx.totalMs);
+    const durationFrames = Math.min(lastFrame, ctx.frame(opening.openMs) + opening.scanlineFrames + 1);
+    if (durationFrames > 0) elements.unshift({ id: "style.opening", kind: "open.crt", layer: "front", fromFrame: 0, durationFrames, trimStartMs: 0, x: 0.5, y: 0.5, props: opening });
+  }
   // An important passage says the words itself: the subtitles under it step aside (a caption whose middle falls in it).
   const stacks = elements.filter((e) => e.kind === "text.stack").map((e) => [e.fromFrame, e.fromFrame + e.durationFrames] as const);
   const captions = resolveCaptions(ctx).filter((c) => !stacks.some(([a, b]) => c.fromFrame + c.durationFrames / 2 >= a && c.fromFrame + c.durationFrames / 2 < b));

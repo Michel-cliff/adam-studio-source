@@ -162,6 +162,33 @@ export const CardPropsSchema = z.strictObject({
   items: z.array(z.string().min(1)).max(4).optional(),
 });
 
+/**
+ * The CRT opening: a black screen, a thin line stretching from the centre to the edges, then the frame opening
+ * vertically onto the first image, with a short burst of scanlines once it is open. Colours by style name or #hex.
+ */
+export const OpenCrtPropsSchema = z.strictObject({
+  line: z.string().default("text"),
+  lineHeight: z.number().positive().max(20).default(4),
+  openMs: Ms.default(400),
+  scanlines: z.number().min(0).max(1).default(0.3),
+  scanlineFrames: z.number().int().min(0).max(30).default(3),
+});
+
+/**
+ * The end card as an old desktop: a sky gradient, one pixel-art folder per episode of the series down the left, and
+ * a cursor that crosses and double-clicks the next one. No call to subscribe: the action offered is the next episode.
+ */
+export const EndcardDesktopPropsSchema = z.strictObject({
+  items: z.array(z.strictObject({ label: z.string().min(1).max(40) })).min(1).max(6),
+  /** The episode this video is (shown already opened). */
+  current: z.number().int().min(0).default(0),
+  /** The episode the cursor opens; the one after current when not set. */
+  next: z.number().int().min(0).optional(),
+  sky: z.tuple([z.string(), z.string()]).default(["#2F6FCF", "#A9D3FF"]),
+  iconColor: z.string().default("highlight"),
+  selection: z.string().default("#0A64D8"),
+});
+
 export const KIND_SCHEMAS = {
   card: CardPropsSchema,
   "text.stack": StackPropsSchema,
@@ -174,6 +201,8 @@ export const KIND_SCHEMAS = {
   lottie: LottiePropsSchema,
   "camera.zoom": CameraZoomPropsSchema,
   "camera.window": CameraWindowPropsSchema,
+  "open.crt": OpenCrtPropsSchema,
+  "endcard.desktop": EndcardDesktopPropsSchema,
 } as const;
 
 export type KindName = keyof typeof KIND_SCHEMAS;
@@ -196,3 +225,5 @@ export type CameraWindowProps = z.output<typeof CameraWindowPropsSchema>;
 export type StackProps = z.output<typeof StackPropsSchema>;
 export type CardProps = z.input<typeof CardPropsSchema>;
 export type SfxProps = z.output<typeof SfxPropsSchema>;
+export type OpenCrtProps = z.output<typeof OpenCrtPropsSchema>;
+export type EndcardDesktopProps = z.output<typeof EndcardDesktopPropsSchema>;
