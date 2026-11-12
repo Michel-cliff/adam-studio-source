@@ -972,6 +972,60 @@
           ],
           "additionalProperties": false
         },
+        "progress": {
+          "type": "object",
+          "properties": {
+            "color": {
+              "type": "string",
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            },
+            "track": {
+              "default": "#000000",
+              "type": "string",
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            },
+            "trackOpacity": {
+              "default": 0.4,
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "height": {
+              "default": 6,
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 40
+            },
+            "bottom": {
+              "default": 24,
+              "type": "number",
+              "minimum": 0,
+              "maximum": 400
+            },
+            "block": {
+              "default": 24,
+              "type": "number",
+              "minimum": 0,
+              "maximum": 200
+            },
+            "gap": {
+              "default": 2,
+              "type": "number",
+              "minimum": 0,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "color",
+            "track",
+            "trackOpacity",
+            "height",
+            "bottom",
+            "block",
+            "gap"
+          ],
+          "additionalProperties": false
+        },
         "motion": {
           "default": {
             "speed": 1,

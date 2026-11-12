@@ -7,6 +7,7 @@ import { AudioLayer } from "./components/AudioLayer";
 import { Captions } from "./components/Captions";
 import { ClipLayer } from "./components/ClipLayer";
 import { ElementLayer } from "./components/ElementLayer";
+import { ProgressBar } from "./components/ProgressBar";
 import { SubjectLayer } from "./components/SubjectLayer";
 import { ensureFonts } from "./fonts";
 import { GRADE_FILTER_ID, gradeFilter, vignetteBackground, warmthFilter, warmthMatrix } from "./lib/grade";
@@ -72,6 +73,7 @@ export const Edit: FC<RenderProps> = (props) => {
       {full && grade.vignette > 0 ? <AbsoluteFill style={{ background: vignetteBackground(grade.vignette), opacity: 1 - (win?.amount ?? 0) }} /> : null}
       {full ? <ElementLayer timeline={timeline} media={media} layer="front" /> : null}
       {full ? <Captions timeline={timeline} /> : null}
+      {full && timeline.style.progress ? <ProgressBar progress={timeline.style.progress} durationFrames={timeline.durationFrames} /> : null}
       <AudioLayer timeline={timeline} media={media} clipAudioOnly={!full} />
     </AbsoluteFill>
   );

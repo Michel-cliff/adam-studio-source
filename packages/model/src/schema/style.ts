@@ -91,6 +91,17 @@ export const StyleSchema = z.strictObject({
     // italic serif and the highlight colour (the switch reads by its shape, not only its colour).
     highlightAs: z.enum(["color", "block", "serif"]).default("color"),
   }),
+  // A progress bar along the bottom over the whole edit, filled by visible blocks (pixel art) or continuously
+  // (block 0). Sizes in px on a 1080-wide frame.
+  progress: z.strictObject({
+    color: Hex,
+    track: Hex.default("#000000"),
+    trackOpacity: z.number().min(0).max(1).default(0.4),
+    height: z.number().positive().max(40).default(6),
+    bottom: z.number().min(0).max(400).default(24),
+    block: z.number().min(0).max(200).default(24),
+    gap: z.number().min(0).max(20).default(2),
+  }).optional(),
   /** Animation speed of every effect: 1 as designed, below 1 slower (0.7 = 30% slower), above 1 faster. */
   motion: z.strictObject({
     speed: z.number().min(0.25).max(3).default(1),
