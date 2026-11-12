@@ -25,7 +25,8 @@ export const FontSchema = z.strictObject({
 export const StyleSchema = z.strictObject({
   name: z.string().min(1),
   textLayout: z.enum(["thirds", "free"]).optional(),
-  fonts: z.strictObject({ caption: FontSchema, title: FontSchema }),
+  // accent: an italic serif for the important word of a caption (highlightAs "serif") and the connector of a title.
+  fonts: z.strictObject({ caption: FontSchema, title: FontSchema, accent: FontSchema.optional() }),
   colors: z.strictObject({ text: Hex, highlight: Hex, accent: Hex, ink: Hex }),
   grade: z
     .strictObject({
@@ -65,8 +66,9 @@ export const StyleSchema = z.strictObject({
     shadow: z.boolean().default(true),
     maxCharsPerLine: z.number().int().positive().default(22),
     intro: z.string().default("miniZoom"),
-    // The important word: in the highlight colour, or on a block of it (like the key word of a title).
-    highlightAs: z.enum(["color", "block"]).default("color"),
+    // The important word: in the highlight colour, on a block of it (like the key word of a title), or in the accent
+    // italic serif and the highlight colour (the switch reads by its shape, not only its colour).
+    highlightAs: z.enum(["color", "block", "serif"]).default("color"),
   }),
   /** Animation speed of every effect: 1 as designed, below 1 slower (0.7 = 30% slower), above 1 faster. */
   motion: z.strictObject({

@@ -1,14 +1,19 @@
 import { mkdirSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { applyPatch, resolve, type VariantKey } from "@adam-studio/model";
 import { ensureAnalysis } from "../analysis";
 import { bundleWithMedia, renderFrame } from "../engine";
+import { withVideoDA } from "../lib/da";
 import { planMedia } from "../media";
 import { CliError, loadProject } from "../project-io";
 
 /** Renders single frames of the edit (or of a proposal's variant, "p1:B") as PNG; returns the files. */
 export async function stillCommand(projectDir: string, opts: { at: number[]; variant?: string; analyze?: boolean }): Promise<string[]> {
-  const { dir, project, style } = loadProject(projectDir);
+  const loaded = loadProject(projectDir);
+  const { dir, style } = loaded;
+  // The creator's art direction under the video's own settings, as in the render: a still shows what will be made.
+  const project = withVideoDA(loaded.project, join(homedir(), ".adam-studio"));
   let applied = project;
   let apply: { proposal: string; variant: VariantKey } | undefined;
   if (opts.variant) {

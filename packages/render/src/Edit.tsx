@@ -15,7 +15,7 @@ import type { RenderProps } from "./props";
 
 export const Edit: FC<RenderProps> = (props) => {
   const families = ensureFonts(props.fonts);
-  const fontVars = { "--adam-caption": families.caption, "--adam-title": families.title } as React.CSSProperties;
+  const fontVars = { "--adam-caption": families.caption, "--adam-title": families.title, ...(families.accent ? { "--adam-accent": families.accent } : {}) } as React.CSSProperties;
   const frame = useCurrentFrame();
   const { timeline, media } = props;
   const mode = props.mode ?? { kind: "full" };

@@ -77,16 +77,18 @@ export function planMedia(projectDir: string, project: Project, timeline: Timeli
   }
 
   // Named after the source file, so review variants with different fonts can share one public dir.
-  const fontName = (key: "caption" | "title") => {
-    const from = at(timeline.style.fonts[key].file);
+  const fontName = (key: "caption" | "title" | "accent") => {
+    const from = at(timeline.style.fonts[key]!.file);
     return { from, to: `fonts/${key}-${createHash("sha1").update(from).digest("hex").slice(0, 8)}${extname(from)}` };
   };
   const caption = fontName("caption");
   const title = fontName("title");
-  const fonts = { caption: caption.to, title: title.to };
-  for (const [key, f] of [["caption", caption], ["title", title]] as const) {
+  const accent = timeline.style.fonts.accent ? fontName("accent") : undefined;
+  const fonts: MediaPlan["fonts"] = { caption: caption.to, title: title.to, ...(accent ? { accent: accent.to } : {}) };
+  for (const [key, f] of [["caption", caption], ["title", title], ["accent", accent]] as const) {
+    if (!f) continue;
     if (existsSync(f.from)) files.set(f.to, f.from);
-    else missing.push(`font file ${timeline.style.fonts[key].file} (${key} font of the style)`);
+    else missing.push(`font file ${timeline.style.fonts[key]!.file} (${key} font of the style)`);
   }
 
   if (missing.length) throw new MediaError(`Missing files:\n- ${missing.join("\n- ")}`);

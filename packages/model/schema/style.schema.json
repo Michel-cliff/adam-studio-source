@@ -57,6 +57,27 @@
             "file"
           ],
           "additionalProperties": false
+        },
+        "accent": {
+          "type": "object",
+          "properties": {
+            "family": {
+              "type": "string",
+              "minLength": 1
+            },
+            "file": {
+              "type": "string",
+              "minLength": 1
+            },
+            "capcutResourceId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "family",
+            "file"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -252,7 +273,8 @@
           "type": "string",
           "enum": [
             "color",
-            "block"
+            "block",
+            "serif"
           ]
         }
       },

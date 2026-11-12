@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
 import {
   applyPatch,
@@ -9,6 +10,7 @@ import {
 import { ensureAnalysis } from "../analysis";
 import { bundleWithMedia, renderFrame, renderVideo } from "../engine";
 import { expandEnv, mergePlans, planMedia, type MediaPlan } from "../media";
+import { withVideoDA } from "../lib/da";
 import { loadProject } from "../project-io";
 
 export function reviewTargets(project: Project, step?: string): Proposal[] {
@@ -98,7 +100,10 @@ function makeSheet(stills: { file: string; text: string }[], fontFile: string, o
 }
 
 export async function reviewCommand(projectDir: string, opts: { step?: string; analyze?: boolean } = {}): Promise<string[]> {
-  const { dir, project, style } = loadProject(projectDir);
+  const loaded = loadProject(projectDir);
+  const { dir, style } = loaded;
+  // The variants are judged under the creator's art direction, as the render will make them.
+  const project = withVideoDA(loaded.project, join(homedir(), ".adam-studio"));
   const targets = reviewTargets(project, opts.step);
   if (targets.length === 0) {
     console.log("Nothing to review: no pending proposal with variants in this step.");

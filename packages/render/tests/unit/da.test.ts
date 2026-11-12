@@ -44,6 +44,12 @@ describe("the creator's art direction", () => {
     expect(daStyle({ typography: "anton", captionFont: font }, FONTS)).toEqual({ fonts: { title: { family: "Anton", file: join(FONTS, "Anton-Regular.ttf") }, caption: font } });
   });
 
+  it("carries the style values it fixes beyond its steps, over the steps", () => {
+    const title = { family: "Inter Black", file: join(FONTS, "Inter-Black.ttf") };
+    const layer = daStyle({ foundation: "editorial", accent: "#F3BA20", style: { grade: { warmth: 0.08 }, fx: { grain: 0.15 }, fonts: { title } } }, FONTS);
+    expect(layer).toMatchObject({ grade: { warmth: 0.08 }, fx: { grain: 0.15, zoomBlur: 8 }, colors: { accent: "#F3BA20" }, fonts: { title } });
+  });
+
   it("sits under the project's own settings: what the creator set in a video wins", () => {
     const p = { styleOverrides: { motion: { push: 0.02 } } } as never;
     const out = withDA(p, { motion: "none", accent: "#5AC576" }, FONTS) as { styleOverrides: Record<string, Record<string, unknown>> };

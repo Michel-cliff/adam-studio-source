@@ -65,7 +65,7 @@ export function previewData(dir: string, name: string, apply?: { proposal: strin
     media[id] = { ...m };
     for (const k of ["video", "subject", "plate", "file"] as const) if (m[k]) media[id]![k] = url(m[k]!);
   }
-  return { timeline, media, fonts: { caption: url(plan.fonts.caption), title: url(plan.fonts.title) }, ...(note ? { note } : {}) };
+  return { timeline, media, fonts: { caption: url(plan.fonts.caption), title: url(plan.fonts.title), ...(plan.fonts.accent ? { accent: url(plan.fonts.accent) } : {}) }, ...(note ? { note } : {}) };
 }
 
 /** The file behind a preview media path (planned by the last previewData call for this project). */
