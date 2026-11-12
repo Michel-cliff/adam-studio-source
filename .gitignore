@@ -19,3 +19,17 @@ packages/web/demo/welcome.mp4
 # Desktop build products, runtimes and installers (never source control)
 packages/desktop/.build/
 packages/desktop/out/
+
+# Never in source control: certificates and keys (the Windows signing certificate, when there is one), the
+# creator's own data, and what the release build writes
+*.pfx
+*.p12
+*.pem
+*.key
+*.snk
+*.cer
+.adam-studio/
+AdamStudioProjects/
+*.nupkg
+AdamStudio-Setup.exe
+.claude/settings.local.json

@@ -1,0 +1,20 @@
+# Who must approve a change to what. With "Require review from Code Owners" on in the branch rules,
+# nothing below merges without the owner, whoever opens the pull request.
+
+# Everything by default
+*                                   @Michel-cliff
+
+# What ends up in an installer or decides what an update contains: never merged unread
+/packages/desktop/                  @Michel-cliff
+/package.json                       @Michel-cliff
+/package-lock.json                  @Michel-cliff
+/packages/*/package.json            @Michel-cliff
+/py/*/pyproject.toml                @Michel-cliff
+/.github/                           @Michel-cliff
+
+# What decides what Adam may open, download or run
+/packages/library/src/              @Michel-cliff
+/packages/web/server/               @Michel-cliff
+/packages/mcp/src/                  @Michel-cliff
+/packages/render/src/project-paths.ts @Michel-cliff
+/py/analysis/adam_analysis/models.py @Michel-cliff
