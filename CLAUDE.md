@@ -63,5 +63,13 @@ Read this first; do not re-explore what is written here. Keep replies short, no 
 
 ## Git
 
-Branch `feature/systeme-ui`; push after each finished change (the creator said push). End commit messages with the
-Co-Authored-By line.
+The repository is public (`Michel-cliff/adam-studio-source`) and `main` is protected: work on a branch, push it, open a
+pull request, merge it (the maintainer may bypass the review for their own changes). Never push to `main` directly. End
+commit messages with the Co-Authored-By line.
+
+- The creator's art direction (`~/.adam-studio/`: `das/`, `da.json`, `stats.json`, their fonts and media) stays on their
+  machine: never commit it. Only engine code that helps any art direction is pushed.
+- Releases go to `Michel-cliff/adam-studio-releases` (see `docs/INSTALLATION-WINDOWS.md`), built from the maintainer's
+  machine. Installers are not signed yet (no certificate). Keep `packages/desktop/out/make/squirrel.windows/x64`
+  between versions: the delta is built from it.
+- Never commit certificates, keys or tokens (`.gitignore` blocks the usual extensions, but check before every push).
