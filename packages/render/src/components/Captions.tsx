@@ -5,7 +5,7 @@ import type { Timeline, TimelineCaption } from "@adam-studio/model";
 import { windowAt } from "../lib/camera";
 import { luminance } from "../lib/fx";
 import { captionLines, easeOutCubic } from "../lib/text";
-import { CAPTION_FONT } from "../props";
+import { ACCENT_FONT, CAPTION_FONT } from "../props";
 
 export const Captions: FC<{ timeline: Timeline }> = ({ timeline }) => (
   <>
@@ -68,6 +68,11 @@ const CaptionView: FC<{ c: TimelineCaption; timeline: Timeline }> = ({ c, timeli
               backgroundColor: block, color: luminance(block) > 0.55 ? style.colors.ink : "#FFFFFF",
               WebkitTextStroke: "0", textShadow: "none", padding: `0 ${size * 0.14}px`, margin: `0 ${size * 0.04}px`,
               backgroundImage: "repeating-linear-gradient(0deg, rgba(0,0,0,0.12) 0 2px, transparent 2px 5px)",
+            } : s.highlight && style.caption.highlightAs === "serif" ? {
+              // In the accent italic serif: the switch reads by its shape. A serif sits smaller on the line than the
+              // sans around it, so a touch larger; regular weight (the italic file has no bold to fake).
+              fontFamily: ACCENT_FONT, fontStyle: "italic", fontWeight: 400, fontSize: size * 1.12, lineHeight: 1,
+              color: light ? undefined : style.colors.highlight,
             } : { color: s.highlight && !light ? style.colors.highlight : undefined }}>
               {s.text}
             </span>

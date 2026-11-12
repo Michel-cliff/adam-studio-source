@@ -108,4 +108,11 @@ describe("the important word of a subtitle", () => {
     expect(makeStyle().caption.highlightAs).toBe("color");
     expect(parseStyle({ ...styleInput, caption: { ...styleInput.caption, highlightAs: "block" } }).ok).toBe(true);
   });
+  it("can switch to an accent italic serif, named in the fonts or left to Georgia", () => {
+    expect(parseStyle({ ...styleInput, caption: { ...styleInput.caption, highlightAs: "serif" } }).ok).toBe(true);
+    const accent = { family: "Instrument Serif", file: "C:/Fonts/InstrumentSerif-Italic.ttf" };
+    const s = parseStyle({ ...styleInput, fonts: { ...styleInput.fonts, accent }, caption: { ...styleInput.caption, highlightAs: "serif" } });
+    expect(s.ok && s.value.fonts.accent).toEqual(accent);
+    expect(parseStyle({ ...styleInput, caption: { ...styleInput.caption, highlightAs: "italic" } }).ok).toBe(false);
+  });
 });

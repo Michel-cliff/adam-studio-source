@@ -33,6 +33,8 @@ export type CreatorDA = {
   rotate?: boolean;
   /** The colour each video was given, in the order they were given. */
   colors?: Record<string, string>;
+  /** Style values the art direction fixes beyond its steps (grade, grain, fonts, colours, slots), over the steps. */
+  style?: Plain;
   /** The don'ts were written (they live in the learned rules). */
   donts?: boolean;
   /** Videos after which the path was offered, to stop offering after three untouched. */
@@ -158,7 +160,7 @@ export function daStyle(da: CreatorDA, fonts = fontsDir()): Plain {
     out.fonts = { title: { family: p.title[0], file: join(fonts, p.title[1]) }, caption: { family: p.caption[0], file: join(fonts, p.caption[1]) } };
   }
   if (da.captionFont) out.fonts = { ...(out.fonts as Plain | undefined), caption: { family: da.captionFont.family, file: da.captionFont.file } };
-  return out;
+  return da.style && typeof da.style === "object" ? deepMerge(out, da.style) as Plain : out;
 }
 
 /** The project with the art direction under its own settings. */

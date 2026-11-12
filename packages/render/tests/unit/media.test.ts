@@ -53,6 +53,18 @@ describe("planMedia", () => {
     expect(mergePlans([a, b]).files.map((f) => f.to)).toEqual(expect.arrayContaining([a.fonts.caption, b.fonts.caption]));
   });
 
+  it("carries the accent serif when the style names one, and only then", () => {
+    const { project, timeline } = setup();
+    expect(planMedia(dir, project, timeline).fonts.accent).toBeUndefined();
+    touch("fonts-src/serif-italic.ttf");
+    const serif = { ...timeline, style: { ...timeline.style, fonts: { ...timeline.style.fonts, accent: { family: "S", file: "fonts-src/serif-italic.ttf" } } } };
+    const plan = planMedia(dir, project, serif);
+    expect(plan.fonts.accent).toMatch(/^fonts\/accent-[0-9a-f]{8}\.ttf$/);
+    expect(plan.files.map((f) => f.to)).toContain(plan.fonts.accent);
+    rmSync(join(dir, "fonts-src/serif-italic.ttf"));
+    expect(() => planMedia(dir, project, serif)).toThrow(/accent font of the style/);
+  });
+
   it("prefers proxy.mp4 for previews, and falls back to edit.mp4", () => {
     const { project, timeline } = setup();
     expect(planMedia(dir, project, timeline, { preview: true }).media.s!.video).toBe("cache/s/edit.mp4");

@@ -18,12 +18,17 @@ export function familyOf(path: string): string {
 }
 
 /** Loads the style fonts once each; loadFont blocks the render until they are ready. Returns their families. */
-export function ensureFonts(fonts: RenderProps["fonts"]): { caption: string; title: string } {
-  for (const path of [fonts.caption, fonts.title]) {
+export function ensureFonts(fonts: RenderProps["fonts"]): { caption: string; title: string; accent?: string } {
+  for (const [path, italic] of [[fonts.caption, false], [fonts.title, false], [fonts.accent, true]] as const) {
     if (!path || requested.has(path)) continue;
     requested.add(path);
-    // Remotion types list four formats; "collection" is a valid CSS format hint all the same.
-    void loadFont({ family: familyOf(path), url: src(path), format: fontFormat(path) as "truetype" });
+    // Remotion types list four formats; "collection" is a valid CSS format hint all the same. The accent is an italic
+    // file: loaded as the italic face, so asking for italic never slants it a second time.
+    void loadFont({ family: familyOf(path), url: src(path), format: fontFormat(path) as "truetype", ...(italic ? { style: "italic" } : {}) });
   }
-  return { caption: fonts.caption ? familyOf(fonts.caption) : "AdamCaption", title: fonts.title ? familyOf(fonts.title) : "AdamTitle" };
+  return {
+    caption: fonts.caption ? familyOf(fonts.caption) : "AdamCaption",
+    title: fonts.title ? familyOf(fonts.title) : "AdamTitle",
+    ...(fonts.accent ? { accent: familyOf(fonts.accent) } : {}),
+  };
 }

@@ -2,7 +2,7 @@ import type { FC } from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Style, TimelineElement, TitleProps } from "@adam-studio/model";
 import { colorOf, editorialEntrance, exitOpacity, fitFontSize, glitchAmount, keySegments } from "../lib/text";
-import { CAPTION_FONT, TITLE_FONT } from "../props";
+import { ACCENT_FONT, CAPTION_FONT, TITLE_FONT } from "../props";
 
 /** Condensed headline, optional italic bridge, restrained scale/focus. The text never shakes by default. */
 export const Title: FC<{ el: TimelineElement; style: Style }> = ({ el, style }) => {
@@ -21,7 +21,7 @@ export const Title: FC<{ el: TimelineElement; style: Style }> = ({ el, style }) 
   const colour = colorOf(props.textColor ?? "text", style);
   // Keep the complete headline group in the safe title band, including the connector.
   const maxSize = Math.min(width * 0.10, (el.textMaxHeight ?? height * 0.16) / (phase.lines.length + (props.connector ? 0.65 : 0) + (props.kicker ? 0.5 : 0)));
-  const connector = props.connector ? <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontStyle: "italic", fontSize: maxSize * 0.62, lineHeight: 1.05, color: colour, WebkitTextStroke: `${width * 0.001}px ${style.colors.ink}`, paintOrder: "stroke fill", textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>{props.connector}</div> : null;
+  const connector = props.connector ? <div style={{ fontFamily: ACCENT_FONT, fontStyle: "italic", fontWeight: 400, fontSize: maxSize * 0.62, lineHeight: 1.05, color: colour, WebkitTextStroke: `${width * 0.001}px ${style.colors.ink}`, paintOrder: "stroke fill", textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>{props.connector}</div> : null;
   return <AbsoluteFill style={{ opacity: entrance.opacity * exitOpacity(local, phaseMs) }}>
     <div style={{ position: "absolute", left: (el.x - 0.5) * width, width, top: el.y * height,
       display: "flex", flexDirection: "column", alignItems: "center",

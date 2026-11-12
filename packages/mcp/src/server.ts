@@ -30,9 +30,11 @@ Preserve the existing story and captions in unsolicited proposals, including hoo
 Every variant is checked by propose before saving. If it fails, repair the invalid variant and call propose again before announcing success.
 Use stable smooth zooms and blur, no shake, whip, glitch or strobing by default.
 Creator taste so far: default effect animations feel a bit fast; lean slower (style motion.speed below 1 slows every effect).
-Effects: element kinds hud.panel, hud.stat, lottie, camera.zoom (punch-in), camera.window (4:3 window on a flat colour);
-image intro/outro fade, pop, pixel, step, window, glitch; style fx {grain, scanlines, zoomBlur}; transitions flash, whip,
-zoom (get_reference kind:<name>, get_reference style).`;
+Effects: element kinds hud.panel, hud.stat, lottie, camera.zoom (punch-in), camera.window (4:3 window on a flat colour),
+endcard.desktop (end card: a folder per episode, the cursor opens the next); image intro/outro fade, pop, pixel, step,
+window, glitch; style fx {grain, scanlines, zoomBlur}, style opening (CRT power-on), style progress (block progress bar),
+caption highlightAs serif (accent italic serif, fonts.accent); transitions flash, whip, zoom (get_reference kind:<name>,
+get_reference style). The art direction's checks show in lint as "da." rules.`;
 
 // stdout carries the protocol: library logs go to stderr.
 console.log = console.error;

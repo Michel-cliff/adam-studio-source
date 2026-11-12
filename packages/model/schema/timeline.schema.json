@@ -719,6 +719,27 @@
                 "file"
               ],
               "additionalProperties": false
+            },
+            "accent": {
+              "type": "object",
+              "properties": {
+                "family": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "file": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "capcutResourceId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "family",
+                "file"
+              ],
+              "additionalProperties": false
             }
           },
           "required": [
@@ -936,7 +957,8 @@
               "type": "string",
               "enum": [
                 "color",
-                "block"
+                "block",
+                "serif"
               ]
             }
           },
@@ -947,6 +969,101 @@
             "maxCharsPerLine",
             "intro",
             "highlightAs"
+          ],
+          "additionalProperties": false
+        },
+        "opening": {
+          "type": "object",
+          "properties": {
+            "line": {
+              "default": "text",
+              "type": "string"
+            },
+            "lineHeight": {
+              "default": 4,
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 20
+            },
+            "openMs": {
+              "default": 400,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "scanlines": {
+              "default": 0.3,
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "scanlineFrames": {
+              "default": 3,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 30
+            }
+          },
+          "required": [
+            "line",
+            "lineHeight",
+            "openMs",
+            "scanlines",
+            "scanlineFrames"
+          ],
+          "additionalProperties": false
+        },
+        "progress": {
+          "type": "object",
+          "properties": {
+            "color": {
+              "type": "string",
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            },
+            "track": {
+              "default": "#000000",
+              "type": "string",
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            },
+            "trackOpacity": {
+              "default": 0.4,
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "height": {
+              "default": 6,
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 40
+            },
+            "bottom": {
+              "default": 24,
+              "type": "number",
+              "minimum": 0,
+              "maximum": 400
+            },
+            "block": {
+              "default": 24,
+              "type": "number",
+              "minimum": 0,
+              "maximum": 200
+            },
+            "gap": {
+              "default": 2,
+              "type": "number",
+              "minimum": 0,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "color",
+            "track",
+            "trackOpacity",
+            "height",
+            "bottom",
+            "block",
+            "gap"
           ],
           "additionalProperties": false
         },
@@ -1111,6 +1228,80 @@
                 "items": {
                   "type": "string"
                 }
+              },
+              "da": {
+                "type": "object",
+                "properties": {
+                  "maxShotMs": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "maxScaleGapMs": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "windows": {
+                    "type": "object",
+                    "properties": {
+                      "min": {
+                        "default": 0,
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "max": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "min"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "rareColors": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "color": {
+                          "type": "string",
+                          "pattern": "^#[0-9A-Fa-f]{6}$"
+                        },
+                        "max": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "color",
+                        "max"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "maxCaptionWords": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "cutsOnly": {
+                    "type": "boolean"
+                  },
+                  "musicFromMs": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "noShake": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
               }
             },
             "required": [

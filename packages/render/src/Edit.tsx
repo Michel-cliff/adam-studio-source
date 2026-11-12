@@ -7,6 +7,7 @@ import { AudioLayer } from "./components/AudioLayer";
 import { Captions } from "./components/Captions";
 import { ClipLayer } from "./components/ClipLayer";
 import { ElementLayer } from "./components/ElementLayer";
+import { ProgressBar } from "./components/ProgressBar";
 import { SubjectLayer } from "./components/SubjectLayer";
 import { ensureFonts } from "./fonts";
 import { GRADE_FILTER_ID, gradeFilter, vignetteBackground, warmthFilter, warmthMatrix } from "./lib/grade";
@@ -15,7 +16,7 @@ import type { RenderProps } from "./props";
 
 export const Edit: FC<RenderProps> = (props) => {
   const families = ensureFonts(props.fonts);
-  const fontVars = { "--adam-caption": families.caption, "--adam-title": families.title } as React.CSSProperties;
+  const fontVars = { "--adam-caption": families.caption, "--adam-title": families.title, ...(families.accent ? { "--adam-accent": families.accent } : {}) } as React.CSSProperties;
   const frame = useCurrentFrame();
   const { timeline, media } = props;
   const mode = props.mode ?? { kind: "full" };
@@ -70,8 +71,12 @@ export const Edit: FC<RenderProps> = (props) => {
       <Scanlines amount={scanlinesAt(timeline, frame)} />
       {cam.flash > 0 ? <AbsoluteFill style={{ backgroundColor: "white", opacity: cam.flash }} /> : null}
       {full && grade.vignette > 0 ? <AbsoluteFill style={{ background: vignetteBackground(grade.vignette), opacity: 1 - (win?.amount ?? 0) }} /> : null}
-      {full ? <ElementLayer timeline={timeline} media={media} layer="front" /> : null}
+      {full ? <ElementLayer timeline={timeline} media={media} layer="front" covers={false} /> : null}
       {full ? <Captions timeline={timeline} /> : null}
+      {/* What covers the frame goes over the captions: the end card, the progress bar over it, the opening over all. */}
+      {full ? <ElementLayer timeline={timeline} media={media} layer="front" kind="endcard.desktop" /> : null}
+      {full && timeline.style.progress ? <ProgressBar progress={timeline.style.progress} durationFrames={timeline.durationFrames} /> : null}
+      {full ? <ElementLayer timeline={timeline} media={media} layer="front" kind="open.crt" /> : null}
       <AudioLayer timeline={timeline} media={media} clipAudioOnly={!full} />
     </AbsoluteFill>
   );

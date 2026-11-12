@@ -16,7 +16,7 @@ export type RenderMode = { kind: "full" } | { kind: "bake" } | { kind: "overlay"
 export type RenderProps = {
   timeline: Timeline;
   media: Record<string, MediaFiles>;
-  fonts: { caption: string; title: string };
+  fonts: { caption: string; title: string; accent?: string };
   mode?: RenderMode;
 };
 
@@ -25,3 +25,5 @@ export const COMPOSITION_ID = "AdamEdit";
 // previews side by side, each with other fonts, do not share one family name.
 export const CAPTION_FONT = "var(--adam-caption, AdamCaption)";
 export const TITLE_FONT = "var(--adam-title, AdamTitle)";
+// The accent italic serif, loaded as an italic face; Georgia italic when the style names none.
+export const ACCENT_FONT = "var(--adam-accent, Georgia), Georgia, 'Times New Roman', serif";

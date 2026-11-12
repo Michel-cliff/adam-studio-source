@@ -1,4 +1,5 @@
 import type { Project } from "./schema/project";
+import type { DaChecks } from "./schema/style";
 import type { Timeline } from "./schema/timeline";
 import { getFramework } from "./frameworks";
 import { layoutStory, wordOutput } from "./layout";
@@ -29,6 +30,96 @@ function keptWords(project: Project) {
     if (o) out.push({ id: w.id, text: w.text, ...o });
   }
   return out.sort((a, b) => a.startMs - b.startMs);
+}
+
+/** Kinds that dress the frame when they come in: a change the eye reads, like a cut. */
+const DRESS_KINDS = new Set(["image", "title", "card", "text.stack", "text.behindSubject", "lottie", "hud.panel", "hud.stat", "endcard.desktop"]);
+const ANIMATED_INTROS = new Set(["glitch"]);
+
+/** Longest stretch of the edit between two of the given frames, with its bounds. */
+function longestGap(events: number[], end: number): { from: number; to: number } {
+  const marks = [...new Set([0, ...events.filter((f) => f > 0 && f < end), end])].sort((a, b) => a - b);
+  let best = { from: 0, to: 0 };
+  for (let i = 1; i < marks.length; i++) if (marks[i]! - marks[i - 1]! > best.to - best.from) best = { from: marks[i - 1]!, to: marks[i]! };
+  return best;
+}
+
+/** Whether a value (an element's props, deep) names this colour, by hex or by the style colour it resolves to. */
+function namesColor(value: unknown, hex: string, named: Set<string>): boolean {
+  if (typeof value === "string") return value.toLowerCase() === hex || named.has(value);
+  if (Array.isArray(value)) return value.some((v) => namesColor(v, hex, named));
+  if (value && typeof value === "object") return Object.values(value).some((v) => namesColor(v, hex, named));
+  return false;
+}
+
+/** The art direction's checks on an edit: shot length, changes of scale, 4:3 windows, rare colours, caption length, cuts, music. */
+export function daChecks(timeline: Timeline, da: DaChecks): { rule: string; message: string; ids: string[] }[] {
+  const out: { rule: string; message: string; ids: string[] }[] = [];
+  const s = (f: number) => (f / timeline.fps).toFixed(1);
+  const end = timeline.durationFrames;
+  const cameras = timeline.elements.filter((e) => e.kind === "camera.zoom" || e.kind === "camera.window");
+  const cameraMarks = cameras.flatMap((e) => [e.fromFrame, e.fromFrame + e.durationFrames]);
+  const cuts = timeline.clips.slice(1).map((c) => c.fromFrame);
+  // A cut changes the scale only when the next shot is framed or zoomed otherwise.
+  const scaleCuts = timeline.clips.slice(1).filter((c, i) => {
+    const prev = timeline.clips[i]!;
+    return prev.zoom.base !== c.zoom.base || prev.framing.mode !== c.framing.mode || prev.asset !== c.asset;
+  }).map((c) => c.fromFrame);
+
+  if (da.maxShotMs !== undefined) {
+    const dress = timeline.elements.filter((e) => e.layer === "front" && DRESS_KINDS.has(e.kind)).map((e) => e.fromFrame);
+    const gap = longestGap([...cuts, ...cameraMarks, ...dress], end);
+    if (((gap.to - gap.from) * 1000) / timeline.fps > da.maxShotMs) {
+      out.push({ rule: "da.shot", message: `${s(gap.to - gap.from)} s without a change of scale or dress (${s(gap.from)} s to ${s(gap.to)} s, limit ${da.maxShotMs / 1000} s)`, ids: [] });
+    }
+  }
+  if (da.maxScaleGapMs !== undefined) {
+    const gap = longestGap([...scaleCuts, ...cameraMarks], end);
+    if (((gap.to - gap.from) * 1000) / timeline.fps > da.maxScaleGapMs) {
+      out.push({ rule: "da.scale", message: `${s(gap.to - gap.from)} s without a change of scale (${s(gap.from)} s to ${s(gap.to)} s, limit ${da.maxScaleGapMs / 1000} s)`, ids: [] });
+    }
+  }
+  if (da.windows) {
+    const windows = timeline.elements.filter((e) => e.kind === "camera.window");
+    const { min, max } = da.windows;
+    if (windows.length < min) out.push({ rule: "da.windows", message: `${windows.length} 4:3 window(s), the art direction asks for at least ${min}`, ids: windows.map((w) => w.id) });
+    if (max !== undefined && windows.length > max) out.push({ rule: "da.windows", message: `${windows.length} 4:3 windows, the art direction allows ${max} at most`, ids: windows.map((w) => w.id) });
+  }
+  for (const rare of da.rareColors ?? []) {
+    const hex = rare.color.toLowerCase();
+    const colors = timeline.style.colors as Record<string, string>;
+    const named = new Set(Object.entries(colors).filter(([, v]) => v.toLowerCase() === hex).map(([k]) => k));
+    if (named.has("text")) { out.push({ rule: "da.rareColor", message: `${rare.color} is the text colour: it cannot stay rare`, ids: [] }); continue; }
+    const users = timeline.elements.filter((e) => namesColor(e.props, hex, named)).map((e) => e.id);
+    if (named.has("highlight")) users.push(...timeline.captions.filter((c) => c.highlightRanges.length > 0).map((c) => c.id));
+    if (users.length > rare.max) out.push({ rule: "da.rareColor", message: `${rare.color} is used ${users.length} times (at most ${rare.max})`, ids: users });
+  }
+  if (da.maxCaptionWords !== undefined) {
+    for (const c of timeline.captions) {
+      const n = c.text.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
+      if (n > da.maxCaptionWords) out.push({ rule: "da.captionWords", message: `Caption "${c.text.replace(/\s+/g, " ")}" has ${n} words (at most ${da.maxCaptionWords})`, ids: [c.id] });
+    }
+  }
+  if (da.cutsOnly) {
+    for (const c of timeline.clips) {
+      if (c.transitionOut.kind !== "cut") out.push({ rule: "da.cutsOnly", message: `Clip "${c.id}" ends on a ${c.transitionOut.kind} transition: dry cuts only`, ids: [c.id] });
+    }
+    for (const e of timeline.elements) {
+      const p = e.props as { intro?: unknown; outro?: unknown };
+      if (ANIMATED_INTROS.has(String(p.intro)) || ANIMATED_INTROS.has(String(p.outro))) out.push({ rule: "da.cutsOnly", message: `"${e.id}" comes in or goes out with a glitch: dry cuts only`, ids: [e.id] });
+    }
+  }
+  if (da.musicFromMs !== undefined) {
+    const takes = new Set(timeline.clips.map((c) => c.asset));
+    for (const a of timeline.audio) {
+      const atMs = Math.round((a.fromFrame * 1000) / timeline.fps);
+      if (!takes.has(a.asset) && a.durationFrames >= 8 * timeline.fps && atMs < da.musicFromMs) {
+        out.push({ rule: "da.music", message: `Music "${a.id}" starts at ${atMs} ms, before ${da.musicFromMs} ms: let the hook open first`, ids: [a.id] });
+      }
+    }
+  }
+  if (da.noShake && timeline.style.motion?.stable === false) out.push({ rule: "da.noShake", message: "motion.stable is off: text and inserts may shake", ids: [] });
+  return out;
 }
 
 export function lint(project: Project, timeline: Timeline, options: LintOptions = {}): LintWarning[] {
@@ -144,6 +235,9 @@ export function lint(project: Project, timeline: Timeline, options: LintOptions 
     for (const id of new Set([...slide, ...behind])) need(id, "subject.webm", "matting");
     for (const id of slide) need(id, "plate.png", "clean plate");
   }
+
+  // The art direction's own checks
+  if (rules.da) for (const w of daChecks(timeline, rules.da)) warn(w.rule, w.message, w.ids);
 
   // Proposals
   const pending = project.proposals.filter((p) => p.status === "pending");

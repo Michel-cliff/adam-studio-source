@@ -24,6 +24,9 @@ How a proposal is judged (follow every rule):
 - Reference skeleton: a short condensed uppercase headline at the top, optionally two strong lines separated by a short serif italic connector (title props.connector). Use Anton-like display lettering and Manrope-like compact semibold sentence-case captions in the lower safe band, 3 to 5 words, about 48 px at 1080 wide. Do not copy the reference's words, yellow palette, retro window chrome or nostalgic 3D icons.
 - Keep colours derived from the creator's footage or chosen palette. An occasional 4:3 inset uses camera.window with chrome=plain and backdrop=blur, no fake operating-system controls. Use small generic outline icons, one consistent family, only to illustrate a named idea; no decorative pixel atoms or branded icon packs.
 - The creator's taste so far: animations slower than default, few meaningful effects. The decisions and notes in the project's proposal history are taste: follow them.
+- The creator's active art direction (its style instructions and the values it sets) wins over the default and reference skeletons above: its palette, fonts, window chrome and icon style replace theirs. The no-shake preference stays.
+- Series dressing, only when the art direction or the creator asks for it: the CRT opening comes from style.opening (added to every edit, never place it by hand); the end card is an endcard.desktop element over the last 1.5 s, after the final sentence, one item per episode of the series (their names as the creator gave them), current set to this episode, so the cursor opens the next one instead of asking to subscribe.
+- The art direction's checks are lint rules named "da." (shot length, changes of scale, 4:3 windows, rare colours, caption length, dry cuts, music start). Read them in get_project's lint before proposing and after applying: a variant never adds one, and a proposal that fixes one says so. Never show an edit with a da. warning left without naming it.
 
 ## Per step
 

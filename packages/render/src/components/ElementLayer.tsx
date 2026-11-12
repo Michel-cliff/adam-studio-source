@@ -10,14 +10,22 @@ import { HudStat } from "./HudStat";
 import { LottieElement } from "./LottieElement";
 import { ImageElement } from "./ImageElement";
 import { Title } from "./Title";
+import { OpenCrt } from "./OpenCrt";
+import { EndcardDesktop } from "./EndcardDesktop";
 
-/** The elements of one layer; `only` keeps the listed element ids (CapCut overlays). */
-export const ElementLayer: FC<{ timeline: Timeline; media: Record<string, MediaFiles>; layer: "front" | "behind-subject"; only?: string[] }> = ({
-  timeline, media, layer, only,
+/** Kinds that cover the whole frame, captions included: drawn above the captions, not with the other elements. */
+export const COVER_KINDS: ReadonlySet<string> = new Set(["open.crt", "endcard.desktop"]);
+
+/**
+ * The elements of one layer; `only` keeps the listed element ids (CapCut overlays). In the full edit the front layer
+ * leaves out the covering kinds (`covers` false), drawn later one kind at a time (`kind`) over the captions.
+ */
+export const ElementLayer: FC<{ timeline: Timeline; media: Record<string, MediaFiles>; layer: "front" | "behind-subject"; only?: string[]; covers?: boolean; kind?: string }> = ({
+  timeline, media, layer, only, covers = true, kind,
 }) => (
   <>
     {timeline.elements
-      .filter((e) => e.layer === layer && (!only || only.includes(e.id)))
+      .filter((e) => e.layer === layer && (!only || only.includes(e.id)) && (covers || !COVER_KINDS.has(e.kind)) && (!kind || e.kind === kind))
       .map((el) => (
         <Sequence key={el.id} from={el.fromFrame} durationInFrames={el.durationFrames} layout="none">
           <AbsoluteFill style={{ pointerEvents: "none", zIndex: layer === "front" ? 20 : undefined, opacity: el.opacity ?? 1, transform: `rotate(${el.rotation ?? 0}deg) scale(${el.scale ?? 1})`, transformOrigin: `${el.x * 100}% ${el.y * 100}%` }}>
@@ -46,6 +54,10 @@ const ElementView: FC<{ el: TimelineElement; timeline: Timeline; media: Record<s
       return <HudStat el={el} style={timeline.style} />;
     case "lottie":
       return <LottieElement el={el} style={timeline.style} media={media} />;
+    case "open.crt":
+      return <OpenCrt el={el} style={timeline.style} />;
+    case "endcard.desktop":
+      return <EndcardDesktop el={el} style={timeline.style} />;
     default:
       return null;
   }

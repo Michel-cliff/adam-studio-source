@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { OpenCrtPropsSchema } from "./kinds";
 import { FormatSchema } from "./project";
 
 const Hex = z.string().regex(/^#[0-9A-Fa-f]{6}$/, "expected a #RRGGBB color");
@@ -22,10 +23,32 @@ export const FontSchema = z.strictObject({
   capcutResourceId: z.string().optional(),
 });
 
+/** What an art direction asks of every edit, checked by lint before anything is shown. */
+export const DaChecksSchema = z.strictObject({
+  /** Longest stretch without a change of scale or dress (a cut, a zoom, a 4:3 window, an insert, a title). */
+  maxShotMs: z.number().int().positive().optional(),
+  /** Longest stretch without a change of scale (a zoom, a 4:3 window, a cut to another framing). */
+  maxScaleGapMs: z.number().int().positive().optional(),
+  /** How many 4:3 windows (camera.window) the edit holds. */
+  windows: z.strictObject({ min: z.number().int().nonnegative().default(0), max: z.number().int().nonnegative().optional() }).optional(),
+  /** Colours kept rare: how many items may use each (elements naming it, highlighted captions when it is the highlight). */
+  rareColors: z.array(z.strictObject({ color: Hex, max: z.number().int().nonnegative() })).optional(),
+  /** Most words in one caption. */
+  maxCaptionWords: z.number().int().positive().optional(),
+  /** Dry cuts only: no animated transition between clips, no glitch or whip on an insert. */
+  cutsOnly: z.boolean().optional(),
+  /** Music (a sound bed of 8 s or more) starts no earlier than this, once the hook has opened the loop. */
+  musicFromMs: z.number().int().nonnegative().optional(),
+  /** Text and inserts stay still: motion.stable on. */
+  noShake: z.boolean().optional(),
+});
+export type DaChecks = z.output<typeof DaChecksSchema>;
+
 export const StyleSchema = z.strictObject({
   name: z.string().min(1),
   textLayout: z.enum(["thirds", "free"]).optional(),
-  fonts: z.strictObject({ caption: FontSchema, title: FontSchema }),
+  // accent: an italic serif for the important word of a caption (highlightAs "serif") and the connector of a title.
+  fonts: z.strictObject({ caption: FontSchema, title: FontSchema, accent: FontSchema.optional() }),
   colors: z.strictObject({ text: Hex, highlight: Hex, accent: Hex, ink: Hex }),
   grade: z
     .strictObject({
@@ -65,9 +88,23 @@ export const StyleSchema = z.strictObject({
     shadow: z.boolean().default(true),
     maxCharsPerLine: z.number().int().positive().default(22),
     intro: z.string().default("miniZoom"),
-    // The important word: in the highlight colour, or on a block of it (like the key word of a title).
-    highlightAs: z.enum(["color", "block"]).default("color"),
+    // The important word: in the highlight colour, on a block of it (like the key word of a title), or in the accent
+    // italic serif and the highlight colour (the switch reads by its shape, not only its colour).
+    highlightAs: z.enum(["color", "block", "serif"]).default("color"),
   }),
+  // The opening every edit of this style starts with (a CRT power-on), drawn over its first frames.
+  opening: OpenCrtPropsSchema.optional(),
+  // A progress bar along the bottom over the whole edit, filled by visible blocks (pixel art) or continuously
+  // (block 0). Sizes in px on a 1080-wide frame.
+  progress: z.strictObject({
+    color: Hex,
+    track: Hex.default("#000000"),
+    trackOpacity: z.number().min(0).max(1).default(0.4),
+    height: z.number().positive().max(40).default(6),
+    bottom: z.number().min(0).max(400).default(24),
+    block: z.number().min(0).max(200).default(24),
+    gap: z.number().min(0).max(20).default(2),
+  }).optional(),
   /** Animation speed of every effect: 1 as designed, below 1 slower (0.7 = 30% slower), above 1 faster. */
   motion: z.strictObject({
     speed: z.number().min(0.25).max(3).default(1),
@@ -86,6 +123,8 @@ export const StyleSchema = z.strictObject({
       maxPauseMs: z.number().int().positive().default(350),
       /** Overrides the language list for this format. */
       fillers: z.array(z.string()).optional(),
+      /** The art direction's own checks, each one only when it is set (lint rules "da.*"). */
+      da: DaChecksSchema.optional(),
     }),
   ),
 });
