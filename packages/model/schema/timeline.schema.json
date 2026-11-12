@@ -1133,6 +1133,80 @@
                 "items": {
                   "type": "string"
                 }
+              },
+              "da": {
+                "type": "object",
+                "properties": {
+                  "maxShotMs": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "maxScaleGapMs": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "windows": {
+                    "type": "object",
+                    "properties": {
+                      "min": {
+                        "default": 0,
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "max": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "min"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "rareColors": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "color": {
+                          "type": "string",
+                          "pattern": "^#[0-9A-Fa-f]{6}$"
+                        },
+                        "max": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "color",
+                        "max"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "maxCaptionWords": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "cutsOnly": {
+                    "type": "boolean"
+                  },
+                  "musicFromMs": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "noShake": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
               }
             },
             "required": [

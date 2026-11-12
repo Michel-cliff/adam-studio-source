@@ -89,3 +89,54 @@ describe("lint", () => {
     expect(ws).toContainEqual({ rule: "proposals.pending", severity: "error", message: "1 proposal(s) still pending", ids: ["p1"] });
   });
 });
+
+describe("the art direction's checks", () => {
+  const withDa = (da: object, over: Partial<ProjectInput> = {}) => {
+    const p = makeProject({ ...clean, ...over });
+    const s = makeStyle({ lint: { "9:16": { minDurationMs: 15000, maxDurationMs: 60000, da }, "16:9": { minDurationMs: 30000, maxDurationMs: 1200000 } } });
+    return lint(p, resolve(p, s));
+  };
+  const da = (ws: ReturnType<typeof run>) => ws.filter((w) => w.rule.startsWith("da."));
+  const title = (id: string, atMs: number, textColor = "text") =>
+    ({ id, kind: "title", anchor: { atMs }, durationMs: 1500, props: { textColor, phases: [{ startMs: 0, endMs: 1500, lines: [{ text: "X" }] }] } });
+  const zoom = (id: string, atMs: number) => ({ id, kind: "camera.zoom", anchor: { atMs }, durationMs: 2000, props: { scale: 1.05 } });
+  const win = (id: string, atMs: number) => ({ id, kind: "camera.window", anchor: { atMs }, durationMs: 2000, props: {} });
+
+  it("checks nothing the art direction does not set", () => {
+    expect(da(run())).toEqual([]);
+    expect(da(withDa({}))).toEqual([]);
+  });
+
+  it("finds the longest stretch without a change of scale or dress", () => {
+    expect(da(withDa({ maxShotMs: 5000 }))).toEqual([expect.objectContaining({ rule: "da.shot", message: "15.1 s without a change of scale or dress (0.0 s to 15.1 s, limit 5 s)" })]);
+    const dressed = { elements: [zoom("z", 5000), title("t", 10000)] };
+    expect(da(withDa({ maxShotMs: 5200 }, dressed))).toEqual([]);
+    // A title dresses the frame but does not change its scale.
+    expect(da(withDa({ maxScaleGapMs: 7000 }, dressed))).toEqual([expect.objectContaining({ rule: "da.scale", message: "8.1 s without a change of scale (7.0 s to 15.1 s, limit 7 s)" })]);
+  });
+
+  it("counts the 4:3 windows against the range", () => {
+    expect(da(withDa({ windows: { min: 2 } })).map((w) => w.message)).toEqual(["0 4:3 window(s), the art direction asks for at least 2"]);
+    expect(da(withDa({ windows: { min: 0, max: 1 } }, { elements: [win("w1", 3000), win("w2", 9000)] })))
+      .toEqual([expect.objectContaining({ rule: "da.windows", ids: ["w1", "w2"] })]);
+  });
+
+  it("keeps a colour rare, by hex or by the style colour that resolves to it", () => {
+    const ws = da(withDa({ rareColors: [{ color: "#FF6B35", max: 1 }] }, { elements: [title("t1", 3000, "#ff6b35"), title("t2", 8000, "accent"), title("t3", 12000)] }));
+    expect(ws).toEqual([expect.objectContaining({ rule: "da.rareColor", message: "#FF6B35 is used 2 times (at most 1)", ids: ["t1", "t2"] })]);
+  });
+
+  it("flags long captions, animated transitions, early music and shake", () => {
+    expect(da(withDa({ maxCaptionWords: 1 })).map((w) => w.rule)).toEqual(["da.captionWords"]);
+    const whip = { story: [{ id: "c1", asset: "a", inMs: 900, outMs: 8000, transitionOut: { kind: "whip" as const, durationMs: 300 } }, { id: "c2", asset: "a", inMs: 8000, outMs: 16000 }] };
+    expect(da(withDa({ cutsOnly: true }, whip))).toEqual([expect.objectContaining({ rule: "da.cutsOnly", ids: ["c1"] })]);
+    const music = {
+      assets: [{ id: "a", kind: "video" as const, path: "a.mp4", meta: { durationMs: 30000, hasAudio: true } }, { id: "m", kind: "audio" as const, path: "m.mp3", meta: { durationMs: 20000 } }],
+      elements: [{ id: "bed", kind: "sfx", anchor: { atMs: 0 }, durationMs: 12000, props: { asset: "m", volume: 0.1 } }],
+    };
+    expect(da(withDa({ musicFromMs: 3000 }, music)).map((w) => w.rule)).toEqual(["da.music"]);
+    const p = makeProject(clean);
+    const shaky = makeStyle({ motion: { speed: 1, stable: false }, lint: { "9:16": { minDurationMs: 15000, maxDurationMs: 60000, da: { noShake: true } }, "16:9": { minDurationMs: 30000, maxDurationMs: 1200000 } } });
+    expect(da(lint(p, resolve(p, shaky))).map((w) => w.rule)).toEqual(["da.noShake"]);
+  });
+});

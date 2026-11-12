@@ -22,6 +22,27 @@ export const FontSchema = z.strictObject({
   capcutResourceId: z.string().optional(),
 });
 
+/** What an art direction asks of every edit, checked by lint before anything is shown. */
+export const DaChecksSchema = z.strictObject({
+  /** Longest stretch without a change of scale or dress (a cut, a zoom, a 4:3 window, an insert, a title). */
+  maxShotMs: z.number().int().positive().optional(),
+  /** Longest stretch without a change of scale (a zoom, a 4:3 window, a cut to another framing). */
+  maxScaleGapMs: z.number().int().positive().optional(),
+  /** How many 4:3 windows (camera.window) the edit holds. */
+  windows: z.strictObject({ min: z.number().int().nonnegative().default(0), max: z.number().int().nonnegative().optional() }).optional(),
+  /** Colours kept rare: how many items may use each (elements naming it, highlighted captions when it is the highlight). */
+  rareColors: z.array(z.strictObject({ color: Hex, max: z.number().int().nonnegative() })).optional(),
+  /** Most words in one caption. */
+  maxCaptionWords: z.number().int().positive().optional(),
+  /** Dry cuts only: no animated transition between clips, no glitch or whip on an insert. */
+  cutsOnly: z.boolean().optional(),
+  /** Music (a sound bed of 8 s or more) starts no earlier than this, once the hook has opened the loop. */
+  musicFromMs: z.number().int().nonnegative().optional(),
+  /** Text and inserts stay still: motion.stable on. */
+  noShake: z.boolean().optional(),
+});
+export type DaChecks = z.output<typeof DaChecksSchema>;
+
 export const StyleSchema = z.strictObject({
   name: z.string().min(1),
   textLayout: z.enum(["thirds", "free"]).optional(),
@@ -88,6 +109,8 @@ export const StyleSchema = z.strictObject({
       maxPauseMs: z.number().int().positive().default(350),
       /** Overrides the language list for this format. */
       fillers: z.array(z.string()).optional(),
+      /** The art direction's own checks, each one only when it is set (lint rules "da.*"). */
+      da: DaChecksSchema.optional(),
     }),
   ),
 });
