@@ -115,6 +115,8 @@ export class JobManager {
         const writing = new Set(runningNow.filter((j) => writes(j.label)).map((j) => j.project));
         const waiting: Pending[] = [];
         for (const p of pending) {
+          // A completion callback can cancel another job while this batch is detached from the queue.
+          if (p.job.state !== "queued") continue;
           const { job } = p, heavy = laneOf(job.label) === "heavy", writer = writes(job.label);
           const blocked = (heavy && heavyBusy) || (writer && job.project !== "" && writing.has(job.project));
           if (blocked) {

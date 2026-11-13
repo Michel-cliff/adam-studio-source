@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseStyle, resolve } from "@adam-studio/model";
 import { ARROW, cursorAt, FOLDER, iconBoxes, targetOf } from "../../src/lib/endcard";
-import { openingAt } from "../../src/lib/opening";
+import { openingAt, openingBlackWindows } from "../../src/lib/opening";
 import { projectInput, styleInput } from "./helpers";
 import { parseProject } from "@adam-studio/model";
 
@@ -23,10 +23,14 @@ describe("the CRT opening", () => {
     const p = parseProject(projectInput());
     const s = parseStyle({ ...styleInput, opening: { line: "#E4E2BF" } });
     if (!p.ok || !s.ok) throw new Error("bad fixture");
-    const el = resolve(p.value, s.value).elements[0]!;
+    const timeline = resolve(p.value, s.value);
+    expect(openingBlackWindows(timeline)).toEqual([{ start: 0, end: 0.4 }]);
+    const el = timeline.elements[0]!;
+    expect(openingBlackWindows({ ...timeline, elements: [{ ...el, fromFrame: 30, durationFrames: 6 }] })).toEqual([{ start: 1, end: 1.2 }]);
     expect(el).toMatchObject({ id: "style.opening", kind: "open.crt", layer: "front", fromFrame: 0, durationFrames: 16 });
     const plain = parseStyle(styleInput);
     if (!plain.ok) throw new Error("bad fixture");
+    expect(openingBlackWindows(resolve(p.value, plain.value))).toEqual([]);
     expect(resolve(p.value, plain.value).elements.some((e) => e.kind === "open.crt")).toBe(false);
   });
 });

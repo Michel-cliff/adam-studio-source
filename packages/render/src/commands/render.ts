@@ -10,6 +10,7 @@ import { editStamp, writeVideoStamp } from "../lib/edit-stamp";
 import { homedir } from "node:os";
 import { applyAccent } from "../lib/accent";
 import { withVideoDA } from "../lib/da";
+import { openingBlackWindows } from "../lib/opening";
 import { applyLegibility } from "../lib/legibility";
 import { audioGate, blackShare, measureLoudness, noiseFloor, normalizeLoudness, silenceShare } from "../lib/loudness";
 import { expandEnv, planMedia } from "../media";
@@ -91,7 +92,7 @@ export async function renderCommand(projectDir: string, opts: { out?: string; fr
   const part = join(dirname(out), `.${basename(out, ".mp4")}.part.mp4`);
   await renderVideo(serveUrl, { timeline: readable, media: plan.media, fonts: plan.fonts }, part, parseFrames(opts.frames), { scale });
   // A text-only video sits on its ink background on purpose: no black-picture check for it.
-  if (!opts.frames) finishSound(part, { picture: project.format !== "text", refusedAs: out.replace(/\.mp4$/i, ".refused.mp4") });
+  if (!opts.frames) finishSound(part, { picture: project.format !== "text", expectedBlack: openingBlackWindows(timeline), refusedAs: out.replace(/\.mp4$/i, ".refused.mp4") });
   const placed = moveIntoPlace(part, out);
   if (!opts.frames) writeVideoStamp(placed, stamp);
   console.log(`wrote ${placed}`);
@@ -131,21 +132,24 @@ const hasSound = (file: string) => {
  * checked. A failed check refuses the export: the file is renamed .refused.mp4, so it never passes for a finished
  * video, and the reasons are given.
  */
-export function finishSound(out: string, opts: { picture?: boolean; refusedAs?: string } = {}): void {
-  if (!hasSound(out)) return;
-  // The noise floor is judged on the processed voice, before the final gain lifts everything (+10 dB on a real take).
-  const floor = noiseFloor(out);
-  const before = normalizeLoudness(out);
-  const after = measureLoudness(out);
-  console.log(`sound: ${before.i.toFixed(1)} -> ${after.i.toFixed(1)} LUFS, true peak ${after.tp.toFixed(1)} dBTP, noise floor ${floor.toFixed(0)} dBFS`);
-  const issues = audioGate(after);
-  // A loud floor never refuses the export: it is a noisy room, or sound the creator already mixed in.
-  if (floor > -35) console.log(`note: sound at ${floor.toFixed(0)} dBFS between words (a noisy room, or sound already mixed in): the export goes on`);
-  else if (floor > -45) console.log(`warning: the background noise is at ${floor.toFixed(0)} dBFS, the sound will stay average (a quieter room or a closer mic helps)`);
-  const black = opts.picture === false ? 0 : blackShare(out);
-  if (black > 0) issues.push(`${black.toFixed(1)} s of black picture`);
-  const silent = silenceShare(out);
-  if (silent > 0.15) issues.push(`${Math.round(silent * 100)} % of the video is total silence (more than 15 %)`);
+export function finishSound(out: string, opts: { picture?: boolean; refusedAs?: string; expectedBlack?: { start: number; end: number }[] } = {}): void {
+  const issues: string[] = [];
+  if (hasSound(out)) {
+    // The noise floor is judged on the processed voice, before the final gain lifts everything (+10 dB on a real take).
+    const floor = noiseFloor(out);
+    const before = normalizeLoudness(out);
+    const after = measureLoudness(out);
+    console.log(`sound: ${before.i.toFixed(1)} -> ${after.i.toFixed(1)} LUFS, true peak ${after.tp.toFixed(1)} dBTP, noise floor ${floor.toFixed(0)} dBFS`);
+    issues.push(...audioGate(after));
+    // A loud floor never refuses the export: it is a noisy room, or sound the creator already mixed in.
+    if (floor > -35) console.log(`note: sound at ${floor.toFixed(0)} dBFS between words (a noisy room, or sound already mixed in): the export goes on`);
+    else if (floor > -45) console.log(`warning: the background noise is at ${floor.toFixed(0)} dBFS, the sound will stay average (a quieter room or a closer mic helps)`);
+    const silent = silenceShare(out);
+    if (silent > 0.15) issues.push(`${Math.round(silent * 100)} % of the video is total silence (more than 15 %)`);
+  }
+  // Silent videos still need their picture checked.
+  const black = opts.picture === false ? 0 : blackShare(out, opts.expectedBlack);
+  if (black > 0) issues.push(`${black.toFixed(2)} s of black picture`);
   if (!issues.length) return;
   renameSync(out, opts.refusedAs ?? out.replace(/\.mp4$/i, ".refused.mp4"));
   throw new CliError(`Export refused: ${issues.join("; ")}.`);

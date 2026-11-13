@@ -1,18 +1,28 @@
 {
+  "0.1.8": {
+    "fr": [
+      "Les ouvertures CRT de ta direction artistique ne bloquent plus leur propre export. Les vrais trous noirs restent contrôlés, même sans piste audio.",
+      "Une tâche annulée pendant le traitement de la file reste arrêtée et ne se relance plus toute seule."
+    ],
+    "en": [
+      "CRT openings in your art direction no longer block their own export. Unexpected black gaps are still checked, even without an audio track.",
+      "A task cancelled while the queue is being drained stays stopped instead of starting again."
+    ]
+  },
   "0.1.7": {
-  "fr": [
-    "Le mode Auto s’arrête et redémarre sans laisser de tâches bloquées. Les demandes volumineuses fonctionnent avec Claude et Codex.",
-    "Tu peux demander à Adam d’insérer des extraits d’un lien YouTube, avec un début et une fin. Le lien source est conservé dans les crédits.",
-    "La page d’accueil affiche la direction artistique active et permet de la changer au même endroit.",
-    "Un modèle de transcription déjà présent est reconnu. Les modèles visuels facultatifs sont signalés séparément et se téléchargent au besoin."
-  ],
-  "en": [
-    "Auto mode stops and restarts without leaving stuck tasks. Large requests work with Claude and Codex.",
-    "Ask Adam to insert excerpts from a YouTube link, with a start and end. The source link is retained in the credits.",
-    "The home page shows the active art direction and lets you switch it in the same place.",
-    "An existing transcription model is recognised. Optional visual models are reported separately and download when needed."
-  ]
-},
+    "fr": [
+      "Le mode Auto s’arrête et redémarre sans laisser de tâches bloquées. Les demandes volumineuses fonctionnent avec Claude et Codex.",
+      "Tu peux demander à Adam d’insérer des extraits d’un lien YouTube, avec un début et une fin. Le lien source est conservé dans les crédits.",
+      "La page d’accueil affiche la direction artistique active et permet de la changer au même endroit.",
+      "Un modèle de transcription déjà présent est reconnu. Les modèles visuels facultatifs sont signalés séparément et se téléchargent au besoin."
+    ],
+    "en": [
+      "Auto mode stops and restarts without leaving stuck tasks. Large requests work with Claude and Codex.",
+      "Ask Adam to insert excerpts from a YouTube link, with a start and end. The source link is retained in the credits.",
+      "The home page shows the active art direction and lets you switch it in the same place.",
+      "An existing transcription model is recognised. Optional visual models are reported separately and download when needed."
+    ]
+  },
   "0.1.6": {
     "fr": [
       "Ta direction artistique peut maintenant fixer l'étalonnage, le grain, les polices, les couleurs et la place des textes.",
