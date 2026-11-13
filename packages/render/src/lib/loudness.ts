@@ -94,9 +94,21 @@ export function noiseFloor(file: string): number {
   return levels.length ? levels[Math.floor(levels.length * 0.1)]! : -120;
 }
 
-/** Seconds of black picture (0.1 s or more below 10 % luminance): a finished video has none. */
-export function blackShare(file: string): number {
+/** Seconds of unexpected black picture, excluding the declared black phases of animations. */
+export function blackShare(file: string, expected: { start: number; end: number }[] = []): number {
   const r = spawnSync("ffmpeg", ["-hide_banner", "-nostats", "-i", file, "-vf", "blackdetect=d=0.1:pix_th=0.10", "-an", "-f", "null", "-"], { encoding: "utf8", windowsHide: true, maxBuffer: 1 << 26 });
   if (r.status !== 0) throw new Error(`could not read the picture of ${file}`);
-  return [...r.stderr.matchAll(/black_duration:([\d.]+)/g)].reduce((a, m) => a + Number(m[1]), 0);
+  const windows = [...expected].sort((a, b) => a.start - b.start);
+  return [...r.stderr.matchAll(/black_start:([\d.]+) black_end:([\d.]+)/g)].reduce((total, m) => {
+    let cursor = Number(m[1]);
+    const end = Number(m[2]);
+    let unexpected = 0;
+    for (const window of windows) {
+      if (window.end <= cursor || window.start >= end) continue;
+      unexpected += Math.max(0, window.start - cursor);
+      cursor = Math.max(cursor, Math.min(end, window.end));
+    }
+    unexpected += Math.max(0, end - cursor);
+    return total + (unexpected < 0.00001 ? 0 : unexpected);
+  }, 0);
 }

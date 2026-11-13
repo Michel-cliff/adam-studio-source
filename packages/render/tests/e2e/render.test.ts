@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -14,9 +14,11 @@ function probe(file: string) {
 }
 
 describe("adam render", () => {
-  it("renders the synthetic project to a 1080x1920 MP4 with sound", async () => {
+  it("renders a synthetic CRT opening to a 1080x1920 MP4 with sound", async () => {
     const dir = mkdtempSync(join(tmpdir(), "adam render-"));
     makeSynthetic(dir);
+    const styleFile = join(dir, "style.json");
+    writeFileSync(styleFile, JSON.stringify({ ...JSON.parse(readFileSync(styleFile, "utf8")), opening: { line: "#E4E2BF" } }));
     const bundlesBefore = tempBundles();
     const out = await renderCommand(dir, { force: false });
     expect(existsSync(join(dir, "renders", "synthetic.timeline.json"))).toBe(true);

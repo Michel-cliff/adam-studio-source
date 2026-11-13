@@ -1,4 +1,13 @@
-import type { OpenCrtProps } from "@adam-studio/model";
+import { OpenCrtPropsSchema, type OpenCrtProps, type Timeline } from "@adam-studio/model";
+
+/** Only the declared power-on animation may intentionally cover the image in black. */
+export function openingBlackWindows(timeline: Pick<Timeline, "fps" | "elements">): { start: number; end: number }[] {
+  return timeline.elements.filter(el => el.kind === "open.crt").map(el => {
+    const p = OpenCrtPropsSchema.parse(el.props);
+    const frames = Math.min(el.durationFrames, Math.max(1, Math.round(p.openMs * timeline.fps / 1000)));
+    return { start: el.fromFrame / timeline.fps, end: (el.fromFrame + frames) / timeline.fps };
+  });
+}
 
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 

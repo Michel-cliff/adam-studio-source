@@ -95,6 +95,32 @@ describe("real takes", () => {
 });
 
 describe("black picture", () => {
+  it("checks real black gaps even without an audio track, while accepting a planned opening", () => {
+    const dir = mkdtempSync(join(tmpdir(), "adam silent gate-"));
+    const file = join(dir, "silent.mp4");
+    execFileSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "color=c=black:s=160x284:r=30:d=1", "-an", "-c:v", "libx264", file]);
+    expect(() => finishSound(file, { expectedBlack: [{ start: 0, end: 0.4 }] })).toThrow(/black picture/);
+    expect(existsSync(file)).toBe(false);
+    const refused = file.replace(".mp4", ".refused.mp4");
+    expect(existsSync(refused)).toBe(true);
+    expect(() => finishSound(refused, { expectedBlack: [{ start: 0, end: 1 }] })).not.toThrow();
+  }, 60000);
+
+  it("accepts the planned black CRT opening without disabling the export gate", () => {
+    const dir = mkdtempSync(join(tmpdir(), "adam crt gate-"));
+    const file = join(dir, "crt.mp4");
+    execFileSync("ffmpeg", ["-v", "error", "-y",
+      "-f", "lavfi", "-i", "color=c=black:s=160x284:r=30:d=0.233333",
+      "-f", "lavfi", "-i", "color=c=gray:s=160x284:r=30:d=1",
+      "-f", "lavfi", "-i", "sine=frequency=1000:duration=1.24:sample_rate=48000",
+      "-filter_complex", "[0:v][1:v]concat=n=2:v=1:a=0[v]", "-map", "[v]", "-map", "2:a",
+      "-c:v", "libx264", "-c:a", "aac", "-shortest", file]);
+    expect(blackShare(file)).toBeGreaterThan(0.2);
+    expect(() => finishSound(file, { expectedBlack: [{ start: 0, end: 0.4 }] })).not.toThrow();
+    expect(existsSync(file)).toBe(true);
+    expect(existsSync(file.replace(".mp4", ".refused.mp4"))).toBe(false);
+  }, 60000);
+
   it("measures the seconds of black in a video", () => {
     const dir = mkdtempSync(join(tmpdir(), "adam black-"));
     const file = join(dir, "b.mp4");
@@ -102,5 +128,7 @@ describe("black picture", () => {
     execFileSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "color=c=gray:s=160x284:r=30:d=1", "-f", "lavfi", "-i", "color=c=black:s=160x284:r=30:d=0.5",
       "-f", "lavfi", "-i", "color=c=gray:s=160x284:r=30:d=1", "-filter_complex", "[0][1][2]concat=n=3:v=1:a=0", "-c:v", "libx264", file]);
     expect(blackShare(file)).toBeCloseTo(0.5, 1);
+    expect(blackShare(file, [{ start: 0, end: 0.4 }])).toBeCloseTo(0.5, 1);
+    expect(blackShare(file, [{ start: 1, end: 1.25 }, { start: 1.1, end: 1.3 }])).toBeCloseTo(0.2, 1);
   }, 60_000);
 });

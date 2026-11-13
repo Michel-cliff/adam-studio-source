@@ -1,6 +1,6 @@
 {
   "name": "@adam-studio/desktop",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "private": true,
   "description": "Adam Studio desktop",
   "main": "main.cjs",

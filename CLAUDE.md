@@ -2,6 +2,10 @@
 
 Read this first; do not re-explore what is written here. Keep replies short, no em dashes in delivered text.
 
+## Prochaine release
+
+Lire [NEXT-RELEASE.md](NEXT-RELEASE.md) avant de préparer une release. Cette note suit les correctifs et validations de la release 0.1.8.
+
 ## Map
 
 - `packages/model`: project format (zod), `resolve`, workflow (`decide`, `closeStep`, `switchVariant`, `withVariant`). Tests: `npx vitest run`.

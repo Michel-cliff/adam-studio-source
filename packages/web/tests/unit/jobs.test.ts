@@ -10,6 +10,22 @@ const ended = (m: JobManager, id: string) => new Promise<JobView>((res) => {
 });
 
 describe("JobManager", () => {
+  it("never starts a cancelled job from a batch already being drained", async () => {
+    const m = new JobManager();
+    let release!: () => void, ran = false;
+    const first = m.task("p", "Analyze", "", () => new Promise<void>(r => { release = r; }));
+    const failing = m.task("q", "Analyze", "", () => { throw new Error("failed"); }, () => m.stopProject("r"));
+    const cancelled = m.task("r", "Analyze", "", async () => { ran = true; });
+    release();
+    await ended(m, first.id);
+    await ended(m, failing.id);
+    await Promise.resolve();
+    expect(cancelled.state).toBe("stopped");
+    expect(ran).toBe(false);
+    expect(m.hasRunning()).toBe(false);
+    expect(m.tasks().filter(j => j.state === "queued")).toEqual([]);
+  });
+
   it("finishes a synchronous spawn failure and releases the next queued writer", async () => {
     const m = new JobManager();
     const first = m.start("p", node(forever, "Claude: hook"));
