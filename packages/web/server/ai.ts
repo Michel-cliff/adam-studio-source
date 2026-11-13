@@ -1,6 +1,7 @@
 // One question to the AI the creator picked, outside the edit: the statistics chat, a stats screenshot to read,
 // a reference to describe. No adam-studio tools; pictures are read from disk (Claude's Read tool, Codex's -i).
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
+import { spawnCommand } from "./process-input";
 import { claudeBin } from "./claude";
 import { aiFailureOf, aiFailureText, type AiFailure } from "./ai-errors";
 import { codexBin } from "./codex";
@@ -15,15 +16,15 @@ export class AiError extends Error {
 export type AskAI = (q: { prompt: string; images?: string[]; signal?: AbortSignal }) => Promise<string>;
 
 /** The command line for one plain question; exported for the tests. */
-export function aiCommand(engine: Engine, model: string, prompt: string, images: string[] = []): { cmd: string; args: string[] } {
+export function aiCommand(engine: Engine, model: string, prompt: string, images: string[] = []): { cmd: string; args: string[]; input?: string } {
   if (engine === "codex") {
     return { cmd: codexBin(), args: ["exec", "--json", "--skip-git-repo-check", "--ephemeral", "--sandbox", "read-only", "-c", 'approval_policy="never"',
       ...(model === "default" ? [] : ["-m", model]), ...images.flatMap((i) => ["-i", i]),
       // -i takes several files: without the separator Codex swallows the prompt as one more image ("No prompt provided").
-      ...(images.length ? ["--"] : []), prompt] };
+      ...(images.length ? ["--"] : []), "-"], input: prompt };
   }
   const see = images.length ? `\n\nRead these files first with the Read tool:\n${images.map((i) => `- ${i}`).join("\n")}` : "";
-  return { cmd: claudeBin(), args: ["-p", prompt + see, "--output-format", "stream-json", "--verbose", ...(model === "default" ? [] : ["--model", model]),
+  return { cmd: claudeBin(), input: prompt + see, args: ["-p", "--output-format", "stream-json", "--verbose", ...(model === "default" ? [] : ["--model", model]),
     "--max-turns", String(images.length ? images.length + 3 : 2), "--disable-slash-commands", "--setting-sources", "",
     ...(images.length ? ["--tools", "Read", "--allowedTools", "Read"] : ["--tools", ""])] };
 }
@@ -53,8 +54,8 @@ export function aiRunner(engine: () => Engine, model: () => string, timeoutMs = 
   };
   return ({ prompt, images = [], signal }) => new Promise((done, fail) => {
     if (signal?.aborted) { fail(signal.reason); return; }
-    const { cmd, args } = aiCommand(engine(), model(), prompt, images);
-    const p = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"], windowsHide: true, detached: process.platform !== "win32", env: { ...process.env, ...env() } });
+    const command = aiCommand(engine(), model(), prompt, images);
+    const p = spawnCommand({ ...command, env: env() });
     let out = "", err = "";
     const terminate = () => {
       if (!p.pid) return;
@@ -65,8 +66,8 @@ export function aiRunner(engine: () => Engine, model: () => string, timeoutMs = 
     signal?.addEventListener("abort", abort, { once: true });
     if (signal?.aborted) abort();
     const kill = setTimeout(() => { terminate(); fail(failure("the AI took too long to answer")); }, timeoutMs);
-    p.stdout.on("data", (d) => (out += d));
-    p.stderr.on("data", (d) => (err += d));
+    p.stdout!.on("data", (d) => (out += d));
+    p.stderr!.on("data", (d) => (err += d));
     p.on("error", (e) => { clearTimeout(kill); signal?.removeEventListener("abort", abort); fail(failure(`could not start the AI: ${e.message}`)); });
     p.on("close", () => {
       clearTimeout(kill); signal?.removeEventListener("abort", abort);

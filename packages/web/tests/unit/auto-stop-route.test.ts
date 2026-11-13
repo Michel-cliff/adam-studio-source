@@ -17,6 +17,7 @@ it("the global stop endpoint interrupts the active job without opening that step
       this.done = onEnd;
       return this.active = { id: "fake1", project, label: c.label, state: "running", output: "", startedAt: Date.now(), hint: null };
     }
+    override list(name: string) { return this.active?.project === name ? [this.active] : []; }
     override running(name: string) { return this.active?.project === name && this.active.state === "running" ? this.active : undefined; }
     override stop(id: string) {
       if (this.active?.id !== id) return false;

@@ -10,6 +10,32 @@ const ended = (m: JobManager, id: string) => new Promise<JobView>((res) => {
 });
 
 describe("JobManager", () => {
+  it("finishes a synchronous spawn failure and releases the next queued writer", async () => {
+    const m = new JobManager();
+    const first = m.start("p", node(forever, "Claude: hook"));
+    const bad = m.start("p", {cmd: process.execPath, args: [String.fromCharCode(0)], label: "Claude: sound"});
+    const next = m.start("p", node("console.log('recovered')", "Claude: look"));
+    m.stop(first.id);
+    expect((await ended(m, bad.id)).state).toBe("failed");
+    expect((await ended(m, next.id)).output).toContain("recovered");
+    expect(m.hasRunning()).toBe(false);
+  });
+
+  it("stops every project job before a queued writer can start and allows restarting", async () => {
+    const m = new JobManager();
+    const first = m.start("p", node(forever, "Claude: hook"));
+    const second = m.start("p", node("console.log('must not run')", "Codex: sound"));
+    const elsewhere = m.start("q", node(forever, "Claude: hook"));
+    try {
+      m.stopProject("p");
+      expect((await ended(m, first.id)).state).toBe("stopped");
+      expect(m.get(second.id)!.state).toBe("stopped");
+      expect(m.get(second.id)!.output).toBe("");
+      expect(elsewhere.state).toBe("running");
+      expect((await ended(m, m.start("p", node("", "Codex: sound")).id)).state).toBe("done");
+    } finally { m.stopProject("q"); await ended(m, elsewhere.id); }
+  });
+
   it("collects output and the exit state", async () => {
     const m = new JobManager();
     const ok = await ended(m, m.start("p", node("console.log('hello'); console.error('oops')")).id);

@@ -49,6 +49,7 @@ export const STEP_RULES: Record<string, string> = {
 - Leave the speaker's face readable; a punch-in that the speaker's own movement cancels is useless.`,
   visuals: `Visuals, rules:
 - Show what is said only when the words name something showable; every insert must show its line. A spoken list becomes typography, not stock footage.
+- A YouTube link supplied in the creator's request can be inspected with look_at and imported with import_asset (source.url, kind video, startMs/endMs in milliseconds). Pick short relevant excerpts, retain source credits, and place the imported video with an image element anchored on the matching words. Never replace the talking-head story or hide captions. If download fails, state why and ask for a local file; never claim the footage was added.
 - Sources in order: the creator's own footage and Inspiration folder, then stills in one consistent visual language, then stock that matches the video's world, inside a frame. No posed stock models.
 - Build connected states (something enters, a gap closes, a number grows) rather than an oversized icon on an empty panel. Label mockups. Decorative charts must not pretend to be data.
 - Inside a talking head: at most 3 inserts per minute, at most 25% full screen, face on screen at least 65%.`,

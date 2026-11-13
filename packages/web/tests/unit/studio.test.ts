@@ -30,7 +30,8 @@ describe("asking Claude", () => {
   it("runs Claude Code headless with the adam-studio tools only, for one proposal of the step", () => {
     const c = askCommand("ep 1", "hook", "A bold question");
     expect(c.label).toBe("Claude: hook");
-    expect(c.args.slice(0, 2)).toEqual(["-p", "A bold question"]);
+    expect(c.args[0]).toBe("-p");
+    expect(c.input).toBe("A bold question");
     expect(c.args).toEqual(expect.arrayContaining(["--strict-mcp-config", "--allowedTools", "mcp__adam-studio", "--output-format", "stream-json"]));
     const system = c.args[c.args.indexOf("--append-system-prompt") + 1]!;
     expect(system).toMatch(/Project: "ep 1"/);

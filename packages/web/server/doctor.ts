@@ -68,10 +68,13 @@ const IMPORTS = "import torch, faster_whisper, cv2, PIL";
 const whisperDir = (c: Ctx) => join(process.env.HF_HOME ?? join(c.home, ".cache", "huggingface"), "hub", "models--mobiuslabsgmbh--faster-whisper-large-v3-turbo");
 const rvmDir = (c: Ctx) => join(process.env.TORCH_HOME ?? join(c.home, ".cache", "torch"), "hub", "PeterL1n_RobustVideoMatting_53d74c6826735f01f4406b5ca9075eee27bec094");
 const hasFile = (c: Ctx, path: string, min = 0) => c.probe.size ? (c.probe.size(path) ?? 0) > min : c.probe.exists(path);
+export function transcriptionReady(c: Ctx): boolean {
+  const w = whisperDir(c);
+  return c.probe.list(join(w, "snapshots")).some(name => hasFile(c, join(w, "snapshots", name, "model.bin"), 1_000_000) && hasFile(c, join(w, "snapshots", name, "config.json")));
+}
 export function modelsReady(c: Ctx): boolean {
-  const w = whisperDir(c), t = process.env.TORCH_HOME ?? join(c.home, ".cache", "torch");
-  const whisper = c.probe.list(join(w, "snapshots")).some(name => hasFile(c, join(w, "snapshots", name, "model.bin"), 1_000_000) && hasFile(c, join(w, "snapshots", name, "config.json")));
-  return whisper && hasFile(c, join(rvmDir(c), "hubconf.py")) && hasFile(c, join(t, "hub", "checkpoints", "rvm_mobilenetv3.pth"), 1_000_000) && hasFile(c, join(t, "hub", "checkpoints", "big-lama.pt"), 1_000_000);
+  const t = process.env.TORCH_HOME ?? join(c.home, ".cache", "torch");
+  return transcriptionReady(c) && hasFile(c, join(rvmDir(c), "hubconf.py")) && hasFile(c, join(t, "hub", "checkpoints", "rvm_mobilenetv3.pth"), 1_000_000) && hasFile(c, join(t, "hub", "checkpoints", "big-lama.pt"), 1_000_000);
 }
 
 /** Every check, the required ones first. */
@@ -87,7 +90,7 @@ export function diagnose(c: Ctx): Check[] {
   const vpy = venvPython(c, "analysis");
   const venv = p.exists(vpy);
   const deps = venv && p.run(vpy, ["-c", IMPORTS]) !== null;
-  const models = modelsReady(c);
+  const models = transcriptionReady(c);
   const claude = p.run("claude", ["--version"]), codex = p.run("codex", ["--version"]);
   const free = p.freeGb(c.home);
   const fonts = missingFonts(c);
@@ -102,7 +105,8 @@ export function diagnose(c: Ctx): Check[] {
     tool("yt-dlp", "yt-dlp", "yt-dlp", ["--version"], (o) => o !== null, firstLine),
     tool("deno", "Deno (for yt-dlp)", "deno", ["--version"], (o) => o !== null, firstLine),
     { id: "analysis", label: "Analysis environment", need: "required", ok: deps, detail: deps ? "Whisper, matting, inpainting" : venv ? "packages missing" : "not created", fixable: !process.env.ADAM_PACKAGED },
-    { id: "models", label: "Analysis models", need: "required", ok: models, detail: models ? "Whisper large-v3-turbo, RobustVideoMatting" : "not downloaded (about 2 GB)", fixable: true },
+    { id: "models", label: "Transcription model", need: "required", ok: models, detail: models ? "Whisper large-v3-turbo" : "not available locally", fixable: true },
+    { id: "visual-models", label: "Visual analysis models", need: "optional", ok: modelsReady(c), detail: "downloaded when a visual needs them", fixable: true },
     { id: "ai", label: "Adam's engine (Claude Code or Codex)", need: "required", ok: claude !== null || codex !== null,
       detail: [claude && "Claude Code", codex && "Codex"].filter(Boolean).join(" + ") || "none", fixable: true, hint: "then sign in once: claude, or codex" },
     { id: "skill", label: "adam-studio skill", need: "required", ok: p.exists(join(c.home, ".claude", "skills", "adam-studio", "SKILL.md")), detail: "", fixable: true },
@@ -137,8 +141,8 @@ export function fixSteps(c: Ctx, id: string): Step[] {
       { cmd: vpy, args: ["-m", "pip", "install", "-e", join(c.repo, "py", "analysis")] },
     ];
     case "models": return [{ cmd: vpy, args: ["-c", [
-      "from adam_analysis.steps.transcript import model", "model()",
-      "from adam_analysis.models import ensure_lama, ensure_rvm", "ensure_rvm()", "ensure_lama()"].join("\n")] }];
+      "from adam_analysis.steps.transcript import model", "model()"].join("\n")] }];
+    case "visual-models": return [{ cmd: vpy, args: ["-c", "from adam_analysis.models import ensure_lama, ensure_rvm; ensure_rvm(); ensure_lama()"] }];
     case "ai": return [{ cmd: npmCmd, args: ["install", "-g", ...(process.env.ADAM_TOOLS ? ["--prefix", process.env.ADAM_TOOLS] : []), "@anthropic-ai/claude-code"] }];
     case "skill": return process.env.ADAM_PACKAGED ? [{ cmd: process.execPath, args: ["-e", [
       "const fs=require('node:fs'),path=require('node:path');",
@@ -182,7 +186,7 @@ export function refreshPath(c: Ctx): void {
 /** Runs the fix of one check, its output streamed to log; throws on the first step that fails. */
 export async function runFix(c: Ctx, id: string, log: (s: string) => void = () => {}): Promise<void> {
   if (id === "capcut" && localAppInstalled("capcut", { ...c, refresh: true })) { log("CapCut is already installed locally"); return; }
-  if (id === "models" && modelsReady(c)) { log("Analysis models are already available locally"); return; }
+  if (id === "models" && transcriptionReady(c)) { log("Analysis models are already available locally"); return; }
   if (id === "fonts") return installFonts(c, log);
   const steps = fixSteps(c, id);
   if (!steps.length) throw new Error(`no automatic install for ${id}`);

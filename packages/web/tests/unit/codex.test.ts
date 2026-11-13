@@ -22,7 +22,7 @@ describe("asking Codex", () => {
 
   it("puts the editing brief and the creator's request in the one prompt", () => {
     const c = codexAskCommand("ep 1", "hook", "A bold question");
-    const prompt = c.args.at(-1)!;
+    const prompt = c.input!;
     expect(prompt).toMatch(/Project: "ep 1"/);
     expect(prompt).toMatch(/id "ask\.hook\./);
     expect(prompt).toMatch(/Hook, rules/);
@@ -41,7 +41,7 @@ describe("asking Codex", () => {
     expect(arg(c.args, "mcp_servers.blender.command")).toBe('"uvx"');
     expect(arg(c.args, "mcp_servers.blender.args")).toBe('["blender-mcp"]');
     expect(arg(c.args, "mcp_servers.higgsfield.url")).toBe('"https://mcp.higgsfield.ai/mcp"');
-    expect(c.args.at(-1)).toMatch(/apply_patch/);
+    expect(c.input).toMatch(/apply_patch/);
     expect(c.label).toBe("Codex: visuals (do)");
   });
 

@@ -35,7 +35,7 @@ export const STEP_BRIEFS: Record<string, string> = {
  * `mode`: "propose" writes A/B/C variants for the creator to choose from; "do" applies an explicit request directly.
  * `context`: the step's context (stepContext), sent up front so Claude does not explore the project tool by tool.
  */
-export type AskExtras = { servers?: Record<string, unknown>; tools?: string[]; skills?: string[]; mode?: "do" | "propose"; context?: string; learned?: string; lang?: "en" | "fr" };
+export type AskExtras = { servers?: Record<string, unknown>; tools?: string[]; skills?: string[]; mode?: "do" | "propose"; context?: string; learned?: string; lang?: "en" | "fr"; projectsRoot?: string };
 
 // Turn caps: most of an ask's time and tokens went into exploring (26 to 80 turns, the context re-read each turn).
 const MAX_TURNS = { do: 10, propose: 22 };
@@ -102,19 +102,20 @@ export const adamServer = () => {
 };
 
 /** Adam's server for one request: the links and paths the creator wrote in it can be opened (library/src/access.ts). */
-export const adamServerFor = (prompt: string) => {
+export const adamServerFor = (prompt: string, projectsRoot?: string) => {
   const server = adamServer() as Record<string, any>;
-  return { ...server, env: { ...(server.env ?? {}), ADAM_CREATOR_WORDS: prompt.slice(0, 8000) } };
+  return { ...server, env: { ...(server.env ?? {}), ADAM_APP_ROOT: server.env?.ADAM_APP_ROOT ?? REPO, ...(projectsRoot ? { ADAM_PROJECTS: projectsRoot } : {}), ADAM_CREATOR_WORDS: prompt.slice(0, 8000) } };
 };
 
 export function askCommand(project: string, step: string, prompt: string, model: ClaudeModel = "default", look: string | null = null, extras: AskExtras = {}): Command {
   const { system, mode } = askBrief(project, step, prompt, look, extras);
-  const mcp = JSON.stringify({ mcpServers: { "adam-studio": adamServerFor(prompt), ...(extras.servers ?? {}) } });
+  const mcp = JSON.stringify({ mcpServers: { "adam-studio": adamServerFor(prompt, extras.projectsRoot), ...(extras.servers ?? {}) } });
   // A skill is read with Skill, then its files with Read, Glob and Grep: no shell, no writes outside the tools.
   const allowed = ["mcp__adam-studio", ...(extras.tools ?? []), ...(extras.skills?.length ? ["Skill", "Read", "Glob", "Grep"] : [])];
   return {
     cmd: claudeBin(),
-    args: ["-p", prompt, "--append-system-prompt", system, ...(model === "default" ? [] : ["--model", model]), "--output-format", "stream-json", "--verbose",
+    input: prompt,
+    args: ["-p", "--append-system-prompt", system, ...(model === "default" ? [] : ["--model", model]), "--output-format", "stream-json", "--verbose",
       "--max-turns", String(MAX_TURNS[mode]), "--strict-mcp-config", "--mcp-config", mcp, "--allowedTools", allowed.join(","),
       // Claude Code's own tools, skill list and the user's plugin hooks weigh tens of thousands of tokens re-read
       // every turn: an ask without skills goes without them (the adam-studio tools come from --mcp-config).
