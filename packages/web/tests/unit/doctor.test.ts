@@ -4,6 +4,17 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { diagnose, fixSteps, type Ctx, type Probe } from "../../server/doctor";
 
+
+it("does not request a transcription reinstall when only the visual models are missing", () => {
+  const c = machine("linux", {});
+  c.probe.list = path => path.endsWith("snapshots") ? ["cached"] : [];
+  c.probe.exists = path => /snapshots[/\\]cached[/\\](model.bin|config.json)$/.test(path);
+  const checks = diagnose(c);
+  expect(checks.find(item => item.id === "models")).toMatchObject({ok:true, need:"required", label:"Transcription model"});
+  expect(checks.find(item => item.id === "visual-models")).toMatchObject({ok:false, need:"optional"});
+  expect(fixSteps(c,"models")[0]!.args.join(" ")).not.toContain("ensure_rvm");
+});
+
 /** A computer where only the given commands answer and only the given paths exist. */
 function machine(platform: NodeJS.Platform, commands: Record<string, string>, paths: string[] = [], fonts: string[] = []): Ctx {
   const home = "/home/u", repo = "/repo";

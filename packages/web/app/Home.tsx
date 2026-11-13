@@ -8,47 +8,40 @@ import { IconEdit, IconTrash } from "./icons";
 import { GROUPS, openGroup } from "./steps";
 
 /** The library keys, then the AI apps the studio plugs into. */
-function Keys({ project }: { project?: string }) {
-  return <div className="keysbox"><DaLine project={project} /><Desktop /></div>;
+function Keys() {
+  return <div className="keysbox"><DaPicker /><Desktop /></div>;
 }
 
-/** The creator's art direction: how many of its six lines they set; the path opens on the picked video. */
-function DaLine({ project }: { project?: string }) {
-  const [set, setSet] = useState<[number, number] | null>(null);
-  useEffect(() => { api<{ status: { set: boolean }[] }>("/da").then((r) => setSet([r.status.filter((x) => x.set).length, r.status.length]), () => {}); }, []);
-  if (set === null) return null;
-  return (
-    <div className="kv sep"><span>ART DIRECTION</span>
-      {project ? <a className="link" href={`#/p/${enc(project)}/da`}>{set[0]} / {set[1]} · OPEN</a> : <b className="dim">{set[0]} / {set[1]}</b>}
-    </div>
-  );
-}
 
+/** The active art direction and its selector share one place on the home page. */
 type DaList = { active: string; names: string[] };
-/** Which art direction the videos use, when the creator has several: switch, or open the dedicated creation page. */
 function DaPicker() {
   const [list, setList] = useState<DaList | null>(null);
   const [err, setErr] = useState("");
-  useEffect(() => { api<{ list: DaList }>("/da").then((r) => setList(r.list), () => {}); }, []);
-  const call = async (path: string, body: Record<string, unknown>) => {
-    try { const r = await api<{ list: DaList }>(path, { method: "POST", body }); setList(r.list); setErr(""); }
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    const refresh = () => { void api<{ list: DaList }>("/da").then(r => { if (alive) setList(r.list); }, () => {}); };
+    refresh(); window.addEventListener("focus", refresh);
+    return () => { alive = false; window.removeEventListener("focus", refresh); };
+  }, []);
+  const select = async (name: string) => {
+    if (name === "+new") { go("#/da"); return; }
+    setBusy(true); setErr("");
+    try { setList((await api<{ list: DaList }>("/da/use", { method: "POST", body: { name } })).list); }
     catch (e) { setErr((e as Error).message); }
+    finally { setBusy(false); }
   };
-  if (!list) return null;
-  return (
-    <div className="da-pick">
-      <a className="mono link" href="#/da">{t("ART DIRECTION")} ↗</a>
-        <select aria-label="Art direction" value={list.active} onChange={(e) => {
-          const v = e.target.value;
-          if (v === "+new") go("#/da"); else void call("/da/use", { name: v });
-        }}>
-          {list.names.map((n) => <option key={n} value={n}>{n === "default" ? t("Default") : n}</option>)}
-          <option value="+new">{t("+ New")}</option>
-        </select>
-      {err && <span className="error">{err}</span>}
-    </div>
-  );
+  return <div className="da-pick">
+    <a className="mono link" href="#/da">{t("ART DIRECTION")} ↗</a>
+    {list && <select aria-label={t("Active art direction")} disabled={busy} value={list.active} onChange={e => void select(e.target.value)}>
+      {list.names.map(name => <option key={name} value={name}>{name === "default" ? t("Default") : name}</option>)}
+      <option value="+new">{t("+ New")}</option>
+    </select>}
+    {err && <span className="error">{err}</span>}
+  </div>;
 }
+
 
 /** Use the creator's Claude subscription the allowed way: Adam Studio as a connector of their own Claude Desktop. */
 function Desktop() {
@@ -155,9 +148,7 @@ export function Home() {
             </div>
           ))}
           </div>
-          <div className="project-controls">
-          <DaPicker />
-          </div>
+
         </section>
 
         <section aria-label="Recent videos" className="center">
@@ -196,7 +187,7 @@ export function Home() {
               </select>
             </label>
           )}
-          <Keys project={shown[0]?.name} />
+          <Keys />
           <div className="synced">● SYNCED</div>
         </aside>
       </div>

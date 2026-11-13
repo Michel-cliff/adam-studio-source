@@ -3,6 +3,10 @@
 export const FR: Record<string, string> = {
   "not downloaded (about 2 GB)": "non téléchargés (environ 2 Go)",
   "adam-studio skill": "Skill Adam Studio",
+  "Transcription model": "Modèle de transcription",
+  "Visual analysis models": "Modèles d’analyse visuelle",
+  "not available locally": "indisponible en local",
+  "downloaded when a visual needs them": "téléchargés lorsqu’un visuel en a besoin",
   "Analysis models": "Modèles d’analyse",
   "Checking locally…": "Vérification locale…",
   "Check locally": "Vérifier en local",

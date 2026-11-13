@@ -115,7 +115,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     const skills = wanted.filter((x) => known.has(x));
     let context: string | undefined;
     try { context = stepContext(dir, step); } catch { /* an unreadable project: the AI reads it with its tools */ }
-    const extras = { ...askServers(home, connectorsFile), skills, mode, context, learned: [learnedFor(dirname(settingsFile), step), (() => {
+    const extras = { ...askServers(home, connectorsFile), skills, mode, context, projectsRoot: dirname(dir), learned: [learnedFor(dirname(settingsFile), step), (() => {
       const da = readDA(dirname(settingsFile));
       return [da.reference ? `Active art direction, inferred from the creator's references (visual guidance, not audio):\n${da.reference.summary}\n${da.reference.guidance.join("\n")}\nUncertainties: ${da.reference.uncertainties.join("; ")}` : "", da.notes ? `Creator's style instructions: ${da.notes}` : ""].filter(Boolean).join("\n");
     })()].filter(Boolean).join("\n"), lang: uiLang(settingsFile) };
@@ -147,7 +147,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     render: async (name, dir) => (await ended((done) => jobs.start(name, buildCommand("render", dir, {}, capcutPython()), done))).state === "done",
     script: async (dir, signal) => { if (!readScript(dir).text.trim()) await draftScript(dir, ai, signal); },
     soundMixed: hasMixedSound,
-    stop: (name) => { const job = jobs.running(name); if (job) jobs.stop(job.id); },
+    stop: (name) => jobs.stopProject(name),
   });
 
   const projectKey = (dir: string) => process.platform === "win32" ? resolve(dir).toLowerCase() : resolve(dir);

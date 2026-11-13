@@ -54,13 +54,14 @@ function serverArgs(name: string, s: Record<string, any>): string[] {
  */
 export function codexAskCommand(project: string, step: string, prompt: string, model = "default", look: string | null = null, extras: AskExtras = {}): Command {
   const { system, mode } = askBrief(project, step, prompt, look, { ...extras, skills: [] });
-  const servers = { "adam-studio": adamServerFor(prompt), ...(extras.servers ?? {}) } as Record<string, Record<string, any>>;
+  const servers = { "adam-studio": adamServerFor(prompt, extras.projectsRoot), ...(extras.servers ?? {}) } as Record<string, Record<string, any>>;
   return {
     cmd: codexBin(),
     args: ["exec", "--json", "--skip-git-repo-check", "--ephemeral", "--sandbox", "read-only", "-c", 'approval_policy="never"',
       ...Object.entries(servers).flatMap(([n, s]) => serverArgs(n, s)),
       ...(model === "default" ? [] : ["-m", model]),
-      `${system}\n\n# The creator's request\n${prompt}`],
+      "-"],
+    input: `${system}\n\n# The creator's request\n${prompt}`,
     label: mode === "do" ? `Codex: ${step} (do)` : `Codex: ${step}`,
   };
 }

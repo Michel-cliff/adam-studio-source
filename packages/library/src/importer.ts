@@ -6,10 +6,11 @@ import { randomUUID } from "node:crypto";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
 import { kindOf, type LibraryKind } from "./local";
+import { isYoutube, youtubeVideo } from "./youtube";
 import { limitBytes, openPublicDownload } from "./public-network";
 
 // cutout: an image comes in as a paper cut-out (its background removed on this machine, py/cutout), a transparent PNG.
-export type ImportSource = { path?: string; url?: string; kind?: LibraryKind; title?: string; license?: string; creator?: string; page?: string; cutout?: boolean };
+export type ImportSource = { path?: string; url?: string; kind?: LibraryKind; title?: string; license?: string; creator?: string; page?: string; cutout?: boolean; startMs?: number; endMs?: number };
 export type Imported = { id: string; kind: LibraryKind; path: string; file: string };
 
 const slug = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 40) || "asset";
@@ -46,7 +47,10 @@ export async function importAsset(projectDir: string, src: ImportSource, id?: st
   if (!src.path && !src.url) throw new Error("give a path or a url");
   if (src.cutout && process.env.ADAM_PACKAGED) throw new Error("cut-outs are not available in the installed app yet: import the image as it is");
   const name = src.path ? basename(src.path) : basename(new URL(src.url!).pathname) || "download";
-  const kind = src.kind ?? kindOf(name);
+  const youtube = Boolean(src.url && isYoutube(src.url));
+  const kind = src.kind ?? (youtube ? "video" : kindOf(name));
+  if (youtube && kind !== "video") throw new Error("YouTube imports must be videos.");
+  if (!youtube && (src.startMs !== undefined || src.endMs !== undefined)) throw new Error("Clip ranges are supported for YouTube videos.");
   if (!kind) throw new Error(`cannot tell what ${name} is: give kind (video, image, audio, font, lottie)`);
   const assetId = id ?? slug(src.title ?? basename(name, extname(name)));
   if (!SAFE_ID.test(assetId)) throw new Error(`"${assetId}" cannot be an asset id: letters, digits, - and _ only, 64 at most`);
@@ -61,13 +65,16 @@ export async function importAsset(projectDir: string, src: ImportSource, id?: st
     if (!existsSync(src.path)) throw new Error(`not found: ${src.path}`);
     copyFileSync(src.path, file, constants.COPYFILE_EXCL);
   } else {
-    await download(src.url!, file, 120_000, hosts);
+    if (youtube) {
+      if (hosts && !hosts(src.url!)) throw new Error("This source is not allowed.");
+      await youtubeVideo(src.url!, async video => { copyFileSync(video, file, constants.COPYFILE_EXCL); }, src);
+    } else await download(src.url!, file, 120_000, hosts);
   }
   if (src.url || src.license) {
     const credits = join(folder, "CREDITS.md");
     if (!existsSync(credits)) writeFileSync(credits, "# Credits\n\n", { flag: "wx" });
     if (!lstatSync(credits).isFile()) throw new Error("Invalid credits file.");
-    appendFileSync(credits, `- ${basename(file)}: "${src.title ?? name}" by ${src.creator || "unknown"}, ${src.license ?? "license unknown"}${src.page ? `, ${src.page}` : ""}\n`);
+    appendFileSync(credits, `- ${basename(file)}: "${src.title ?? name}" by ${src.creator || "unknown"}, ${src.license ?? "license unknown"}${src.page || src.url ? `, ${src.page || src.url}` : ""}\n`);
   }
   if (src.cutout && kind === "image") {
     const png = join(folder, `${assetId}.png`);
@@ -92,6 +99,10 @@ function cutoutPython(): string {
  * of a sound, or a sample line of a font. Local paths and URLs both work.
  */
 export async function lookAt(pathOrUrl: string, hosts?: (url: string) => boolean): Promise<{ kind: LibraryKind; jpeg: string; note: string }> {
+  if (isYoutube(pathOrUrl)) {
+    if (hosts && !hosts(pathOrUrl)) throw new Error("This source is not allowed.");
+    return youtubeVideo(pathOrUrl, file => lookAt(file));
+  }
   let file = pathOrUrl;
   let temp: string | null = null;
   if (/^https?:\/\//.test(pathOrUrl)) {

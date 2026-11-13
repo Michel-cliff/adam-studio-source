@@ -151,11 +151,11 @@ describe("the AI for questions outside the edit", () => {
   it("asks Claude without tools, or with Read for pictures and PDFs; Codex with -i", () => {
     expect(aiCommand("claude", "default", "hi").args).toEqual(expect.arrayContaining(["--tools", ""]));
     const pic = aiCommand("claude", "sonnet", "read it", ["C:/s.png"]);
-    expect(pic.args[1]).toMatch(/Read these files[\s\S]*C:\/s\.png/);
+    expect(pic.input).toMatch(/Read these files[\s\S]*C:\/s\.png/);
     expect(pic.args).toEqual(expect.arrayContaining(["--tools", "Read", "--allowedTools", "Read", "--model", "sonnet"]));
     const codex = aiCommand("codex", "default", "read it", ["C:/s.png"]);
     // -i takes several files: without the separator Codex swallows the prompt as one more image.
-    expect(codex.args.slice(-4)).toEqual(["-i", "C:/s.png", "--", "read it"]);
+    expect(codex.args.slice(-4)).toEqual(["-i", "C:/s.png", "--", "-"]);
   });
   it("takes the whole final answer, and the JSON in it", () => {
     expect(fullAnswer('{"type":"result","result":"Long answer\\n\\nwith two paragraphs."}')).toBe("Long answer\n\nwith two paragraphs.");

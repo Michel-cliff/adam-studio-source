@@ -1,4 +1,5 @@
-import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { spawnSync, type ChildProcess } from "node:child_process";
+import { spawnCommand } from "./process-input";
 import type { Command } from "./actions";
 import { aiOf } from "../app/feed";
 import { aiFailureOf } from "./ai-errors";
@@ -44,6 +45,8 @@ export class JobManager {
   private stopping = new Set<string>();
   private queue: Pending[] = [];
   private seq = 0;
+  private pumping = false;
+  private pumpAgain = false;
   private changed: (job: JobView) => void = () => {};
 
   constructor(private keep = 20) {}
@@ -78,7 +81,9 @@ export class JobManager {
     const controller = new AbortController();
     this.aborts.set(job.id, controller);
     this.enqueue(job, () => {
-      work(controller.signal).then(() => this.finish(job, 0), (e) => { job.output += `${(e as Error).message}\n`; this.finish(job, 1); });
+      try {
+        work(controller.signal).then(() => this.finish(job, 0), (e) => { job.output += `${(e as Error).message}\n`; this.finish(job, 1); });
+      } catch (error) { job.output += `${(error as Error).message}\n`; this.finish(job, 1); }
     });
     return job;
   }
@@ -98,26 +103,35 @@ export class JobManager {
 
   /** Starts what can start, in order: nothing overtakes an earlier job it would compete with. */
   private pump(): void {
-    const runningNow = [...this.jobs.values()].filter((j) => j.state === "running");
-    let heavyBusy = runningNow.some((j) => laneOf(j.label) === "heavy");
-    const writing = new Set(runningNow.filter((j) => writes(j.label)).map((j) => j.project));
-    const waiting: Pending[] = [];
-    for (const p of this.queue) {
-      const { job } = p, heavy = laneOf(job.label) === "heavy", writer = writes(job.label);
-      const blocked = (heavy && heavyBusy) || (writer && job.project !== "" && writing.has(job.project));
-      if (blocked) {
-        waiting.push(p);
-        if (heavy) heavyBusy = true;
-        if (writer) writing.add(job.project);
-        continue;
-      }
-      if (heavy) heavyBusy = true;
-      if (writer) writing.add(job.project);
-      job.state = "running"; job.startedAt = Date.now();
-      p.begin();
-      this.changed(job);
-    }
-    this.queue = waiting;
+    if (this.pumping) { this.pumpAgain = true; return; }
+    this.pumping = true;
+    try {
+      do {
+        this.pumpAgain = false;
+        const pending = this.queue;
+        this.queue = [];
+        const runningNow = [...this.jobs.values()].filter((j) => j.state === "running");
+        let heavyBusy = runningNow.some((j) => laneOf(j.label) === "heavy");
+        const writing = new Set(runningNow.filter((j) => writes(j.label)).map((j) => j.project));
+        const waiting: Pending[] = [];
+        for (const p of pending) {
+          const { job } = p, heavy = laneOf(job.label) === "heavy", writer = writes(job.label);
+          const blocked = (heavy && heavyBusy) || (writer && job.project !== "" && writing.has(job.project));
+          if (blocked) {
+            waiting.push(p);
+            if (heavy) heavyBusy = true;
+            if (writer) writing.add(job.project);
+            continue;
+          }
+          if (heavy) heavyBusy = true;
+          if (writer) writing.add(job.project);
+          job.state = "running"; job.startedAt = Date.now();
+          p.begin();
+          this.changed(job);
+        }
+        this.queue = [...waiting, ...this.queue];
+      } while (this.pumpAgain);
+    } finally { this.pumping = false; }
   }
 
   private emit(job: JobView, e: JobEvent): void { for (const fn of this.listeners.get(job.id) ?? []) fn(e); }
@@ -152,8 +166,9 @@ export class JobManager {
       if (progress) { job.progress = progress.percent; job.minutesLeft = progress.minutesLeft; }
       this.emit(job, { type: "output", text });
     };
-    // Every job gets its request through arguments. An open pipe makes Codex wait for extra input forever.
-    const child = spawn(c.cmd, c.args, { stdio: ["ignore", "pipe", "pipe"], windowsHide: true, detached: process.platform !== "win32", env: { ...process.env, ...c.env, FORCE_COLOR: "0" } });
+    let child: ChildProcess;
+    try { child = spawnCommand({ ...c, env: { ...c.env, FORCE_COLOR: "0" } }); }
+    catch (error) { add(`${(error as Error).message}\n`); this.finish(job, 1); return; }
     this.procs.set(job.id, child);
     child.stdout?.on("data", add);
     child.stderr?.on("data", add);
@@ -198,7 +213,12 @@ export class JobManager {
     const abort = this.aborts.get(id);
     if (abort && job?.state === "running") { this.stopping.add(id); abort.abort(); return true; }
     const child = this.procs.get(id);
-    if (!child || child.pid === undefined) return false;
+    if (!child || child.pid === undefined) {
+      if (job?.state !== "running") return false;
+      this.stopping.add(id);
+      this.finish(job, null);
+      return true;
+    }
     this.stopping.add(id);
     if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { windowsHide: true });
     else { try { process.kill(-child.pid, "SIGTERM"); } catch { child.kill("SIGTERM"); } }
@@ -206,6 +226,15 @@ export class JobManager {
   }
 
   hasRunning(): boolean { return [...this.jobs.values()].some(active); }
+
+  stopProject(project: string): void {
+    const jobs = this.list(project).filter(active);
+    const ids = new Set(jobs.map(job => job.id));
+    this.queue = this.queue.filter(p => !ids.has(p.job.id));
+    // Cancel queued work before stopping a writer can release it.
+    for (const job of jobs.filter(j => j.state === "queued")) this.stop(job.id);
+    for (const job of jobs.filter(j => j.state === "running")) this.stop(job.id);
+  }
 
   stopAll(): void {
     for (const p of [...this.queue]) this.stop(p.job.id);

@@ -39,6 +39,28 @@ function fake(opts: { askFails?: string; soundMixed?: boolean; pendingSound?: bo
 }
 
 describe("auto mode", () => {
+  it("waits for the stopped generation before allowing a new run", async () => {
+    const { pilot } = fake();
+    const originalAsk = pilot.ask;
+    let release!: () => void;
+    let started!: () => void;
+    const ready = new Promise<void>(resolve => { started = resolve; });
+    pilot.ask = async () => {
+      started();
+      await new Promise<void>(resolve => { release = resolve; });
+      throw new Error("generation stopped");
+    };
+    pilot.stop = () => release();
+    const auto = new Autopilot(pilot);
+    const first = auto.start("v", "/v");
+    await ready;
+    auto.stop("v");
+    expect(() => auto.start("v", "/v")).toThrow(/already running/);
+    expect((await first).state).toBe("stopped");
+    pilot.ask = originalAsk;
+    expect((await auto.start("v", "/v")).state).toBe("done");
+  });
+
   it("runs every step, takes the first variant, writes the script instead of story shapes, then renders", async () => {
     const { pilot, log } = fake();
     const s = await new Autopilot(pilot).start("v", "/v");
