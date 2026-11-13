@@ -116,6 +116,11 @@ export const FR: Record<string, string> = {
   "LET ADAM FINISH": "LAISSER ADAM FINIR",
   "Adam": "Adam",
   "WAITING": "EN ATTENTE",
+  "Preparing CapCut export": "Préparation de l’export CapCut",
+  "Building CapCut project": "Création du projet CapCut",
+  "Copying CapCut media": "Copie des médias CapCut",
+  "Writing CapCut project": "Écriture du projet CapCut",
+  "CapCut project ready": "Projet CapCut prêt",
   "IN PROGRESS": "EN COURS",
   "about": "environ",
   "TASKS": "TÂCHES",
@@ -711,6 +716,7 @@ export const FR: Record<string, string> = {
 };
 
 export const PATTERNS: [RegExp, string][] = [
+  [/^Effect (\d+)\/(\d+)$/, "Effet $1/$2"],
   [/^(\d+) NEW$/, "$1 NOUV."],
   [/^This project is being moved to the trash\.$/, "Ce projet est en cours de déplacement vers la corbeille."],
   [/^The project and its trash must be regular folders\.$/, "Le projet et sa corbeille doivent être des dossiers ordinaires."],

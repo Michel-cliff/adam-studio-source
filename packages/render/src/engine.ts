@@ -71,7 +71,7 @@ export async function renderVideo(
   props: RenderProps,
   outFile: string,
   frameRange: number | [number, number] | [number, number][] | null = null,
-  opts: { transparent?: boolean; scale?: number } = {},
+  opts: { transparent?: boolean; scale?: number; onProgress?: (progress: number) => void } = {},
 ): Promise<void> {
   const composition = await selectComposition({ browserExecutable: process.env.ADAM_BROWSER_EXECUTABLE, serveUrl, id: COMPOSITION_ID, inputProps: props });
   const size = { fps: composition.fps, width: composition.width * (opts.scale ?? 1), height: composition.height * (opts.scale ?? 1), videoSources: activeVideoSources(props.timeline) };
@@ -95,8 +95,9 @@ export async function renderVideo(
       await renderMedia({
         browserExecutable: process.env.ADAM_BROWSER_EXECUTABLE, composition, serveUrl, outputLocation: outFile, inputProps: props, frameRange, concurrency, offthreadVideoCacheSizeInBytes, scale: opts.scale ?? 1, cancelSignal, ...output,
         ...(attempt.gl ? { chromiumOptions: { gl: attempt.gl } } : {}), ...(opts.transparent ? {} : { x264Preset: "veryfast" as const }),
-        onProgress: ({ progress }) => { guard.ping(progress); const line = report(progress); if (line) console.log(line); },
+        onProgress: ({ progress }) => { guard.ping(progress); const line = report(progress); if (opts.onProgress) opts.onProgress(progress); else if (line) console.log(line); },
       });
+      opts.onProgress?.(1);
       return;
     } catch (error) {
       if (last) {

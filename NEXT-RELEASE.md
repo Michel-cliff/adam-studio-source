@@ -1,4 +1,18 @@
-# Correctifs intégrés à la préparation de la 0.1.8
+# QA et prochaine release
+
+Consigne de Michel du 13 novembre 2026 : corriger et tester sans lancer de build applicatif ni publier de release. Une série de QA est prévue le 14 novembre pour regrouper les bugs. Attendre une nouvelle demande avant de construire ou publier.
+
+## Correctif local en attente : progression de l’export CapCut
+
+La barre affichait 0 à 100 % pour chaque rendu intermédiaire, donnant l’impression que l’export recommençait. La progression est désormais globale, pondérée par les frames : les rendus occupent 0 à 90 %, puis viennent la création du projet, la copie des médias et son écriture. Le statut 100 % est réservé à la création réussie du projet et de son rapport.
+
+Les tâches et la page Livraison affichent la phase en cours, avec traduction française. Les événements découpés en plusieurs morceaux sont reconstitués ; un événement tardif ne fait pas reculer la barre. Le chemin final reste seul sur stdout pour la CLI Python sans préparation.
+
+Validations locales déjà réussies : TypeScript sur tous les packages ; 257 tests du studio ; 10 tests ciblés du rendu ; 58 tests Python CapCut. Les trois tests d’intégration de préparation et le test d’export CapCut complet sur projets factices ont également réussi. La progression reste croissante et atteint 100 % seulement à la fin.
+
+Le correctif est sur la branche `fix/capcut-export-progress`. La version Windows publiée 0.1.8 ne le contient pas.
+
+## Historique : préparation de la 0.1.8
 
 Note du 13 novembre 2026. Michel a autorisé le build et la publication de la 0.1.8.
 

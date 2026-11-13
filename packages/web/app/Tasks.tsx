@@ -82,6 +82,7 @@ export function Tasks() {
                 <span className="mono">{taskState(x)}</span>
                 {isActive(x) && <button type="button" className="x" aria-label={t("Stop")} title={t("Stop")} onClick={() => void stop(x.id)}>×</button>}
               </div>
+              {x.state === "running" && x.progressPhase && <p className="mono note">{t(x.progressPhase)}</p>}
               {x.state === "running" && <TaskBar percent={x.progress} />}
             </div>
           ))}
