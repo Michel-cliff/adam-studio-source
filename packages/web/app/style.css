@@ -1076,3 +1076,16 @@ a.rcard { color: var(--cream); }
 
 /* A connector turned on that does not work is not "on". */
 .tile small.warn { color: #FF8A80; }
+
+.bug-dialog { margin:auto; width:min(620px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); overflow:auto; padding:24px; border:1px solid var(--glow); background:var(--field); color:var(--cream); }
+.bug-dialog::backdrop { background:#0c0c0bc9; }
+.bug-dialog h2 { margin:0 0 14px; }
+.bug-dialog p { line-height:1.5; overflow-wrap:anywhere; }
+.bug-log { max-height:35dvh; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px; }
+.bug-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; align-items:center; }
+.bug-actions .act { min-height:42px; font-size:13px; }
+.bug-fallback { padding:24px; max-width:760px; margin:auto; }
+.bug-fallback .act { margin:8px; }
+.task-report { align-self:flex-start; font-size:12px; }
+.bug-dialog, .bug-dialog * { cursor:auto!important; }
+.bug-dialog button, .bug-dialog a { cursor:pointer!important; }

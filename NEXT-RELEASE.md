@@ -1,6 +1,8 @@
 # QA et prochaine release
 
-Consigne de Michel du 13 novembre 2026 : corriger et tester sans lancer de build applicatif ni publier de release. Une série de QA est prévue le 14 novembre pour regrouper les bugs. Attendre une nouvelle demande avant de construire ou publier.
+Nouvelle consigne de Michel du 15 novembre 2026 : terminer les corrections, tester E2E, construire et publier la 0.1.9, mettre à jour le texte de la carte sur cliffiscurious.com et fournir le ZIP local. Elle remplace la suspension du build du 13 novembre.
+
+La 0.1.9 regroupe le correctif CapCut ci-dessous et le signalement volontaire de blocages avec logs nettoyés. Aucune donnée ni aucun e-mail ne sont envoyés automatiquement. Voir QA-AUDIT-2026-11-15.md pour la portée et les limites de la passe.
 
 ## Correctif local en attente : progression de l’export CapCut
 

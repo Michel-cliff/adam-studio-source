@@ -31,7 +31,7 @@ describe("adam capcut-prep", () => {
     expect(progress.at(-1)).toBe(90);
     expect(progress).toEqual([...progress].sort((a, b) => a - b));
     expect(messages.some(line => line.startsWith("rendering:"))).toBe(false);
-    expect(new Set(messages.flatMap(line => line.match(/Effect (\d+)\/3/)?.[1] ?? []))).toEqual(new Set(["1", "2", "3"]));
+    expect(new Set(messages.flatMap(line => line.match(/Effect (\d+)\/3/)?.[1] ?? [])), messages.join("\n")).toEqual(new Set(["1", "2", "3"]));
     expect(out).toBe(join(dir, "renders", "capcut"));
     const plan = JSON.parse(readFileSync(join(out, "capcut-plan.json"), "utf8"));
     expect(plan.bakes.map((b: { id: string; fromFrame: number; toFrame: number; file: string }) => [b.id, b.fromFrame, b.toFrame, b.file])).toEqual([

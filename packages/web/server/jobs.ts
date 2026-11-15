@@ -47,12 +47,19 @@ export class JobManager {
   private seq = 0;
   private pumping = false;
   private pumpAgain = false;
-  private changed: (job: JobView) => void = () => {};
+  private changeListener: (job: JobView) => void = () => {};
+
+  private invoke(fn: () => unknown): void {
+    const failed = (error: unknown) => console.error("Task listener failed:", error instanceof Error ? error.message : String(error));
+    try { const result = fn(); if (result && typeof (result as PromiseLike<unknown>).then === "function") void Promise.resolve(result).catch(failed); }
+    catch (error) { failed(error); }
+  }
+  private changed(job: JobView): void { this.invoke(() => this.changeListener(job)); }
 
   constructor(private keep = 20) {}
 
   /** Told each time a job waits, starts or ends (not at each line of output). */
-  onChange(fn: (job: JobView) => void): void { this.changed = fn; }
+  onChange(fn: (job: JobView) => void): void { this.changeListener = fn; }
 
   /** What runs or waits on this project; when several, the running one first. */
   running(project: string): JobView | undefined {
@@ -136,7 +143,7 @@ export class JobManager {
     } finally { this.pumping = false; }
   }
 
-  private emit(job: JobView, e: JobEvent): void { for (const fn of this.listeners.get(job.id) ?? []) fn(e); }
+  private emit(job: JobView, e: JobEvent): void { for (const fn of this.listeners.get(job.id) ?? []) this.invoke(() => fn(e)); }
 
   private finish(job: JobView, code: number | null): void {
     if (job.state !== "running" && job.state !== "queued") return;
@@ -153,7 +160,7 @@ export class JobManager {
     this.prune(job.project);
     const ends = this.ends.get(job.id) ?? [];
     this.ends.delete(job.id);
-    for (const fn of ends) fn(job);
+    for (const fn of ends) this.invoke(() => fn(job));
     this.changed(job);
     this.pump();
   }

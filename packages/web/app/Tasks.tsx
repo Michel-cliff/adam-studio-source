@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { JobView } from "../server/types";
 import { api, enc } from "./api";
 import { aiOf } from "./feed";
+import { reportFailedJob, requestProblem } from "./problem-events";
 import { t, useLang } from "./i18n";
 import { groupOf } from "./steps";
 
@@ -44,7 +45,7 @@ export function Tasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
-  const load = () => api<Task[]>("/tasks").then(setTasks, () => {});
+  const load = () => api<Task[]>("/tasks").then(result => { setTasks(result); result.forEach(reportFailedJob); }, () => {});
   const active = tasks.filter(isActive);
   const busy = active.length > 0;
   useEffect(() => {
@@ -82,6 +83,7 @@ export function Tasks() {
                 <span className="mono">{taskState(x)}</span>
                 {isActive(x) && <button type="button" className="x" aria-label={t("Stop")} title={t("Stop")} onClick={() => void stop(x.id)}>×</button>}
               </div>
+              {(isActive(x) || x.state === "failed") && <button type="button" className="link task-report" onClick={() => requestProblem({ kind: "manual", jobId: x.id })}>{t("Report a blockage")}</button>}
               {x.state === "running" && x.progressPhase && <p className="mono note">{t(x.progressPhase)}</p>}
               {x.state === "running" && <TaskBar percent={x.progress} />}
             </div>

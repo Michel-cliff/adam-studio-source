@@ -5,7 +5,7 @@ const {existsSync,readFileSync,writeFileSync,mkdirSync,createWriteStream}=requir
 const {randomBytes}=require('node:crypto');
 const {fitWindow,isLocal,isExternal}=require('./policy.cjs');
 const {canCheck,startUpdates}=require('./updates.cjs');
-const {buildReport,keepTail,offerReport}=require('./crash.cjs');
+const {buildReport,keepTail,offerReport,singleFlightReport}=require('./crash.cjs');
 const {whatsNew}=require('./whats-new.cjs');
 const os=require('node:os');
 // Squirrel invokes these hooks during per-user install/update/uninstall. Never open the Studio for them.
@@ -45,7 +45,7 @@ const pending=new Map();let seq=0;const root=runtime?runtime.root:join(__dirname
 const token=randomBytes(32).toString('hex');
 let logTail='';
 // Shown only to the person in front of the app, and sent only by them. See crash.cjs.
-function report({message,kind,error,type='error'}){
+const report=singleFlightReport(({message,kind,error,type='error'})=>{
  const version=app.getVersion();
  const text=buildReport({kind,error,log:logTail,version,system:`${process.platform} ${os.release()} ${process.arch}`,context:{home:os.homedir(),user:os.userInfo().username,secrets:[token]}});
  const parent=win&&!win.isDestroyed()?win:null;
@@ -53,7 +53,11 @@ function report({message,kind,error,type='error'}){
   ask:async options=>{const box={type,title:'Adam Studio',noLink:true,...options};return (await(parent?dialog.showMessageBox(parent,box):dialog.showMessageBox(box))).response;},
   openMail:url=>shell.openExternal(url),copy:value=>clipboard.writeText(value),
   save:value=>{const dir=join(app.getPath('userData'),'crash-reports');mkdirSync(dir,{recursive:true});writeFileSync(join(dir,`${new Date().toISOString().replace(/[:.]/g,'-')}.txt`),value);}});
-}
+},error=>console.error('Crash report:',error?.message||error));
+process.on('unhandledRejection',error=>{
+ console.error(error);
+ if(!smoke&&app.isReady()&&!quitting)void report({kind:'Rejected operation',error:error instanceof Error?error:Error(String(error))});
+});
 process.on('uncaughtException',async error=>{
  console.error(error);
  if(!smoke&&app.isReady()&&!quitting)await report({message:lang==='fr'?'Adam Studio a rencontré une erreur et doit se fermer.':'Adam Studio hit an error and has to close.',kind:'Erreur interne',error});
@@ -127,6 +131,9 @@ app.whenReady().then(async()=>{
   const headers={...details.requestHeaders};for(const key of Object.keys(headers))if(key.toLowerCase()==='x-adam-desktop-token')delete headers[key];
   if(isLocal(details.url,origin))headers['X-Adam-Desktop-Token']=token;callback({requestHeaders:headers});
  });
+ let reportedHang=false;
+ win.on('unresponsive',()=>{if(reportedHang||smoke||quitting)return;reportedHang=true;void report({message:lang==='fr'?'La fenêtre ne répond plus. Tu peux préparer un rapport sans arrêter tes tâches.':'The window is not responding. You can prepare a report without stopping your tasks.',kind:'Unresponsive window'});});
+ win.on('responsive',()=>{reportedHang=false;});
  win.webContents.on('render-process-gone',async(_e,details)=>{
   if(quitting||smoke||details.reason==='clean-exit')return;
   await report({message:lang==='fr'?'La fenêtre d’Adam Studio s’est arrêtée. Elle va se recharger, tes projets sont enregistrés.':'The Adam Studio window stopped. It will reload, your projects are saved.',kind:`Fenêtre arrêtée (${details.reason}, code ${details.exitCode})`});

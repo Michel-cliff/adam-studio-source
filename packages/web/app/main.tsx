@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { BugBoundary, BugReport } from "./BugReport";
+import { requestProblem } from "./problem-events";
 import { AiFailureBar } from "./AiFailureBar";
 import { SupportPrompt } from "./SupportPrompt";
 import { Onboarding } from "./Onboarding";
@@ -62,6 +64,7 @@ function App() {
           } else setStudioNotice(false);
         }}>{t(label)}</a>)}
         <Tasks />
+        <button type="button" className="tour-trigger" onClick={() => requestProblem()}>{t("Report a problem")}</button>
         <button className="tour-trigger" onClick={() => dispatchEvent(new Event("adam:tour"))}>{t("Guide")}</button>
         <div role="group" aria-label="Language" className="lang">
           {(["fr", "en"] as const).map((l) => <button key={l} type="button" aria-pressed={lang === l} onClick={() => setLang(l)}>{l.toUpperCase()}</button>)}
@@ -81,5 +84,5 @@ function App() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(<><BugBoundary><App /></BugBoundary><BugReport /></>);
 startLang();

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { BusyError, hintOf, JobManager, laneOf, progressOf } from "../../server/jobs";
 import type { JobEvent, JobView } from "../../server/types";
 
@@ -10,6 +10,26 @@ const ended = (m: JobManager, id: string) => new Promise<JobView>((res) => {
 });
 
 describe("JobManager", () => {
+  it("continues queued work when notification and completion callbacks throw or reject", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const m = new JobManager();
+    let release!: () => void;
+    try {
+      m.onChange(() => { throw Error("UI listener failed"); });
+      const first = m.task("p", "Analyze", "", () => new Promise<void>(resolve => { release = resolve; }), () => { throw Error("completion failed"); });
+      m.subscribe(first.id, () => { throw Error("disconnected client"); });
+      m.subscribe(first.id, async () => { throw Error("async subscriber failed"); });
+      const next = m.task("q", "Analyze", "", async () => {});
+      release();
+      expect((await ended(m, next.id)).state).toBe("done");
+      expect(first.state).toBe("done");
+      expect(m.hasRunning()).toBe(false);
+      await Promise.resolve();
+      expect(log).toHaveBeenCalled();
+    } finally { log.mockRestore(); }
+  });
+
+
   it("ignores a late lower CapCut progress from the other output stream", async () => {
     const m = new JobManager();
     const code = "console.log('capcut: 90 % | Building CapCut project'); setTimeout(() => process.stderr.write('capcut: 96 % | Writing CapCut project\\n'), 50); setTimeout(() => console.log('capcut: 80 % | Effect 7/7'), 100); setTimeout(() => process.stderr.write('capcut: 100 % | CapCut project ready'), 150)";

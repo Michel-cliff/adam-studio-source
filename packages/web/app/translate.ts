@@ -17,6 +17,8 @@ export function toFrench(text: string): string | null {
 }
 
 function translateNode(n: Node, fr: boolean): void {
+  // MutationObserver can hand us a text node directly, bypassing its protected parent.
+  if (n.parentElement?.closest("[data-no-tr]")) return;
   if (n.nodeType === Node.TEXT_NODE) {
     const was = original.get(n);
     if (!fr) { if (was !== undefined && n.nodeValue !== was) n.nodeValue = was; return; }

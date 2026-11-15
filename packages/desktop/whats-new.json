@@ -1,4 +1,16 @@
 {
+  "0.1.9": {
+    "fr": [
+      "L’export CapCut affiche une progression globale et ses phases de préparation, sans retour à zéro entre les rendus.",
+      "En cas de blocage, prépare un signalement avec un aperçu des logs nettoyés. Tu choisis de les copier, de les télécharger et de préparer un e-mail au support.",
+      "Les erreurs de notification ne bloquent plus la file de tâches. Les erreurs de connexion et d’interface sont signalées plus clairement."
+    ],
+    "en": [
+      "CapCut export shows overall progress and preparation phases, without resetting between intermediate renders.",
+      "If the application gets stuck, prepare a report with a preview of sanitised logs. Choose whether to copy, download and prepare an email to support.",
+      "Notification errors no longer stall the task queue. Connection and interface errors are reported more clearly."
+    ]
+  },
   "0.1.8": {
     "fr": [
       "Les ouvertures CRT de ta direction artistique ne bloquent plus leur propre export. Les vrais trous noirs restent contrôlés, même sans piste audio.",

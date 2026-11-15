@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
 import { cpus, freemem, homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,6 +9,7 @@ import { activeVideoSources, safeConcurrency } from "./lib/concurrency";
 import { frameCacheBytes, MAX_TABS, progressReporter, renderAttempts, STALL_MS, stallGuard } from "./lib/render-watch";
 import { prepareMedia, type MediaPlan } from "./media";
 import { COMPOSITION_ID, type RenderProps } from "./props";
+import { copyBundle } from "./lib/copy-bundle";
 
 export const ENTRY = join(dirname(fileURLToPath(import.meta.url)), "index.ts");
 
@@ -61,7 +62,7 @@ export async function bundleWithMedia(plan: MediaPlan, outDir: string): Promise<
   const shared = await sharedBundle();
   const runDir = join(outDir, `${process.pid}-${Date.now()}`);
   process.once("exit", () => { try { rmSync(runDir, { recursive: true, force: true }); } catch { /* removed at a later run */ } });
-  cpSync(shared, runDir, { recursive: true });
+  copyBundle(shared, runDir);
   prepareMedia(plan, join(runDir, "public"));
   return runDir;
 }
