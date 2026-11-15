@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
+import { Diagnostics, validReportInput } from "./diagnostics";
 import { limitBytes } from "@adam-studio/library/src/public-network";
 import { execFileSync } from "node:child_process";
-import { closeSync, createWriteStream, existsSync, lstatSync, mkdirSync, openSync, readSync, readdirSync, renameSync, rmSync, statSync, type ReadStream } from "node:fs";
+import { createWriteStream, existsSync, lstatSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, type ReadStream } from "node:fs";
 import { rename } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import { pipeline } from "node:stream/promises";
@@ -50,19 +51,7 @@ import { thumbnail } from "./thumb";
 import type { BrowserSession } from "./browser-session";
 import { watchProjects } from "./watch";
 
-/** Two files with the same size and bytes (videos are big: compared in chunks, stopping at the first difference). */
-function sameBytes(a: string, b: string): boolean {
-  if (statSync(a).size !== statSync(b).size) return false;
-    const fa = openSync(a, "r"), fb = openSync(b, "r");
-  try {
-    const ba = Buffer.alloc(1 << 20), bb = Buffer.alloc(1 << 20);
-    for (;;) {
-      const na = readSync(fa, ba, 0, ba.length, null), nb = readSync(fb, bb, 0, bb.length, null);
-      if (na !== nb || !ba.subarray(0, na).equals(bb.subarray(0, nb))) return false;
-      if (na === 0) return true;
-    }
-  } finally { closeSync(fa); closeSync(fb); }
-}
+import { sameBytes } from "./file-compare";
 
 class HttpError extends Error { constructor(public status: number, message: string) { super(message); } }
 
@@ -88,6 +77,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
   const settingsFile = opts.settingsFile ?? SETTINGS_FILE;
   const doctor = new Doctor(dirname(settingsFile));
   const jobs = opts.jobs ?? new JobManager();
+  const diagnostics = new Diagnostics(home, opts.sessionToken);
   const capcutPython = opts.capcutPython ?? (() => venvPython("capcut", "ADAM_CAPCUT_PYTHON"));
   const dist = opts.dist ?? join(WEB, "dist");
   // The AI for questions outside the edit (statistics): the one the creator picked, with its model.
@@ -191,6 +181,15 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     let m: RegExpMatchArray | null;
 
     if (path === "/api/ping") return send(res, 200, { app: "adam-studio" });
+    if (path === "/api/diagnostics/report" && method === "POST") {
+      if (req.headers["x-adam-mcp"]) throw new HttpError(403, "Reports are prepared from the application.");
+      const input = await body(req);
+      if (!validReportInput(input)) throw new HttpError(400, "Invalid report request.");
+      const selected = input.jobId ? jobs.get(input.jobId) : undefined;
+      if (input.jobId && !selected) throw new HttpError(404, "no such job");
+      const recent = selected ? [selected] : jobs.tasks().filter(j => j.state !== "queued").slice(0, 3).map(j => jobs.get(j.id)!);
+      return send(res, 200, diagnostics.create(input, recent, uiLang(settingsFile)));
+    }
     if (path.startsWith("/api/stats")) {
       const handled = await statsRoute({ req, res, url, method, dir: dirname(settingsFile), root: projectsRoot(settingsFile), ai, watch: (ref, work) => { jobs.task("", "Reference", ref.name ?? ref.url ?? "", work); }, send: (s, b) => send(res, s, b), body: () => body(req) });
       if (handled) return;
@@ -529,11 +528,13 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       // A ceiling against a runaway upload, not a rush size: ten minutes of 4K from a phone pass 3 GB.
       try { await pipeline(req, limitBytes(32 * 1024 ** 3), createWriteStream(tmp, { flags: "wx" })); } catch (e) { rmSync(tmp, { force: true }); throw new HttpError(400, `upload failed: ${(e as Error).message}`); }
       const ext = extname(name), stem = basename(name, ext);
-      for (let i = 1; ; i++) {
-        const target = join(folder, i === 1 ? name : `${stem} (${i})${ext}`);
-        if (!existsSync(target)) { renameSync(tmp, target); return send(res, 200, { path: target }); }
-        if (realInside(folder, target) && sameBytes(tmp, target)) { rmSync(tmp, { force: true }); return send(res, 200, { path: target }); }
-      }
+      try {
+        for (let i = 1; ; i++) {
+          const target = join(folder, i === 1 ? name : `${stem} (${i})${ext}`);
+          if (!existsSync(target)) { renameSync(tmp, target); return send(res, 200, { path: target }); }
+          if (realInside(folder, target) && sameBytes(tmp, target)) return send(res, 200, { path: target });
+        }
+      } finally { rmSync(tmp, { force: true }); }
     }
     if (path === "/api/series" && method === "GET") return send(res, 200, listSeries());
     if (path === "/api/fs" && method === "GET") {
@@ -572,6 +573,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       if (e instanceof ActionError || e instanceof ToolError) return send(res, 400, { error: e.message });
       if (e instanceof BusyError) return send(res, 409, { error: e.message });
       if (e instanceof URIError) return send(res, 404, { error: "bad path" });
+      diagnostics.record(e);
       send(res, 500, { error: (e as Error).message });
     });
   });

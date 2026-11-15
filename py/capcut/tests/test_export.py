@@ -5,7 +5,29 @@ import pytest
 
 from adam_capcut.errors import ExportError
 from adam_capcut.export import export
+from adam_capcut.folder import MARKER
 from helpers import content_of, report_of
+
+
+def test_progress_reaches_100_only_after_the_project_and_report_exist(lab, project, tmp_path, capsys):
+    dest = export(project, name="progress", projects_root=tmp_path, prepare=False)
+    lines = [line for line in capsys.readouterr().err.splitlines() if line.startswith("capcut:")]
+    assert [int(line.split()[1]) for line in lines] == [90, 92, 96, 100]
+    assert (dest / MARKER).is_file()
+    assert (project / "renders" / "progress.capcut-report.json").is_file()
+
+
+def test_progress_never_reports_success_if_project_creation_fails(lab, project, tmp_path, capsys, monkeypatch):
+    from importlib import import_module
+    module = import_module("adam_capcut.export")
+
+    def fail(*args):
+        raise ExportError("synthetic write failure")
+
+    monkeypatch.setattr(module, "build_script", fail)
+    with pytest.raises(ExportError, match="synthetic write failure"):
+        export(project, name="failed progress", projects_root=tmp_path, prepare=False)
+    assert "capcut: 100 %" not in capsys.readouterr().err
 
 
 def test_main_track_is_contiguous_and_uses_the_baked_stretches(lab, project, tmp_path):

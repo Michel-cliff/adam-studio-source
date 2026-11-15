@@ -2,6 +2,32 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const {redact,buildReport,mailUrl,offerReport,keepTail,MAIL_LIMIT,SUPPORT_EMAIL}=require('./crash.cjs');
 
+test('reports remove credential headers, signed URL parameters and project identifiers',()=>{
+ const text=redact('Authorization: Basic very-private\nCookie: session=private-cookie\nhttps://alice:private-pass@service.example/media?signature=private-signature&key=private-key\nCM ECMAScript',{projects:['CM']});
+ for(const secret of ['very-private','private-cookie','private-pass','private-signature','private-key'])assert(!text.includes(secret),text);
+ assert(text.includes('service.example/media'));
+ assert(text.includes('[project] ECMAScript'));
+});
+test('truncated UTF-16 logs still produce a valid mail link',()=>{
+ for(const report of ['\uD800failure','failure\uDC00','😀'.repeat(2000)+'\uD800']){
+  const url=mailUrl({report,version:'0.1.8'});
+  assert(url.length<=MAIL_LIMIT);
+  assert.doesNotThrow(()=>decodeURIComponent(url));
+ }
+});
+test('concurrent crash signals open only one report dialog',async()=>{
+ const {singleFlightReport}=require('./crash.cjs');
+ let finish,calls=0;
+ const report=singleFlightReport(()=>{calls++;return new Promise(resolve=>{finish=resolve;});});
+ const a=report({}),b=report({});
+ assert.equal(a,b);
+ await Promise.resolve();
+ assert.equal(calls,1);
+ finish('declined');await a;
+ const c=report({});await Promise.resolve();
+ assert.equal(calls,2);finish('declined');await c;
+});
+
 const context={home:'C:\\Users\\Awa Diallo',user:'Awa Diallo',secrets:['f'.repeat(16)]};
 
 test('the home folder and the Windows user name never leave the machine',()=>{

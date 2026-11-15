@@ -1,6 +1,7 @@
 import { homedir } from "node:os";
 import { repairCuts } from "@adam-studio/model";
 import { withVideoDA } from "../lib/da";
+import { capcutRenderProgress } from "../lib/capcut-progress";
 import { writeFileSync } from "node:fs";
 import { join, resolve as resolvePath } from "node:path";
 import { resolve } from "@adam-studio/model";
@@ -35,6 +36,7 @@ export function capcutSources(plan: MediaPlan): Record<string, Source> {
 
 /** Renders what CapCut cannot do natively and writes the plan the Python exporter reads. */
 export async function capcutPrepCommand(projectDir: string, opts: { out?: string; force: boolean; nativeKinds?: string[]; analyze?: boolean }): Promise<string> {
+  console.log("capcut: 0 % | Preparing CapCut export");
   const loaded = loadProject(projectDir);
   const { dir, style } = loaded;
   // As the render: the creator's art direction under the video's own settings, no cut inside a word.
@@ -49,16 +51,22 @@ export async function capcutPrepCommand(projectDir: string, opts: { out?: string
   clearPrepFolder(out);
   const bakes = plan.bakes.map((b) => ({ ...b, file: `bake/${b.id}.mp4` }));
   const overlays = plan.overlays.map((o, i) => ({ ...o, file: `overlay/o${String(i + 1).padStart(2, "0")}.mov` }));
+  const progress = capcutRenderProgress([...bakes.map(b => b.toFrame - b.fromFrame), ...overlays.map(o => o.durationFrames)]);
+  let part = 0;
   if (bakes.length > 0 || overlays.length > 0) {
     const serveUrl = await bundleWithMedia(media, join(dir, "renders", ".bundle"));
     const base = { timeline, media: media.media, fonts: media.fonts };
     for (const b of bakes) {
-      await renderVideo(serveUrl, { ...base, mode: { kind: "bake" } }, join(out, b.file), [b.fromFrame, b.toFrame - 1]);
+      const onProgress = progress(part++);
+      onProgress(0);
+      await renderVideo(serveUrl, { ...base, mode: { kind: "bake" } }, join(out, b.file), [b.fromFrame, b.toFrame - 1], { onProgress });
       console.log(`baked ${b.file} (frames ${b.fromFrame} to ${b.toFrame - 1})`);
     }
     for (const o of overlays) {
       const range: [number, number] = [o.fromFrame, o.fromFrame + o.durationFrames - 1];
-      await renderVideo(serveUrl, { ...base, mode: { kind: "overlay", elements: [o.elementId] } }, join(out, o.file), range, { transparent: true });
+      const onProgress = progress(part++);
+      onProgress(0);
+      await renderVideo(serveUrl, { ...base, mode: { kind: "overlay", elements: [o.elementId] } }, join(out, o.file), range, { transparent: true, onProgress });
       console.log(`overlay ${o.file} for element "${o.elementId}"`);
     }
   }
@@ -77,5 +85,6 @@ export async function capcutPrepCommand(projectDir: string, opts: { out?: string
   };
   writeFileSync(join(out, "capcut-plan.json"), `${JSON.stringify(capcutPlan, null, 2)}\n`);
   console.log(`CapCut material ready: ${out}`);
+  console.log("capcut: 90 % | Building CapCut project");
   return out;
 }

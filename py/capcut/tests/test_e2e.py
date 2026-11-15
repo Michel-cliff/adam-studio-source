@@ -10,7 +10,7 @@ from helpers import content_of, report_of
 
 
 @pytest.mark.e2e
-def test_exports_the_synthetic_project_through_the_prepare_step(lab, tmp_path, capsys):
+def test_exports_the_synthetic_project_through_the_prepare_step(lab, tmp_path, capfd):
     _, profiles = lab
     project = tmp_path / "projet e2e"
     synthetic = (REPO / "packages" / "render" / "tests" / "e2e" / "synthetic.ts").as_uri()
@@ -21,7 +21,15 @@ def test_exports_the_synthetic_project_through_the_prepare_step(lab, tmp_path, c
     (project / "project.json").write_text(json.dumps(data), encoding="utf-8")
 
     assert main(["export", str(project), "--projects-root", str(tmp_path / "capcut")]) == 0
-    dest = Path(capsys.readouterr().out.strip().splitlines()[-1])
+    captured = capfd.readouterr()
+    output = captured.out
+    # The child reports its renders on stdout; Python keeps stdout usable for the final path.
+    progress = [int(line.split()[1]) for line in (captured.out + captured.err).splitlines() if line.startswith("capcut:")]
+    assert progress[0] == 0 and progress[-1] == 100
+    assert progress == sorted(progress)
+    assert progress.count(100) == 1
+    assert not any(line.startswith("rendering:") for line in output.splitlines())
+    dest = Path(output.strip().splitlines()[-1])
     content = content_of(dest, profiles)
     track = next(t for t in content["tracks"] if t["name"] == "main")
     assert len(track["segments"]) == 5

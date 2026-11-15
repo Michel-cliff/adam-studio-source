@@ -28,10 +28,10 @@ const writes = (label: string) => laneOf(label) !== "light" && !READS_ONLY.has(l
 const active = (j: JobView) => j.state === "running" || j.state === "queued";
 
 /** Where a job is, from its own output: "rendering: 35 %, about 4 min left". */
-export function progressOf(text: string): { percent: number; minutesLeft?: number } | null {
-  const all = [...text.matchAll(/rendering: (\d+) %(?:, about (\d+) min left)?/g)];
+export function progressOf(text: string): { percent: number; minutesLeft?: number; phase?: string } | null {
+  const all = [...text.matchAll(/(?:rendering|capcut): (\d+) %(?:, about (\d+) min left)?(?: \| ([^\r\n]+))?/g)];
   const m = all[all.length - 1];
-  return m ? { percent: Number(m[1]), ...(m[2] ? { minutesLeft: Number(m[2]) } : {}) } : null;
+  return m ? { percent: Number(m[1]), ...(m[2] ? { minutesLeft: Number(m[2]) } : {}), ...(m[3] ? { phase: m[3] } : {}) } : null;
 }
 
 type Pending = { job: JobView; begin: () => void };
@@ -47,12 +47,19 @@ export class JobManager {
   private seq = 0;
   private pumping = false;
   private pumpAgain = false;
-  private changed: (job: JobView) => void = () => {};
+  private changeListener: (job: JobView) => void = () => {};
+
+  private invoke(fn: () => unknown): void {
+    const failed = (error: unknown) => console.error("Task listener failed:", error instanceof Error ? error.message : String(error));
+    try { const result = fn(); if (result && typeof (result as PromiseLike<unknown>).then === "function") void Promise.resolve(result).catch(failed); }
+    catch (error) { failed(error); }
+  }
+  private changed(job: JobView): void { this.invoke(() => this.changeListener(job)); }
 
   constructor(private keep = 20) {}
 
   /** Told each time a job waits, starts or ends (not at each line of output). */
-  onChange(fn: (job: JobView) => void): void { this.changed = fn; }
+  onChange(fn: (job: JobView) => void): void { this.changeListener = fn; }
 
   /** What runs or waits on this project; when several, the running one first. */
   running(project: string): JobView | undefined {
@@ -136,7 +143,7 @@ export class JobManager {
     } finally { this.pumping = false; }
   }
 
-  private emit(job: JobView, e: JobEvent): void { for (const fn of this.listeners.get(job.id) ?? []) fn(e); }
+  private emit(job: JobView, e: JobEvent): void { for (const fn of this.listeners.get(job.id) ?? []) this.invoke(() => fn(e)); }
 
   private finish(job: JobView, code: number | null): void {
     if (job.state !== "running" && job.state !== "queued") return;
@@ -153,29 +160,38 @@ export class JobManager {
     this.prune(job.project);
     const ends = this.ends.get(job.id) ?? [];
     this.ends.delete(job.id);
-    for (const fn of ends) fn(job);
+    for (const fn of ends) this.invoke(() => fn(job));
     this.changed(job);
     this.pump();
   }
 
   private spawnJob(job: JobView, c: Command): void {
-    const add = (chunk: Buffer | string) => {
+    const pending = { stdout: "", stderr: "" };
+    const updateProgress = (text: string) => {
+      const progress = progressOf(text);
+      // stdout and stderr may arrive out of order even though the export stages advance.
+      if (progress && c.label === "Export to CapCut" && progress.percent < (job.progress ?? 0)) return;
+      if (progress) { job.progress = progress.percent; job.minutesLeft = progress.minutesLeft; job.progressPhase = progress.phase; }
+    };
+    const add = (chunk: Buffer | string, stream: "stdout" | "stderr" = "stderr") => {
       const text = chunk.toString();
       job.output = (job.output + text).slice(-MAX_OUTPUT);
       const link = text.match(/https?:\/\/localhost:\d+/);
       if (link && !job.link) job.link = link[0];
-      const progress = progressOf(text);
-      if (progress) { job.progress = progress.percent; job.minutesLeft = progress.minutesLeft; }
+      // A progress line may span chunks; keep stdout and stderr separate.
+      const lines = (pending[stream] + text).split("\n");
+      pending[stream] = lines.pop()!.slice(-1000);
+      updateProgress(lines.join("\n"));
       this.emit(job, { type: "output", text });
     };
     let child: ChildProcess;
     try { child = spawnCommand({ ...c, env: { ...c.env, FORCE_COLOR: "0" } }); }
     catch (error) { add(`${(error as Error).message}\n`); this.finish(job, 1); return; }
     this.procs.set(job.id, child);
-    child.stdout?.on("data", add);
-    child.stderr?.on("data", add);
+    child.stdout?.on("data", chunk => add(chunk, "stdout"));
+    child.stderr?.on("data", chunk => add(chunk, "stderr"));
     child.on("error", (err) => { add(`${err.message}\n`); this.finish(job, 1); });
-    child.on("close", (code) => this.finish(job, code));
+    child.on("close", (code) => { for (const text of Object.values(pending)) updateProgress(text); this.finish(job, code); });
   }
 
   projectNames(): string[] { return [...new Set([...this.jobs.values()].filter(j => active(j) && (j.label === "New project" || j.label === "Lay out the cards")).map(j => j.project))]; }

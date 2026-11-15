@@ -1,5 +1,5 @@
 import { flashAiSwitch } from "./AiFailureBar";
-import { reportAiFailure } from "./api";
+import { localRequest } from "./api";
 import { t as uiText } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { api, enc } from "./api";
@@ -50,11 +50,7 @@ function useAiName() {
 }
 
 async function upload(path: string, file: File) {
-  const r = await fetch(`/api${path}${path.includes("?") ? "&" : "?"}name=${enc(file.name)}`, { method: "POST", body: file });
-  const j = await r.json();
-  if (j.aiFailure) reportAiFailure(j.error);
-  if (!r.ok) throw new Error(j.error ?? r.statusText);
-  return j;
+  return localRequest<any>(`/api${path}${path.includes("?") ? "&" : "?"}name=${enc(file.name)}`, { method: "POST", body: file });
 }
 
 /** A drop zone: one file to onFile, or every matching file to onFiles. */

@@ -242,6 +242,7 @@ function Wrap({ name, view, onChanged }: { name: string; view: ProjectView; onCh
           <div className="export-now">
             <div className="task-line"><b>{t(job.label === "Render" ? "MP4 export" : "CapCut export")}</b><span className="mono">{taskState(job)}</span>
               <button type="button" className="link" onClick={() => { void api(`/jobs/${job.id}/stop`, { method: "POST" }).then(onChanged); }}>{t("stop")}</button></div>
+            {job.progressPhase && <p className="mono note">{t(job.progressPhase)}</p>}
             <TaskBar percent={job.state === "running" ? job.progress ?? 0 : 0} />
             <p className="mono note">{t(job.state === "queued" ? "Another heavy task finishes first. This one starts by itself." : "You can leave this page: the export goes on.")}</p>
           </div>

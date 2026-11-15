@@ -4,7 +4,7 @@ Read this first; do not re-explore what is written here. Keep replies short, no 
 
 ## Prochaine release
 
-Lire [NEXT-RELEASE.md](NEXT-RELEASE.md) avant de préparer une release. Cette note suit les correctifs et validations de la release 0.1.8.
+Lire [NEXT-RELEASE.md](NEXT-RELEASE.md) avant de préparer une release. Cette note contient les correctifs en attente. Le 15 novembre 2026, Michel a autorisé les tests E2E, le build et la publication de la 0.1.9, puis la mise à jour du texte de la carte sur cliffiscurious.com.
 
 ## Map
 

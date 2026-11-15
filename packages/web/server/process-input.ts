@@ -8,7 +8,15 @@ import type { Command } from "./actions";
 export function spawnCommand(c: Pick<Command, "cmd" | "args" | "env" | "input">) {
   const args = [...c.args];
   let folder: string | undefined;
-  const cleanup = () => { if (folder) { rmSync(folder, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 }); folder = undefined; } };
+  let attempts = 0, retry: ReturnType<typeof setTimeout> | undefined;
+  const cleanup = () => {
+    if (!folder || retry) return;
+    try { rmSync(folder, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 }); folder = undefined; }
+    catch (error) {
+      if (++attempts < 3) retry = setTimeout(() => { retry = undefined; cleanup(); }, 1000).unref();
+      else console.warn("AI temporary file cleanup failed:", (error as NodeJS.ErrnoException).code ?? "unknown");
+    }
+  };
   try {
     const index = args.indexOf("--append-system-prompt");
     if (index >= 0) {

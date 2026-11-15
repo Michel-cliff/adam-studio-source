@@ -2,6 +2,7 @@
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 from .build import build_script
@@ -41,17 +42,20 @@ def export(project_dir, *, name: str | None = None, projects_root=None, prepare:
             raise ExportError(f"{prep / f} is missing: export without --skip-prepare")
     timeline = json.loads((prep / "timeline.json").read_text(encoding="utf-8"))
     plan = json.loads((prep / "capcut-plan.json").read_text(encoding="utf-8"))
+    print("capcut: 90 % | Building CapCut project", file=sys.stderr, flush=True)
     pjd, profiles = load_lab()
     profile = profiles.get_draft_profile()
     title = name or plan["name"]
     folder = safe_name(title)
     root = Path(projects_root) if projects_root else default_projects_root()
     dest = prepare_project_dir(root, folder, lab_path() / profile.template_dir, replace=replace)
+    print("capcut: 92 % | Copying CapCut media", file=sys.stderr, flush=True)
     media = copy_media(timeline, plan, prep, dest / "media")
     # The front kinds the TS prepare step left to us must be ones this exporter builds natively.
     unknown = sorted(set(plan.get("nativeKinds", NATIVE_FRONT_KINDS)) - NATIVE_FRONT_KINDS)
     if unknown:
         raise ExportError(f"the prepare step expects native CapCut items for {', '.join(unknown)}, which this exporter cannot build: update NATIVE_FRONT_KINDS on both sides")
+    print("capcut: 96 % | Writing CapCut project", file=sys.stderr, flush=True)
     script, entries, roles = build_script(pjd, timeline, plan, media)
     profiles.write_profile_content(profile, dest, apply_fonts(script.dumps(profile), plan["fonts"], roles))
     neutralize(dest, title)
@@ -59,4 +63,5 @@ def export(project_dir, *, name: str | None = None, projects_root=None, prepare:
     report = project_dir / "renders" / f"{folder}.capcut-report.json"
     report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text(json.dumps({"project": str(dest), "name": title, "entries": plan["entries"] + entries}, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    print("capcut: 100 % | CapCut project ready", file=sys.stderr, flush=True)
     return dest

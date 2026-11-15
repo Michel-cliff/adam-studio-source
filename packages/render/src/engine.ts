@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
 import { cpus, freemem, homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,6 +9,7 @@ import { activeVideoSources, safeConcurrency } from "./lib/concurrency";
 import { frameCacheBytes, MAX_TABS, progressReporter, renderAttempts, STALL_MS, stallGuard } from "./lib/render-watch";
 import { prepareMedia, type MediaPlan } from "./media";
 import { COMPOSITION_ID, type RenderProps } from "./props";
+import { copyBundle } from "./lib/copy-bundle";
 
 export const ENTRY = join(dirname(fileURLToPath(import.meta.url)), "index.ts");
 
@@ -61,7 +62,7 @@ export async function bundleWithMedia(plan: MediaPlan, outDir: string): Promise<
   const shared = await sharedBundle();
   const runDir = join(outDir, `${process.pid}-${Date.now()}`);
   process.once("exit", () => { try { rmSync(runDir, { recursive: true, force: true }); } catch { /* removed at a later run */ } });
-  cpSync(shared, runDir, { recursive: true });
+  copyBundle(shared, runDir);
   prepareMedia(plan, join(runDir, "public"));
   return runDir;
 }
@@ -71,7 +72,7 @@ export async function renderVideo(
   props: RenderProps,
   outFile: string,
   frameRange: number | [number, number] | [number, number][] | null = null,
-  opts: { transparent?: boolean; scale?: number } = {},
+  opts: { transparent?: boolean; scale?: number; onProgress?: (progress: number) => void } = {},
 ): Promise<void> {
   const composition = await selectComposition({ browserExecutable: process.env.ADAM_BROWSER_EXECUTABLE, serveUrl, id: COMPOSITION_ID, inputProps: props });
   const size = { fps: composition.fps, width: composition.width * (opts.scale ?? 1), height: composition.height * (opts.scale ?? 1), videoSources: activeVideoSources(props.timeline) };
@@ -95,8 +96,9 @@ export async function renderVideo(
       await renderMedia({
         browserExecutable: process.env.ADAM_BROWSER_EXECUTABLE, composition, serveUrl, outputLocation: outFile, inputProps: props, frameRange, concurrency, offthreadVideoCacheSizeInBytes, scale: opts.scale ?? 1, cancelSignal, ...output,
         ...(attempt.gl ? { chromiumOptions: { gl: attempt.gl } } : {}), ...(opts.transparent ? {} : { x264Preset: "veryfast" as const }),
-        onProgress: ({ progress }) => { guard.ping(progress); const line = report(progress); if (line) console.log(line); },
+        onProgress: ({ progress }) => { guard.ping(progress); const line = report(progress); if (opts.onProgress) opts.onProgress(progress); else if (line) console.log(line); },
       });
+      opts.onProgress?.(1);
       return;
     } catch (error) {
       if (last) {

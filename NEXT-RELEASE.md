@@ -1,4 +1,20 @@
-# Correctifs intégrés à la préparation de la 0.1.8
+# QA et prochaine release
+
+Nouvelle consigne de Michel du 15 novembre 2026 : terminer les corrections, tester E2E, construire et publier la 0.1.9, mettre à jour le texte de la carte sur cliffiscurious.com et fournir le ZIP local. Elle remplace la suspension du build du 13 novembre.
+
+La 0.1.9 regroupe le correctif CapCut ci-dessous et le signalement volontaire de blocages avec logs nettoyés. Aucune donnée ni aucun e-mail ne sont envoyés automatiquement. Voir QA-AUDIT-2026-11-15.md pour la portée et les limites de la passe.
+
+## Correctif local en attente : progression de l’export CapCut
+
+La barre affichait 0 à 100 % pour chaque rendu intermédiaire, donnant l’impression que l’export recommençait. La progression est désormais globale, pondérée par les frames : les rendus occupent 0 à 90 %, puis viennent la création du projet, la copie des médias et son écriture. Le statut 100 % est réservé à la création réussie du projet et de son rapport.
+
+Les tâches et la page Livraison affichent la phase en cours, avec traduction française. Les événements découpés en plusieurs morceaux sont reconstitués ; un événement tardif ne fait pas reculer la barre. Le chemin final reste seul sur stdout pour la CLI Python sans préparation.
+
+Validations locales déjà réussies : TypeScript sur tous les packages ; 257 tests du studio ; 10 tests ciblés du rendu ; 58 tests Python CapCut. Les trois tests d’intégration de préparation et le test d’export CapCut complet sur projets factices ont également réussi. La progression reste croissante et atteint 100 % seulement à la fin.
+
+Le correctif est sur la branche `fix/capcut-export-progress`. La version Windows publiée 0.1.8 ne le contient pas.
+
+## Historique : préparation de la 0.1.8
 
 Note du 13 novembre 2026. Michel a autorisé le build et la publication de la 0.1.8.
 

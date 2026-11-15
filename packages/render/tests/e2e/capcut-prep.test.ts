@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { capcutPrepCommand } from "../../src/commands/capcut";
 import { makeSynthetic } from "./synthetic";
 
@@ -23,7 +23,15 @@ describe("adam capcut-prep", () => {
     writeFileSync(join(dir, "project.json"), JSON.stringify(project));
 
     // Titles are native by default; leaving them out of the native kinds exercises the overlay path.
-    const out = await capcutPrepCommand(dir, { force: false, nativeKinds: ["image"] });
+    const messages: string[] = [];
+    const log = vi.spyOn(console, "log").mockImplementation((line) => { messages.push(String(line)); });
+    const out = await capcutPrepCommand(dir, { force: false, nativeKinds: ["image"] }).finally(() => log.mockRestore());
+    const progress = messages.filter(line => line.startsWith("capcut:")).map(line => Number(line.match(/capcut: (\d+)/)![1]));
+    expect(progress[0]).toBe(0);
+    expect(progress.at(-1)).toBe(90);
+    expect(progress).toEqual([...progress].sort((a, b) => a - b));
+    expect(messages.some(line => line.startsWith("rendering:"))).toBe(false);
+    expect(new Set(messages.flatMap(line => line.match(/Effect (\d+)\/3/)?.[1] ?? [])), messages.join("\n")).toEqual(new Set(["1", "2", "3"]));
     expect(out).toBe(join(dir, "renders", "capcut"));
     const plan = JSON.parse(readFileSync(join(out, "capcut-plan.json"), "utf8"));
     expect(plan.bakes.map((b: { id: string; fromFrame: number; toFrame: number; file: string }) => [b.id, b.fromFrame, b.toFrame, b.file])).toEqual([

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { BusyError, hintOf, JobManager, laneOf, progressOf } from "../../server/jobs";
 import type { JobEvent, JobView } from "../../server/types";
 
@@ -10,6 +10,53 @@ const ended = (m: JobManager, id: string) => new Promise<JobView>((res) => {
 });
 
 describe("JobManager", () => {
+  it("continues queued work when notification and completion callbacks throw or reject", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const m = new JobManager();
+    let release!: () => void;
+    try {
+      m.onChange(() => { throw Error("UI listener failed"); });
+      const first = m.task("p", "Analyze", "", () => new Promise<void>(resolve => { release = resolve; }), () => { throw Error("completion failed"); });
+      m.subscribe(first.id, () => { throw Error("disconnected client"); });
+      m.subscribe(first.id, async () => { throw Error("async subscriber failed"); });
+      const next = m.task("q", "Analyze", "", async () => {});
+      release();
+      expect((await ended(m, next.id)).state).toBe("done");
+      expect(first.state).toBe("done");
+      expect(m.hasRunning()).toBe(false);
+      await Promise.resolve();
+      expect(log).toHaveBeenCalled();
+    } finally { log.mockRestore(); }
+  });
+
+
+  it("ignores a late lower CapCut progress from the other output stream", async () => {
+    const m = new JobManager();
+    const code = "console.log('capcut: 90 % | Building CapCut project'); setTimeout(() => process.stderr.write('capcut: 96 % | Writing CapCut project\\n'), 50); setTimeout(() => console.log('capcut: 80 % | Effect 7/7'), 100); setTimeout(() => process.stderr.write('capcut: 100 % | CapCut project ready'), 150)";
+    const j = m.start("p", node(code, "Export to CapCut"));
+    const seen: number[] = [];
+    m.subscribe(j.id, () => { if (j.progress !== undefined) seen.push(j.progress); });
+    const result = await ended(m, j.id);
+    expect(seen).toEqual([...seen].sort((a, b) => a - b));
+    expect(result.progress).toBe(100);
+    expect(result.progressPhase).toBe("CapCut project ready");
+  });
+
+
+  it("tracks the global CapCut phase across chunks, stderr, and a final line without newline", async () => {
+    const m = new JobManager();
+    const code = "process.stdout.write('capcut: 4'); process.stderr.write('warning\\n'); setTimeout(() => process.stdout.write('5 % | Effect 3/7\\n'), 50); setTimeout(() => process.stdout.write('capcut: 100 % | CapCut project ready'), 150)";
+    const j = m.start("p", node(code, "Export to CapCut"));
+    const phases: (string | undefined)[] = [];
+    m.subscribe(j.id, () => phases.push(m.get(j.id)?.progressPhase));
+    const result = await ended(m, j.id);
+    expect(result.state).toBe("done");
+    expect(result.progress).toBe(100);
+    expect(result.progressPhase).toBe("CapCut project ready");
+    expect(phases).toContain("Effect 3/7");
+  });
+
+
   it("never starts a cancelled job from a batch already being drained", async () => {
     const m = new JobManager();
     let release!: () => void, ran = false;
@@ -151,6 +198,7 @@ describe("JobManager", () => {
   it("reads where a render is from its output", async () => {
     expect(progressOf("rendering: 5 %\nrendering: 35 %, about 4 min left\n")).toEqual({ percent: 35, minutesLeft: 4 });
     expect(progressOf("warn pace")).toBeNull();
+    expect(progressOf("capcut: 38 % | Effect 2/7\ncapcut: 92 % | Copying CapCut media\n")).toEqual({ percent: 92, phase: "Copying CapCut media" });
     const m = new JobManager();
     const j = await ended(m, m.start("p", node("console.log('rendering: 40 %, about 2 min left')", "Render")).id);
     expect(j.progress).toBe(40);

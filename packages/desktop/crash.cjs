@@ -6,16 +6,19 @@ const MAIL_LIMIT=1900; // Windows and mail programs refuse or cut longer mailto 
 const LOG_TAIL=16000;
 const PREVIEW=900;
 const TEXT={
- fr:{ask:'Envoyer un rapport à l’équipe d’Adam Studio ?',detail:r=>`Il aide à corriger ce problème. Rien ne part sans toi : un e-mail se prépare dans ta messagerie, tu le relis et tu l’envoies. Ton nom d’utilisateur, tes clés et tes adresses e-mail sont retirés.\n\nAperçu :\n${r}`,buttons:['Préparer l’e-mail','Ne pas envoyer'],noMail:'Aucune messagerie ne s’est ouverte.',noMailDetail:a=>`Le rapport est copié. Colle-le dans un e-mail à ${a}.`,ok:'OK',subject:v=>`Adam Studio ${v} : rapport de problème`,cut:'[début du journal retiré pour tenir dans l’e-mail ; le rapport complet est dans le presse-papiers]'},
- en:{ask:'Send a report to the Adam Studio team?',detail:r=>`It helps fix this problem. Nothing leaves without you: a mail is prepared in your mail program, you read it and send it. Your user name, keys and email addresses are removed.\n\nPreview:\n${r}`,buttons:['Prepare the mail','Do not send'],noMail:'No mail program opened.',noMailDetail:a=>`The report is copied. Paste it in a mail to ${a}.`,ok:'OK',subject:v=>`Adam Studio ${v}: problem report`,cut:'[start of the log removed to fit in the mail; the full report is on the clipboard]'},
+ fr:{ask:'Envoyer un rapport à l’équipe d’Adam Studio ?',detail:r=>`Il aide à corriger ce problème. Rien ne part sans toi : un e-mail se prépare dans ta messagerie, tu le relis et tu l’envoies. Ton nom d’utilisateur, tes clés et tes adresses e-mail sont retirés.\n\nAperçu :\n${r}`,buttons:['Préparer l’e-mail','Ne pas envoyer'],noMail:'Aucune messagerie ne s’est ouverte.',noMailDetail:a=>`Le rapport est copié. Colle-le dans un e-mail à ${a}.`,ok:'OK',subject:v=>`Adam Studio ${v} : rapport de problème`,cut:'[journal abrégé ; joindre le rapport complet enregistré ou copié depuis l’application]'},
+ en:{ask:'Send a report to the Adam Studio team?',detail:r=>`It helps fix this problem. Nothing leaves without you: a mail is prepared in your mail program, you read it and send it. Your user name, keys and email addresses are removed.\n\nPreview:\n${r}`,buttons:['Prepare the mail','Do not send'],noMail:'No mail program opened.',noMailDetail:a=>`The report is copied. Paste it in a mail to ${a}.`,ok:'OK',subject:v=>`Adam Studio ${v}: problem report`,cut:'[shortened log; attach the full report saved or copied from the app]'},
 };
 const escapeRe=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-function redact(text,{home='',user='',secrets=[]}={}){
- let out=String(text);
+function redact(text,{home='',user='',secrets=[],projects=[]}={}){
+ let out=String(text).toWellFormed();
+ for(const name of projects)if(name)out=out.replace(new RegExp('(?<![\\p{L}\\p{N}_])'+escapeRe(name)+'(?![\\p{L}\\p{N}_])','gu'),'[project]');
  for(const secret of secrets)if(secret)out=out.split(secret).join('[secret]');
  if(home){const flexible=home.split(/[\\/]+/).map(escapeRe).join('[\\\\/]+');out=out.replace(new RegExp(flexible,'gi'),'~');}
  if(user&&user.length>2)out=out.replace(new RegExp(escapeRe(user),'gi'),'[user]');
  return out
+  .replace(/\b(?:Authorization|Proxy-Authorization|Cookie|Set-Cookie)\s*:[^\r\n]*/gi,'[credential header]')
+  .replace(/\bhttps?:\/\/[^\s"'<>]+/gi,url=>url.replace(/(https?:\/\/)[^/\s@]+@/i,'$1[credentials]@').replace(/[?#].*$/,'?[private parameters removed]'))
   .replace(/\bBearer\s+[\w.~+/=-]+/gi,'Bearer [secret]')
   .replace(/\b(?:sk-[\w-]{8,}|gh[pousr]_\w{16,}|github_pat_\w{16,}|xox[a-z]-[\w-]{8,}|AIza[\w-]{16,})/g,'[secret]')
   .replace(/(["']?[\w-]*(?:api[_-]?key|token|secret|password|passwd|pwd)["']?\s*[:=]\s*)("[^"]*"|'[^']*'|[^\s,;}]+)/gi,'$1[secret]')
@@ -31,6 +34,7 @@ function mailUrl({report,version,lang='fr'}){
  const t=TEXT[lang]||TEXT.fr;
  const head=`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(t.subject(version))}&body=`;
  const room=MAIL_LIMIT-head.length;
+ report=String(report).toWellFormed();
  const whole=encodeURIComponent(report);
  if(whole.length<=room)return head+whole;
  const marker=encodeURIComponent(`\n\n${t.cut}\n\n`);
@@ -56,4 +60,12 @@ async function offerReport({message,report,version,lang='fr',ask,openMail,copy,s
   catch(error){log(error);await ask({message:t.noMail,detail:t.noMailDetail(SUPPORT_EMAIL),buttons:[t.ok],defaultId:0,cancelId:0});return 'copied';}
  }catch(error){log(error);return 'failed';}
 }
-module.exports={SUPPORT_EMAIL,MAIL_LIMIT,LOG_TAIL,redact,buildReport,mailUrl,keepTail,offerReport};
+function singleFlightReport(send,log=()=>{}){
+ let pending;
+ return value=>{
+  if(pending)return pending;
+  pending=Promise.resolve().then(()=>send(value)).catch(error=>{log(error);return 'failed';}).finally(()=>{pending=undefined;});
+  return pending;
+ };
+}
+module.exports={singleFlightReport,SUPPORT_EMAIL,MAIL_LIMIT,LOG_TAIL,redact,buildReport,mailUrl,keepTail,offerReport};

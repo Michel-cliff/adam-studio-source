@@ -20,7 +20,7 @@ copy(join(root,'packages/web/dist'),join(payload,'packages/web/dist'));
 // Public DA references and tutorial rushes are deliberately absent from this allowlist. dist/da is the local copy of
 // third-party art-direction images (gitignored, the interface falls back to flat colours): never shipped.
 for(const path of ['packages/web/app/public','packages/web/demo','packages/web/dist/da'])if(existsSync(join(payload,path)))rmSync(join(payload,path),{recursive:true,force:true});
-mkdirSync(join(payload,'packages/desktop'),{recursive:true});copy(join(here,'backend.ts'),join(payload,'packages/desktop/backend.ts'));writeFileSync(join(payload,'packages/desktop/package.json'),JSON.stringify({type:'module'}));
+mkdirSync(join(payload,'packages/desktop'),{recursive:true});copy(join(here,'backend.ts'),join(payload,'packages/desktop/backend.ts'));copy(join(here,'crash.cjs'),join(payload,'packages/desktop/crash.cjs'));writeFileSync(join(payload,'packages/desktop/package.json'),JSON.stringify({type:'module',version:appVersion}));
 copy(join(root,'skills/adam-studio'),join(payload,'skills/adam-studio'));copy(join(root,'py/analysis/adam_analysis'),join(payload,'py/analysis/adam_analysis'));copy(join(root,'py/capcut/adam_capcut'),join(payload,'py/capcut/adam_capcut'));
 writeFileSync(join(payload,'package.json'),JSON.stringify({name:'adam-studio-runtime',version:'0.1.0',private:true,type:'module'}));
 console.log('Preparing production Node dependencies');
