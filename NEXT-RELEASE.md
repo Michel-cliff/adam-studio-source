@@ -1,10 +1,22 @@
 # QA et prochaine release
 
+## Version 0.1.9 publiée
+
+Release : https://github.com/Michel-cliff/adam-studio-releases/releases/tag/v0.1.9
+
+Les archives Windows, le delta, le manifeste et leurs empreintes sont vérifiés. Le canal de mise à jour est contrôlé depuis la 0.1.8. Le ZIP local est `packages/desktop/out/make/squirrel.windows/x64/AdamStudio-0.1.9-Windows.zip`.
+
+Validations : 269 tests du studio, 213 du rendu, 61 du lanceur Windows, 58 tests Python CapCut, TypeScript sur tous les packages. Six scénarios d’intégration et un export CapCut Python complet réussis en profil vierge. Le paquet Windows passe le test de démarrage et produit un MP4 avec audio et ouverture CRT ainsi qu’un projet CapCut complet ; la progression CapCut atteint 100 % une seule fois. Le signalement est vérifié dans Chromium, avec téléchargement réel du journal et secours hors connexion, sans envoi d’e-mail.
+
+Les installateurs restent non signés. Huit alertes de dépendances restent à suivre dans QA-AUDIT-2026-11-15.md ; cette passe ne certifie pas l’absence de failles.
+
+## Autorisation et portée
+
 Nouvelle consigne de Michel du 15 novembre 2026 : terminer les corrections, tester E2E, construire et publier la 0.1.9, mettre à jour le texte de la carte sur cliffiscurious.com et fournir le ZIP local. Elle remplace la suspension du build du 13 novembre.
 
 La 0.1.9 regroupe le correctif CapCut ci-dessous et le signalement volontaire de blocages avec logs nettoyés. Aucune donnée ni aucun e-mail ne sont envoyés automatiquement. Voir QA-AUDIT-2026-11-15.md pour la portée et les limites de la passe.
 
-## Correctif local en attente : progression de l’export CapCut
+## Correctif livré en 0.1.9 : progression de l’export CapCut
 
 La barre affichait 0 à 100 % pour chaque rendu intermédiaire, donnant l’impression que l’export recommençait. La progression est désormais globale, pondérée par les frames : les rendus occupent 0 à 90 %, puis viennent la création du projet, la copie des médias et son écriture. Le statut 100 % est réservé à la création réussie du projet et de son rapport.
 
@@ -12,7 +24,7 @@ Les tâches et la page Livraison affichent la phase en cours, avec traduction fr
 
 Validations locales déjà réussies : TypeScript sur tous les packages ; 257 tests du studio ; 10 tests ciblés du rendu ; 58 tests Python CapCut. Les trois tests d’intégration de préparation et le test d’export CapCut complet sur projets factices ont également réussi. La progression reste croissante et atteint 100 % seulement à la fin.
 
-Le correctif est sur la branche `fix/capcut-export-progress`. La version Windows publiée 0.1.8 ne le contient pas.
+Le correctif de `fix/capcut-export-progress` est livré dans la 0.1.9. La 0.1.8 ne le contient pas.
 
 ## Historique : préparation de la 0.1.8
 
