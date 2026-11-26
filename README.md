@@ -152,3 +152,9 @@ to 3 people. Larger companies reusing Adam Studio need their own Remotion compan
 ## License
 
 MIT
+
+## Project background
+
+Built by [Michel-Cliff Ogoudedji](https://www.cliffiscurious.com/), product consultant and software developer working on tools for creators and studios.
+
+For the product decisions behind assisted workflows, read [Adding AI to a product: useful for which task?](https://www.cliffiscurious.com/en/blog/integrer-ia-produit-utile).
