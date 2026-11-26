@@ -1,15 +1,20 @@
 # QA et prochaine release
 
-## Préparation autorisée : version 0.1.10
+## Version 0.1.10 publiée
 
-Le 26 novembre 2026, Michel autorise le build et le push de la dernière version avec le correctif de navigation. La mise en attente du 16 novembre est levée. Préparer la 0.1.10, contrôler les artefacts et synchroniser les sources publiques et privées.
+Release : https://github.com/Michel-cliff/adam-studio-releases/releases/tag/v0.1.10
 
-Changements locaux en attente sur `fix/compact-topnav` :
-- Bouton « Signaler un problème » remplacé par une icône avec infobulle et libellé accessible traduits.
-- Tâches, signalement, Guide et FR/EN regroupés pour garder les commandes sur la même ligne.
-- « Tâches » en casse normale, avec le même style que « Guide ».
+La demande du 26 novembre 2026 est terminée : construction Windows, publication et synchronisation des sources publiques et privées. Le correctif de navigation est livré dans la 0.1.10 ; il ne figurait pas dans le ZIP 0.1.9.
 
-Validation déjà effectuée : vérification TypeScript du web, compilation de l’interface pour la prévisualisation, contrôle dans Chromium en français et anglais à 1440, 1280, 1024 et 390 pixels, ouverture du signalement vérifiée. Aucun nouvel installateur Windows n’a été construit ni publié pour ces changements. Ils ne sont pas inclus dans le ZIP 0.1.9 déjà distribué.
+- Le signalement devient une icône avec infobulle et libellé accessible traduits.
+- Tâches, signalement, Guide et FR/EN restent regroupés dans la barre de navigation.
+- « Tâches » reprend la casse et le style de « Guide ».
+
+Validations de cette release : TypeScript sur tous les packages, 269 tests du studio, 61 tests du lanceur, huit contrôles Chromium en français et anglais à 1440, 1280, 1024 et 390 pixels, puis démarrage du paquet Windows en profil isolé. Les sources UI et l’archive native embarquées correspondent aux sources contrôlées. Le ZIP, les sept artefacts distants et leurs empreintes sont vérifiés. Le flux réel de mise à jour depuis la 0.1.9 pointe vers Michel-cliff/adam-studio-releases et les paquets 0.1.10 attendus.
+
+ZIP local : `packages/desktop/out/make/squirrel.windows/x64/AdamStudio-0.1.10-Windows.zip`.
+
+Les installateurs restent non signés. Les alertes de dépendances antérieures restent suivies dans QA-AUDIT-2026-11-15.md. Aucune modification supplémentaire du code applicatif après la construction.
 
 ## Version 0.1.9 publiée
 
