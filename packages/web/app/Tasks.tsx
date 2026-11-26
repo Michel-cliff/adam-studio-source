@@ -69,11 +69,11 @@ export function Tasks() {
   const stop = async (id: string) => { await api(`/jobs/${id}/stop`, { method: "POST" }).catch(() => {}); void load(); };
   return (
     <div className="tasks" ref={box}>
-      <button type="button" className={`tasks-trigger${busy ? " busy" : ""}`} aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen(!open)}>
-        {busy && <i className="pulse" />}{t("TASKS")}{busy ? ` · ${active.length}` : ""}
+      <button type="button" className={`tour-trigger tasks-trigger${busy ? " busy" : ""}`} aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen(!open)}>
+        {busy && <i className="pulse" />}{t("Tasks")}{busy ? ` · ${active.length}` : ""}
       </button>
       {open && (
-        <div className="tasks-panel" role="dialog" aria-label={t("TASKS")}>
+        <div className="tasks-panel" role="dialog" aria-label={t("Tasks")}>
           {tasks.length === 0 && <p className="mono note">{t("Nothing is running.")}</p>}
           {tasks.map((x) => (
             <div key={x.id} className={`task ${x.state}`}>

@@ -5,6 +5,10 @@
 .page > .foot .hint { min-width:0; overflow-wrap:anywhere; }
 .cols > *, .editor-workspace > *, .wrap > *, .story-view > *, .talk > *, .perf > * { min-width:0; min-height:0; }
 .topnav { gap:clamp(4px,1vw,12px); font-size:clamp(11px,1.1vw,16px); }
+.topnav-actions { display:flex; align-items:center; align-self:center; gap:clamp(4px,.6vw,8px); min-width:max-content; }
+.topnav-actions > * { flex-shrink:0; }
+.report-trigger { display:inline-flex; align-items:center; justify-content:center; width:34px; padding:5px; flex:none; }
+.report-trigger svg { display:block; flex:none; }
 .topnav a { min-width:0; padding:7px clamp(4px,.7vw,10px); overflow-wrap:anywhere; }
 .subnav { flex-wrap:wrap; gap:8px 20px; }
 .subnav a, .subnav button { font-size:clamp(16px,1.8vw,25px); }
@@ -78,6 +82,7 @@
  .page:has(:is(.studio-cols,.projects-cols,.stats-cols,.learned-cols,.library-cols,.da-space,.editor-shell)) { height:auto; min-height:100dvh; overflow:visible; }
  .topnav { display:flex; flex-wrap:wrap; align-items:center; }
  .topnav > a { flex:1 1 26%; }
+ .topnav-actions { flex:0 0 auto; margin-left:auto; }
  .page > .foot { max-height:none; }
  .page > :is(.studio-cols,.projects-cols,.stats-cols,.learned-cols,.library-cols), .page:has(.stats-subnav) > .cols { display:flex; flex-direction:column; overflow:visible; }
  .studio-cols .steps { flex-direction:row; flex-shrink:0; }

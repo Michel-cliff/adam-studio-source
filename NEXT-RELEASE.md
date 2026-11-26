@@ -1,5 +1,16 @@
 # QA et prochaine release
 
+## Préparation autorisée : version 0.1.10
+
+Le 26 novembre 2026, Michel autorise le build et le push de la dernière version avec le correctif de navigation. La mise en attente du 16 novembre est levée. Préparer la 0.1.10, contrôler les artefacts et synchroniser les sources publiques et privées.
+
+Changements locaux en attente sur `fix/compact-topnav` :
+- Bouton « Signaler un problème » remplacé par une icône avec infobulle et libellé accessible traduits.
+- Tâches, signalement, Guide et FR/EN regroupés pour garder les commandes sur la même ligne.
+- « Tâches » en casse normale, avec le même style que « Guide ».
+
+Validation déjà effectuée : vérification TypeScript du web, compilation de l’interface pour la prévisualisation, contrôle dans Chromium en français et anglais à 1440, 1280, 1024 et 390 pixels, ouverture du signalement vérifiée. Aucun nouvel installateur Windows n’a été construit ni publié pour ces changements. Ils ne sont pas inclus dans le ZIP 0.1.9 déjà distribué.
+
 ## Version 0.1.9 publiée
 
 Release : https://github.com/Michel-cliff/adam-studio-releases/releases/tag/v0.1.9

@@ -1,4 +1,14 @@
 {
+  "0.1.10": {
+    "fr": [
+      "La barre de navigation garde Tâches, le signalement, Guide et FR/EN ensemble, y compris dans les petites fenêtres.",
+      "Le signalement devient une icône avec infobulle et libellé accessible. Tâches reprend la casse et le style de Guide."
+    ],
+    "en": [
+      "The navigation bar keeps Tasks, reporting, Guide and FR/EN together, including in smaller windows.",
+      "Bug reporting uses an icon with a tooltip and accessible label. Tasks matches Guide in case and style."
+    ]
+  },
   "0.1.9": {
     "fr": [
       "L’export CapCut affiche une progression globale et ses phases de préparation, sans retour à zéro entre les rendus.",

@@ -142,6 +142,7 @@ export const FR: Record<string, string> = {
   "IN PROGRESS": "EN COURS",
   "about": "environ",
   "TASKS": "TÂCHES",
+  "Tasks": "Tâches",
   "Nothing is running.": "Rien n'est en cours.",
   "STOPPED": "ARRÊTÉ",
   "Heavy work runs one at a time, so each one goes as fast as it can. The next one starts by itself.": "Les tâches lourdes passent une par une, pour que chacune aille le plus vite possible. La suivante démarre toute seule.",
