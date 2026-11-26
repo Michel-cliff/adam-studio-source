@@ -63,11 +63,17 @@ function App() {
             event.preventDefault(); location.hash = "#/"; setStudioNotice(true);
           } else setStudioNotice(false);
         }}>{t(label)}</a>)}
-        <Tasks />
-        <button type="button" className="tour-trigger" onClick={() => requestProblem()}>{t("Report a problem")}</button>
-        <button className="tour-trigger" onClick={() => dispatchEvent(new Event("adam:tour"))}>{t("Guide")}</button>
-        <div role="group" aria-label="Language" className="lang">
-          {(["fr", "en"] as const).map((l) => <button key={l} type="button" aria-pressed={lang === l} onClick={() => setLang(l)}>{l.toUpperCase()}</button>)}
+        <div className="topnav-actions">
+          <Tasks />
+          <button type="button" className="tour-trigger report-trigger" title={t("Report a problem")} aria-label={t("Report a problem")} onClick={() => requestProblem()}>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="7" y="8" width="10" height="12" rx="5" /><path d="M9 8V6a3 3 0 0 1 6 0v2M12 9v10M3 13h4m10 0h4M4 5l4 4m8 0 4-4M4 21l4-4m8 0 4 4" />
+            </svg>
+          </button>
+          <button className="tour-trigger" onClick={() => dispatchEvent(new Event("adam:tour"))}>{t("Guide")}</button>
+          <div role="group" aria-label="Language" className="lang">
+            {(["fr", "en"] as const).map((l) => <button key={l} type="button" aria-pressed={lang === l} onClick={() => setLang(l)}>{l.toUpperCase()}</button>)}
+          </div>
         </div>
       </nav>
       <div className="marks" aria-hidden="true" />

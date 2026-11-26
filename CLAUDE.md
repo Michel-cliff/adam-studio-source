@@ -4,7 +4,7 @@ Read this first; do not re-explore what is written here. Keep replies short, no 
 
 ## Prochaine release
 
-Lire [NEXT-RELEASE.md](NEXT-RELEASE.md) avant de préparer une release. La 0.1.9 est publiée et testée. Cette note distingue les correctifs livrés et les points de suivi ; les alertes de dépendances restantes sont détaillées dans QA-AUDIT-2026-11-15.md.
+Lire [NEXT-RELEASE.md](NEXT-RELEASE.md) avant de préparer une release. Consigne de Michel du 26 novembre 2026 : construire et pousser la 0.1.10 avec le correctif de navigation. Cette demande lève la mise en attente du 16 novembre. La 0.1.9 est publiée et testée. Cette note distingue les correctifs livrés et les points de suivi ; les alertes de dépendances restantes sont détaillées dans QA-AUDIT-2026-11-15.md.
 
 ## Map
 
